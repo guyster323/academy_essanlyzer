@@ -17,7 +17,15 @@ import os from 'node:os';
  */
 
 const CLI_BIN = process.env.CLAUDE_CLI_PATH || 'claude';
-const CLI_TIMEOUT_MS = 120_000; // CLI invocation carries more overhead than a raw API call
+// CLI invocation carries more overhead than a raw API call. Measured live
+// against the format-aware anomaly/hypothesis prompts (which ask the model
+// to cross-reference derived per-cell/per-asset statistics and, for
+// generate-hypotheses, produce 2-3 hypotheses each with an evidence tier,
+// disconfirming evidence, missing signals, and a claim-limit statement — not
+// just scan text): a real detect-anomaly call took ~102s and a real
+// generate-hypotheses call exceeded 180s, both against a real LFP source.
+// Raised with headroom rather than to the observed minimum.
+const CLI_TIMEOUT_MS = 240_000;
 const MAX_OUTPUT_BYTES = 20 * 1024 * 1024;
 
 function runClaudeCli(args, stdinText) {

@@ -65,6 +65,22 @@ Claude Code로 개발 서버를 띄우는 순간 CORS/인증 오류로 동작하
   백엔드 업로드 처리)에 그대로 재사용 가능합니다.
 - 인코딩은 UTF-8 시험 디코딩 실패 시 EUC-KR로 자동 폴백, 파일별 수동 전환 드롭다운 제공
 
+현재 어댑터는 세 종류다.
+
+- AEMO MMS는 `FPP_UNITID`를 `PARTICIPANTID`보다 우선해 물리 설비별로 묶는다. `MW_QUALITY_FLAG`는
+  품질 보조 신호이고, `MEASURED_MW`의 짧은 rolling mean/std·MAD robust z-score·ramp를 별도
+  파생 이상으로 계산한다. 알려진 사건 시각을 탐지 시작점으로 사용하지 않는다.
+- LFP cell-array는 `Timestamp + U_Battery + U_Cell_1..8` 헤더로 인식한다. entity 컬럼을 만들지
+  않고 파일 하나를 system 하나로 취급하며, 각 행의 leave-one-out peer median 기반 Vdev, robust
+  z-score, 가능한 voltage closure error를 계산한다. outlier Cell은 데이터에서 결정한다.
+- 파생 훅은 `computeDerivedAlarm(rowObj, acc, bucket)` 형태로 포맷에 붙고, bucket에는 작은 rolling
+  state와 capped alarm context/metric summary만 남는다. 정적 alarm/fault 컬럼이 없어도 분석을
+  진행하지만, 파생 결과는 `Derived` 근거로만 다룬다.
+
+JSZip 압축 해제 중 `uncompressed data size mismatch`가 발생하면 entry 단위로 오류를 정규화해 해당
+항목만 오류 상태/오류 수준 제외 메모로 남긴다. sibling entry 순회는 계속되며, 이 fallback은 파일
+형식 지원을 막는 조건이 아니다.
+
 ### 2-3. 상태 관리
 - 별도 프레임워크 없이 순수 vanilla JS + 전역 `state` 객체 + `render()` 전체 재렌더 방식
 - `state.logSources[]`: 업로드된 각 로그 파일의 처리 상태/통계/샘플을 담는 배열
@@ -77,6 +93,19 @@ Claude Code로 개발 서버를 띄우는 순간 CORS/인증 오류로 동작하
 (`selectedHypId`, `finalSeverity`가 확정되어야 다음 단계 버튼 활성화). 이 원칙은 청사진 단계부터
 합의된 "AI가 판정하지 않고 초안만 만든다"는 안전장치이므로, 기능을 추가하더라도 이 구조는
 유지해야 합니다.
+
+### 2-5. 포맷 인식형 가설 생성과 증거 계층
+
+이상 구간은 `Observed`(원문에 직접 존재) 또는 `Derived`(스트리밍 계산)로 표시하고, 원인 가설은
+`Inferred`로 표시합니다. 가설 응답에는 `disconfirmingEvidence`, `missingSignals`, `claimLimit`이
+필수입니다. AEMO 계통 telemetry에서는 Battery/BMS·PCS·PPC·EMS·Telemetry/SCADA·Dispatch·Forecast·
+Grid·Normal Response domain을 사용하고, LFP cell-array에서는 Cell/Pack·Electrical Path·운영조건·
+balancing·thermal domain을 사용합니다.
+
+LFP 로그의 resistance/voltage pattern만으로 전기화학적 열화, 커넥터 저항, 부식, 실제 반품 사유를
+확정할 수 없습니다. 서버 검증은 cell-array 응답이 `Cell N 경로의 유효 직렬저항 증가` 수준의
+주장 한계와 물리 원인 미확정을 명시하도록 요구합니다. 이 제한은 `selectedHypId`와
+`finalSeverity`를 사람이 확정해야 하는 기존 게이트와 별개로 유지됩니다.
 
 ---
 
@@ -131,5 +160,7 @@ Claude Code로 개발 서버를 띄우는 순간 CORS/인증 오류로 동작하
 
 - **사람 검토 체크포인트는 절대 생략하지 말 것** — 가설 확정·심각도 판정은 AI가 자동 결정하지 않음
 - **프롬프트에는 원본 로그 전체가 아니라 스트리밍 집계 결과(통계/헤드샘플/알람 컨텍스트)만 전달** — 파일 크기가 커져도 프롬프트 크기는 고정
+- **파생지표도 bounded summary로만 전달** — AEMO MW 통계와 LFP cross-cell Vdev/closure를 포함하되 전체 행/전체 파일을 버퍼링하지 않음
+- **근거 계층과 물리적 한계 유지** — Observed/Derived/Inferred를 분리하고 cell-array 저항 패턴을 특정 물리 원인으로 확정하지 않음
 - **실 고객 데이터·실 설비명은 절대 커밋하지 말 것** — 샘플/가상 데이터로만 개발 및 테스트 (사내 보안 절차 대상)
 - **보고서 톤앤매너**: Headline 한 줄 → 관측 사실 → 기술적 의미 → 판단 순서 유지 (기존 프롬프트에 이미 반영됨)

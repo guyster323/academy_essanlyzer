@@ -55,7 +55,7 @@ test('alarm-context windows are capped GLOBALLY across all sources, not per-sour
 test('combined prompt text never exceeds MAX_LOG_TEXT_CHARS even with many large groups', () => {
   const block = makeGroupedBlock('huge-source', MAX_GROUPS_PER_SOURCE_IN_PROMPT, 40);
   const { text, truncation } = blocksToPromptText([block, block, block, block, block]);
-  assert.ok(text.length <= MAX_LOG_TEXT_CHARS + 200); // small allowance for the appended truncation-note suffix
+  assert.ok(text.length <= MAX_LOG_TEXT_CHARS);
   if (text.length >= MAX_LOG_TEXT_CHARS) {
     assert.ok(truncation.textTruncatedChars > 0);
   }
@@ -75,4 +75,29 @@ test('when anything is truncated, a human-readable note is prefixed into the pro
   const blocks = Array.from({ length: 12 }, (_, i) => makeFlatBlock(`source-${i}`, 0));
   const { text } = blocksToPromptText(blocks);
   assert.match(text, /^\[참고: 데이터 규모 제한으로 일부가 생략된 상태입니다/);
+});
+
+test('derived metrics and source format profiles are included in the bounded prompt output', () => {
+  const block = {
+    ...makeFlatBlock('data_sys_6.csv', 1),
+    formatId: 'lfp-cell-array',
+    formatLabel: 'LFP cell-array 필드 데이터',
+    entityColumn: null,
+    derived: {
+      label: 'cross-cell Vdev / voltage closure',
+      alarmCount: 1,
+      metricStats: {
+        maxAbsVdev: { min: 0.001, max: 0.42, sum: 0.421, count: 2 },
+        maxRobustZ: { min: 0, max: 8.1, sum: 8.1, count: 2 }
+      },
+      reasonCounts: { 'Cell 8 cross-cell Vdev': 1 },
+      categoryCounts: { outlierCell: { 'Cell 8': 1 } }
+    },
+    alarmAnnotations: [{ kind: 'derived', reason: 'Cell 8 cross-cell Vdev', details: { zScore: 8.1 } }]
+  };
+  const result = blocksToPromptText([block]);
+  assert.match(result.text, /LFP cell-array/);
+  assert.match(result.text, /maxAbsVdev/);
+  assert.match(result.text, /Cell 8 cross-cell Vdev/);
+  assert.equal(result.sourceProfiles[0].formatId, 'lfp-cell-array');
 });

@@ -1,4 +1,4 @@
-import { state, session, STEPS, CS_TEMPLATES, isHumanReviewComplete } from './state.js';
+import { state, session, STEPS, CS_TEMPLATES, HYPOTHESIS_DOMAINS, isHumanReviewComplete, describeLoadingProgress } from './state.js';
 import { formatBytes, MAX_SELECTED_SOURCES } from './log-engine.js';
 
 export function esc(s) {
@@ -228,9 +228,18 @@ function renderSourceList() {
         infoNotes.map(x => esc(x.name.split('/').pop()) + ' — ' + esc(x.reason)).join('<br>') + `</div>`;
     }
     if (skipNotes.length) {
-      html += `<div class="skipped-note">ZIP 내 제외된 파일 ${skipNotes.length}건: ` +
-        skipNotes.slice(0, 6).map(x => esc(x.name.split('/').pop()) + '(' + esc(x.reason) + ')').join(', ') +
-        (skipNotes.length > 6 ? ` 외 ${skipNotes.length - 6}건` : '') + `</div>`;
+      const errorNotes = skipNotes.filter(x => x.level === 'error');
+      const ordinaryNotes = skipNotes.filter(x => x.level !== 'error');
+      if (errorNotes.length) {
+        html += `<div class="skipped-note" style="color:var(--red);">ZIP 항목별 읽기 실패 ${errorNotes.length}건(나머지 항목은 계속 처리됨): ` +
+          errorNotes.slice(0, 6).map(x => esc(x.name.split('/').pop()) + '(' + esc(x.reason) + ')').join(', ') +
+          (errorNotes.length > 6 ? ` 외 ${errorNotes.length - 6}건` : '') + `</div>`;
+      }
+      if (ordinaryNotes.length) {
+        html += `<div class="skipped-note">ZIP 내 제외된 파일 ${ordinaryNotes.length}건: ` +
+          ordinaryNotes.slice(0, 6).map(x => esc(x.name.split('/').pop()) + '(' + esc(x.reason) + ')').join(', ') +
+          (ordinaryNotes.length > 6 ? ` 외 ${ordinaryNotes.length - 6}건` : '') + `</div>`;
+      }
     }
   }
 
@@ -240,7 +249,7 @@ function renderSourceList() {
 function renderEntityFilterRow(s) {
   if (!s.entityColumn) return '';
   return `<div class="source-entity-row">
-    <label>엔티티 필터 (${esc(s.entityColumn)}에 포함된 문자열, 비우면 전체 — 대용량 시 상위 30개 그룹만 상세 표시):</label>
+    <label>엔티티 필터 (${esc(s.entityColumn)}에 포함된 문자열, 비우면 전체 — 대용량 시 상위 10개 그룹만 상세 표시):</label>
     <input type="text" value="${esc(s.entityFilter || '')}" placeholder="예: BESS" onchange="setSourceEntityFilter('${s.id}', this.value)">
     ${s.entityFilterAuto && s.entityFilter ? '<span class="source-sub" style="color:var(--cyan);">자동 제안됨</span>' : ''}
   </div>`;
@@ -251,7 +260,10 @@ function renderSourceItem(s) {
   const fileName = pathParts.pop();
   const folderPart = pathParts.length ? pathParts.join('/') + '/' : '';
   const dispDelim = s.delimiter === '\t' ? 'TAB' : (s.delimiter || ',');
-  const formatLabel = s.format && s.format.id === 'aemo-mms' ? 'AEMO MMS' : null;
+  const formatLabel = s.format && s.format.label ? s.format.label : null;
+  const derivedAlarmCount = s.groups
+    ? Object.values(s.groups).reduce((sum, g) => sum + (g.derived?.alarmCount || 0), 0)
+    : (s.derived?.alarmCount || 0);
 
   let badge, statusLine, entityRow = '';
   if (s.status === 'cataloged') {
@@ -278,7 +290,7 @@ function renderSourceItem(s) {
     const previewRows = s.headSample.length
       ? s.headSample.slice(0, 5).map(r => s.columns.map(c => r[c]).join(' | ')).join('\n')
       : (s.groups ? Object.entries(s.groups).slice(0, 3).map(([k, g]) => `[${k}] ` + (g.headSample[0] ? s.columns.map(c => g.headSample[0][c]).join(' | ') : '')).join('\n') : '');
-    statusLine = `<span class="source-sub">${esc(s.sizeLabel)} · ${s.rowCount.toLocaleString()}행 · 알람 ${s.alarmCount}건${s.malformedRowCount ? ` · <span style="color:var(--amber)">손상 행 ${s.malformedRowCount}건(파싱 제외)</span>` : ''} · 구분자 '${dispDelim}'</span>
+    statusLine = `<span class="source-sub">${esc(s.sizeLabel)} · ${s.rowCount.toLocaleString()}행 · 알람 ${s.alarmCount}건 · 파생 이상 ${derivedAlarmCount}건${s.malformedRowCount ? ` · <span style="color:var(--amber)">손상 행 ${s.malformedRowCount}건(파싱 제외)</span>` : ''} · 구분자 '${dispDelim}'</span>
       <select class="enc-select" onchange="setSourceEncoding('${s.id}', this.value)">
         <option value="utf-8" ${s.encoding === 'utf-8' ? 'selected' : ''}>UTF-8</option>
         <option value="euc-kr" ${s.encoding === 'euc-kr' ? 'selected' : ''}>EUC-KR</option>
@@ -301,10 +313,13 @@ function renderSourceItem(s) {
 }
 
 function renderLoading() {
+  const elapsedSec = state.loadingStartedAt ? Math.floor((Date.now() - state.loadingStartedAt) / 1000) : 0;
+  const progressNote = describeLoadingProgress(elapsedSec);
   return `<div class="panel"><div class="loading-box">
     <div class="scan-bar"></div>
     <div class="loading-text">${esc(state.loadingLabel)}</div>
-    <div class="loading-sub">Claude · 백엔드 API 경유 · 실시간 추론 진행 중</div>
+    <div class="loading-sub">Claude · 백엔드 API 경유 · 실시간 추론 진행 중 · 경과 ${elapsedSec}초</div>
+    ${progressNote ? `<div class="loading-sub loading-progress-note">${esc(progressNote)}</div>` : ''}
   </div></div>`;
 }
 
@@ -350,7 +365,7 @@ function renderAnomalyView() {
   if (!state.anomalyWindows.length) {
     out += `<div class="issue-detect-box empty" style="display:block;">판단 불가 — 추가 확인 필요: 로그 범위, 임계값, 관련 PCS/EMS 로그를 확인하세요.</div>`;
   } else {
-    out += `<table><thead><tr><th>Timestamp</th><th>출처 파일</th><th>이상 파라미터</th><th>관측값</th><th>정상범위</th><th>편차</th><th>알람코드</th><th>수준</th></tr></thead><tbody>`;
+    out += `<table><thead><tr><th>Timestamp</th><th>출처 파일</th><th>이상 파라미터</th><th>관측값</th><th>정상범위</th><th>편차</th><th>알람코드</th><th>근거 계층</th><th>수준</th></tr></thead><tbody>`;
     state.anomalyWindows.forEach(a => {
       out += `<tr>
         <td class="mono">${esc(a.timestamp)}</td>
@@ -360,6 +375,7 @@ function renderAnomalyView() {
         <td class="mono">${esc(a.normalRange)}</td>
         <td class="mono">${esc(a.deviation)}</td>
         <td class="mono">${esc(a.alarmCode) || '—'}</td>
+        <td>${esc(a.evidenceTier) || '—'}</td>
         <td><span class="lv-badge lv-${esc(a.level) || '중'}">${esc(a.level) || '중'}</span></td>
       </tr>`;
     });
@@ -402,6 +418,12 @@ function renderHypothesisView() {
         <div class="ev-block"><div class="ev-label">Actual Observation</div><div class="ev-text">${esc(h.actualObservation)}</div></div>
       </div>
       <div class="ev-block"><div class="ev-label">Evidence</div><div class="ev-text support">${esc(h.evidence)}</div></div>
+      <div class="sev-row"><label>근거 계층:</label> <span class="domain-badge">${esc(h.evidenceTier || 'Inferred')}</span></div>
+      <div class="evidence-grid">
+        <div class="ev-block"><div class="ev-label">Disconfirming Evidence</div><div class="ev-text">${esc(h.disconfirmingEvidence || '추가 확인 필요')}</div></div>
+        <div class="ev-block"><div class="ev-label">Missing Signals</div><div class="ev-text">${esc(h.missingSignals || '추가 확인 필요')}</div></div>
+      </div>
+      <div class="ev-block"><div class="ev-label">Claim Limit</div><div class="ev-text">${esc(h.claimLimit || '추가 확인 필요')}</div></div>
       <div class="sev-row">
         <label>AI 심각도 초안:</label> <span class="lv-badge lv-${esc(h.severityDraft)}">${esc(h.severityDraft)}</span>
         <span style="font-size:10.5px;color:var(--text-muted);">${esc(h.severityReason)}</span>
@@ -414,7 +436,7 @@ function renderHypothesisView() {
       <button class="btn btn-ghost btn-sm" onclick="startCustomHypothesis()" ${state.selectedHypId === 'CUSTOM' ? 'disabled' : ''}>AI 가설 대신 직접 작성</button>
     </div>`;
 
-    const ch = state.confirmedHypothesis || { name: '', domain: 'Battery/BMS', expectedSignature: '', actualObservation: '', evidence: '' };
+    const ch = state.confirmedHypothesis || { name: '', domain: 'Battery/BMS', expectedSignature: '', actualObservation: '', evidence: '', evidenceTier: 'Inferred', disconfirmingEvidence: '', missingSignals: '', claimLimit: '' };
     const locked = !state.confirmedHypothesis; // no hypothesis chosen yet — fields exist but are inert
     out += `<div class="panel">
       <div class="panel-head"><div class="panel-tag"></div><div class="panel-title">확정 가설 (수정 가능) · 심각도 최종 판정</div></div>
@@ -426,7 +448,7 @@ function renderHypothesisView() {
       <div class="field-group">
         <label class="field-label">Domain</label>
         <select id="confirmedHypDomain" ${locked ? 'disabled' : ''} onchange="updateConfirmedHypField('domain', this.value)">
-          ${['Battery/BMS', 'PCS', 'EMS', 'Contactor/CB', 'Cooling/HVAC', 'Communication/Sensor'].map(d =>
+          ${HYPOTHESIS_DOMAINS.map(d =>
             `<option value="${d}" ${ch.domain === d ? 'selected' : ''}>${d}</option>`).join('')}
         </select>
       </div>
@@ -443,6 +465,24 @@ function renderHypothesisView() {
       <div class="field-group">
         <label class="field-label">Evidence</label>
         <textarea rows="2" ${locked ? 'disabled' : ''} oninput="updateConfirmedHypField('evidence', this.value)">${esc(ch.evidence)}</textarea>
+      </div>
+      <div class="field-group">
+        <label class="field-label">근거 계층</label>
+        <input type="text" value="${esc(ch.evidenceTier || 'Inferred')}" disabled>
+      </div>
+      <div class="evidence-grid">
+        <div class="field-group" style="margin-bottom:0;">
+          <label class="field-label">반증 가능 증거</label>
+          <textarea rows="2" ${locked ? 'disabled' : ''} oninput="updateConfirmedHypField('disconfirmingEvidence', this.value)">${esc(ch.disconfirmingEvidence)}</textarea>
+        </div>
+        <div class="field-group" style="margin-bottom:0;">
+          <label class="field-label">확인에 필요한 누락 신호</label>
+          <textarea rows="2" ${locked ? 'disabled' : ''} oninput="updateConfirmedHypField('missingSignals', this.value)">${esc(ch.missingSignals)}</textarea>
+        </div>
+      </div>
+      <div class="field-group">
+        <label class="field-label">주장 한계</label>
+        <textarea rows="2" ${locked ? 'disabled' : ''} oninput="updateConfirmedHypField('claimLimit', this.value)">${esc(ch.claimLimit)}</textarea>
       </div>
       <div class="sev-row" style="border-top:1px solid var(--border-soft);padding-top:12px;">
         <label>최종 심각도 <span class="req">*</span></label>

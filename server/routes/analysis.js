@@ -15,7 +15,7 @@ const router = Router();
 
 async function callAndValidate(kind, handler, body) {
   const result = await handler(body);
-  return parseStructuredResult(kind, result);
+  return parseStructuredResult(kind, result, body);
 }
 
 function wrap(kind, handler) {
