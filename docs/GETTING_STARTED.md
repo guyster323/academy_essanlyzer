@@ -91,8 +91,14 @@ npm run dev
 
 ## 🎬 데모 영상 — Darmstadt(Case B) 배터리 필드 데이터 분석 흐름
 
-<!-- PAGECAST_DEMO_VIDEO_PLACEHOLDER -->
-*(영상 추가 예정)*
+실제 공개 LFP 배터리 필드 데이터(`data_sys_28.csv`)를 업로드해서 이상 구간 탐지 → 원인 가설 →
+사람 검토 → 보고서 초안까지 전 과정을 실제로 실행한 화면입니다(실제 Claude 응답 3회 포함).
+
+<p align="center">
+  <img src="assets/demo-case-b-hero.gif" alt="Case B 분석 데모 하이라이트" width="720">
+</p>
+
+▶️ [전체 데모 영상 보기 (MP4, 38초)](assets/demo-case-b.mp4)
 
 ## 자주 묻는 질문
 

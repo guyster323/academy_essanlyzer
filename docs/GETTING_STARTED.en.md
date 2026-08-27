@@ -100,8 +100,15 @@ If you have your own CSV/TXT/LOG file or a ZIP archive:
 
 ## 🎬 Demo video — analyzing the Darmstadt (Case B) battery field dataset
 
-<!-- PAGECAST_DEMO_VIDEO_PLACEHOLDER -->
-*(video coming soon)*
+A real run against the real public LFP battery field dataset (`data_sys_28.csv`): upload →
+anomaly detection → hypothesis generation → human review → report draft, start to finish
+(including 3 real Claude responses).
+
+<p align="center">
+  <img src="assets/demo-case-b-hero.gif" alt="Case B analysis demo highlight" width="720">
+</p>
+
+▶️ [Watch the full demo (MP4, 38s)](assets/demo-case-b.mp4)
 
 ## FAQ
 
