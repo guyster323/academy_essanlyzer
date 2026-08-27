@@ -14,6 +14,15 @@
   <img alt="Status" src="https://img.shields.io/badge/status-internal%20PoC-yellow">
 </p>
 
+<p align="center">
+  <img src="docs/assets/demo-case-b-hero.gif" alt="Case B(Darmstadt LFP) 분석 데모" width="720">
+</p>
+
+<p align="center">
+  ▶️ <a href="docs/assets/demo-case-b.mp4">전체 데모 영상 보기 (MP4, 38초)</a> — 실제 공개 데이터로
+  업로드→이상탐지→가설→사람 검토→보고서까지 전 과정 실행
+</p>
+
 ---
 
 # ESS BMS 이슈 분석 워크스테이션

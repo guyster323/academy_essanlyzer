@@ -14,6 +14,15 @@
   <img alt="Status" src="https://img.shields.io/badge/status-internal%20PoC-yellow">
 </p>
 
+<p align="center">
+  <img src="docs/assets/demo-case-b-hero.gif" alt="Case B (Darmstadt LFP) analysis demo" width="720">
+</p>
+
+<p align="center">
+  ▶️ <a href="docs/assets/demo-case-b.mp4">Watch the full demo (MP4, 38s)</a> — a real run against
+  real public data, upload through anomaly detection, hypothesis, human review, and report
+</p>
+
 ---
 
 # ESS BMS Issue Analysis Workstation
