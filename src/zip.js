@@ -20,6 +20,21 @@ const PROBE_BYTES = 512 * 1024; // enough to see a header + a few thousand data 
 
 let sourceIdCounter = 0;
 
+export function formatZipEntryError(error) {
+  const raw = String(error?.message || error || '알 수 없는 압축 항목 오류');
+  const detail = raw.slice(0, 300);
+  if (/uncompressed data size mismatch/i.test(raw)) {
+    return `ZIP 항목 오류: 압축 해제 데이터 길이 불일치 — 해당 항목만 오류 상태로 표시하고 나머지 항목은 계속 처리합니다 (${detail})`;
+  }
+  return `ZIP 항목 처리 실패 — 해당 항목만 오류 상태로 표시하고 나머지 항목은 계속 처리합니다 (${detail})`;
+}
+
+export function markSourceError(src, error) {
+  src.status = 'error';
+  src.errorMsg = formatZipEntryError(error);
+  return src;
+}
+
 function makeSourceShell(name, path, sizeBytes, origin, ref) {
   return {
     id: 'SRC-' + (++sourceIdCounter),
@@ -67,7 +82,7 @@ async function probeSource(ref) {
       headBytes = concatUint8(parts);
     }
   } catch (e) {
-    return { encoding: 'utf-8', format: GENERIC_FORMAT, entityColumn: null, entityFilterSuggestion: '' };
+    return { encoding: 'utf-8', format: GENERIC_FORMAT, entityColumn: null, entityFilterSuggestion: '', error: e };
   }
 
   const encoding = detectEncodingFromBytes(headBytes);
@@ -87,7 +102,7 @@ async function probeSource(ref) {
     if (hasBess) entityFilterSuggestion = 'BESS';
   }
 
-  return { encoding, format, entityColumn: acc.entityColumn, entityFilterSuggestion };
+  return { encoding, format, entityColumn: acc.entityColumn, entityFilterSuggestion, error: null };
 }
 
 async function catalogOneEntry(name, path, sizeBytes, ref) {
@@ -101,6 +116,12 @@ async function catalogOneEntry(name, path, sizeBytes, ref) {
   src.entityColumn = probe.entityColumn;
   src.entityFilter = probe.entityFilterSuggestion || '';
   src.entityFilterAuto = true;
+
+  if (probe.error) {
+    markSourceError(src, probe.error);
+    render();
+    return src;
+  }
 
   if (sizeBytes > 0 && sizeBytes <= CATALOG_AUTOSTREAM_THRESHOLD_BYTES) {
     await startSourceProcessing(src.id);
@@ -136,7 +157,7 @@ async function catalogZipEntries(zip, pathPrefix, depth) {
         await catalogZipEntries(innerZip, fullPath, depth + 1);
       } catch (e) {
         console.error(e);
-        state.zipSkipped.push({ name: fullPath, reason: '중첩 zip 열기 실패(손상 추정)' });
+        state.zipSkipped.push({ name: fullPath, reason: formatZipEntryError(e), level: 'error' });
       }
       continue;
     }
@@ -178,8 +199,7 @@ export async function processSource(src) {
     }
   } catch (e) {
     console.error(e);
-    src.status = 'error';
-    src.errorMsg = e.message || String(e);
+    markSourceError(src, e);
   }
   render();
 }
@@ -245,7 +265,7 @@ export async function handleZipUpload(evt) {
     await catalogZipEntries(zip, '', 0);
   } catch (e) {
     console.error(e);
-    state.zipSkipped.push({ name: file.name, reason: 'ZIP 압축 해제 실패 — 파일이 손상되었거나 지원하지 않는 형식입니다.' });
+    state.zipSkipped.push({ name: file.name, reason: formatZipEntryError(e), level: 'error' });
   }
 
   state.zipScanning = false;

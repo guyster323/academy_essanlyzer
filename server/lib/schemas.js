@@ -13,6 +13,13 @@
  * requirements: https://platform.claude.com/docs/en/agents-and-tools/tool-use/strict-tool-use
  */
 
+export const EVIDENCE_TIERS = ['Observed', 'Derived', 'Inferred'];
+export const HYPOTHESIS_DOMAINS = [
+  'Battery/BMS', 'PCS', 'PPC', 'EMS', 'Telemetry/SCADA', 'Dispatch', 'Forecast', 'Grid',
+  'Normal Response', 'Contactor/CB', 'Cooling/HVAC', 'Communication/Sensor',
+  'Cell/Pack', 'Electrical Path', 'Operating Condition', 'Balancing/BMS', 'Thermal/Sensor'
+];
+
 export const detectIssuesTool = {
   name: 'report_detected_issues',
   description: 'BMS/EMS 로그에서 자동 탐지된 CS 이슈 후보 목록을 보고한다.',
@@ -76,9 +83,10 @@ export const detectAnomalyTool = {
             normalRange: { type: 'string' },
             deviation: { type: 'string' },
             alarmCode: { type: 'string' },
-            level: { type: 'string', enum: ['고', '중', '저'] }
+            level: { type: 'string', enum: ['고', '중', '저'] },
+            evidenceTier: { type: 'string', enum: EVIDENCE_TIERS }
           },
-          required: ['timestamp', 'sourceFile', 'parameter', 'observedValue', 'normalRange', 'deviation', 'alarmCode', 'level']
+          required: ['timestamp', 'sourceFile', 'parameter', 'observedValue', 'normalRange', 'deviation', 'alarmCode', 'level', 'evidenceTier']
         }
       }
     },
@@ -104,20 +112,22 @@ export const hypothesesTool = {
           properties: {
             id: { type: 'string' },
             name: { type: 'string' },
-            domain: {
-              type: 'string',
-              enum: ['Battery/BMS', 'PCS', 'EMS', 'Contactor/CB', 'Cooling/HVAC', 'Communication/Sensor']
-            },
+            domain: { type: 'string', enum: HYPOTHESIS_DOMAINS },
             expectedSignature: { type: 'string' },
             actualObservation: { type: 'string' },
             evidence: { type: 'string' },
+            evidenceTier: { type: 'string', enum: EVIDENCE_TIERS },
+            disconfirmingEvidence: { type: 'string' },
+            missingSignals: { type: 'string' },
+            claimLimit: { type: 'string' },
             confidence: { type: 'string', enum: ['High', 'Medium', 'Low'] },
             severityDraft: { type: 'string', enum: ['상', '중', '하'] },
             severityReason: { type: 'string' }
           },
           required: [
             'id', 'name', 'domain', 'expectedSignature', 'actualObservation',
-            'evidence', 'confidence', 'severityDraft', 'severityReason'
+            'evidence', 'evidenceTier', 'disconfirmingEvidence', 'missingSignals', 'claimLimit',
+            'confidence', 'severityDraft', 'severityReason'
           ]
         }
       }

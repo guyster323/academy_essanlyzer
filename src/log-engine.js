@@ -89,6 +89,21 @@ export function zipEntryByteChunks(entry) {
             return { value: chunk, done: false };
           }
           return { value: undefined, done: true };
+        },
+        async return() {
+          ended = true;
+          stream.pause();
+          if (typeof stream.removeAllListeners === 'function') {
+            // Do not leave an unhandled asynchronous stream error behind if
+            // the probe stops after its bounded prefix. A no-op error
+            // listener is safer than detaching the error channel entirely.
+            stream.removeAllListeners('data');
+            stream.removeAllListeners('end');
+            stream.removeAllListeners('error');
+            stream.on('error', () => {});
+          }
+          if (waiter) { const w = waiter; waiter = null; w(); }
+          return { value: undefined, done: true };
         }
       };
     }
@@ -106,7 +121,29 @@ export function detectEncodingFromBytes(bytes) {
 
 /* ---- Core incremental accumulator, format- and entity-group-aware ---- */
 function makeBucket() {
-  return { rowCount: 0, alarmCount: 0, headSample: [], alarmSamples: [], recentWindow: [], stats: {} };
+  const bucket = {
+    rowCount: 0,
+    alarmCount: 0,
+    headSample: [],
+    alarmSamples: [],
+    alarmAnnotations: [],
+    recentWindow: [],
+    stats: {},
+    derived: {
+      label: null,
+      alarmCount: 0,
+      metricStats: {},
+      reasonCounts: {},
+      categoryCounts: {}
+    }
+  };
+  // Adapter rolling state is intentionally non-enumerable so it cannot leak
+  // into prompt blocks or history snapshots. Each bucket still owns only a
+  // fixed-size window, never the full source.
+  Object.defineProperty(bucket, '_derivedState', {
+    value: Object.create(null), enumerable: false, writable: true
+  });
+  return bucket;
 }
 
 export function makeAccumulator(format, entityFilter = '') {
@@ -121,6 +158,44 @@ export function makeAccumulator(format, entityFilter = '') {
     entityFilter: (entityFilter || '').trim(),
     groups: null, // becomes {entityValue: bucket} once an entity column is recognized
     malformedRowCount: 0
+  });
+}
+
+function updateNumericStats(stats, key, value) {
+  if (!Number.isFinite(value)) return;
+  if (!stats[key] && Object.keys(stats).length >= 50) return;
+  if (!stats[key]) stats[key] = { min: value, max: value, sum: 0, count: 0 };
+  const s = stats[key];
+  if (value < s.min) s.min = value;
+  if (value > s.max) s.max = value;
+  s.sum += value;
+  s.count++;
+}
+
+function recordDerivedResult(bucket, fmt, result) {
+  if (!result) return;
+  const derived = bucket.derived || (bucket.derived = {
+    label: null, alarmCount: 0, metricStats: {}, reasonCounts: {}, categoryCounts: {}
+  });
+  if (fmt.derivedLabel) derived.label = fmt.derivedLabel;
+
+  Object.entries(result.metrics || {}).forEach(([key, value]) => updateNumericStats(derived.metricStats, key, value));
+  if (!result.alarm) return;
+
+  derived.alarmCount++;
+  const reason = result.reasonCode || '파생 이상 탐지';
+  if (!derived.reasonCounts[reason] && Object.keys(derived.reasonCounts).length >= 20) {
+    derived.reasonCounts['기타 파생 이상'] = (derived.reasonCounts['기타 파생 이상'] || 0) + 1;
+  } else {
+    derived.reasonCounts[reason] = (derived.reasonCounts[reason] || 0) + 1;
+  }
+  Object.entries(result.categories || {}).forEach(([key, value]) => {
+    if (value === undefined || value === null || value === '') return;
+    if (!derived.categoryCounts[key] && Object.keys(derived.categoryCounts).length >= 20) return;
+    if (!derived.categoryCounts[key]) derived.categoryCounts[key] = {};
+    const counts = derived.categoryCounts[key];
+    if (!counts[value] && Object.keys(counts).length >= 20) return;
+    counts[value] = (counts[value] || 0) + 1;
   });
 }
 
@@ -142,18 +217,45 @@ function feedRowIntoBucket(acc, bucket, cells) {
     }
   });
 
+  const derivedResult = typeof fmt.computeDerivedAlarm === 'function'
+    ? fmt.computeDerivedAlarm(rowObj, acc, bucket)
+    : null;
+  recordDerivedResult(bucket, fmt, derivedResult);
+  // Keep a file-level derived summary as well as the per-entity summary. The
+  // hook is invoked only once for the target bucket, so grouped streams do
+  // not accidentally share rolling baselines across physical entities.
+  if (bucket !== acc) recordDerivedResult(acc, fmt, derivedResult);
+
   bucket.rowCount++;
   if (bucket.headSample.length < HEAD_SAMPLE_CAP) bucket.headSample.push(rowObj);
 
   bucket.recentWindow.push(rowObj);
   if (bucket.recentWindow.length > CONTEXT_WINDOW) bucket.recentWindow.shift();
 
-  let isAlarm = false;
-  if (acc.alarmColumn) {
-    if (fmt.isAlarmValue(rowObj[acc.alarmColumn], acc.alarmColumn)) {
-      isAlarm = true;
-      bucket.alarmCount++;
-      if (bucket.alarmSamples.length < ALARM_SAMPLE_CAP) bucket.alarmSamples.push([...bucket.recentWindow]);
+  const staticAlarm = Boolean(
+    acc.alarmColumn && fmt.isAlarmValue(rowObj[acc.alarmColumn], acc.alarmColumn)
+  );
+  const derivedAlarm = Boolean(derivedResult && derivedResult.alarm);
+  const isAlarm = staticAlarm || derivedAlarm;
+  const annotations = [];
+  if (staticAlarm) {
+    annotations.push({
+      kind: 'flag',
+      reason: `${acc.alarmColumn}=${rowObj[acc.alarmColumn]}`
+    });
+  }
+  if (derivedAlarm) {
+    annotations.push({
+      kind: 'derived',
+      reason: derivedResult.reason || '파생 이상 탐지',
+      details: derivedResult.details || {}
+    });
+  }
+  if (isAlarm) {
+    bucket.alarmCount++;
+    if (bucket.alarmSamples.length < ALARM_SAMPLE_CAP) {
+      bucket.alarmSamples.push([...bucket.recentWindow]);
+      bucket.alarmAnnotations.push(annotations);
     }
   }
   return isAlarm;
@@ -241,6 +343,8 @@ export function applyAccumulatorToSource(src, acc) {
   src.entityColumn = acc.entityColumn;
   src.timestampColumn = acc.timestampColumn;
   src.groups = acc.groups; // null when the format has no groupable entity column
+  src.derived = acc.derived;
+  src.alarmAnnotations = acc.alarmAnnotations;
   if (acc.groups) {
     src.headSample = [];
     src.alarmSamples = [];

@@ -1,4 +1,9 @@
 export const STEPS = ['의뢰 입력', '이상구간 탐지', '가설 생성', '사람 검토', '보고서·메일 초안', '완료'];
+export const HYPOTHESIS_DOMAINS = [
+  'Battery/BMS', 'PCS', 'PPC', 'EMS', 'Telemetry/SCADA', 'Dispatch', 'Forecast', 'Grid',
+  'Normal Response', 'Contactor/CB', 'Cooling/HVAC', 'Communication/Sensor',
+  'Cell/Pack', 'Electrical Path', 'Operating Condition', 'Balancing/BMS', 'Thermal/Sensor'
+];
 
 export function freshState() {
   return {
@@ -23,6 +28,9 @@ export function freshState() {
     // call that built a prompt from logs — surfaced in the UI so budget
     // limits (source/group/alarm-context caps, char cap) are never silent.
     lastTruncation: null,
+    // Format metadata captured alongside the bounded prompt block. Used by
+    // later domain-aware hypothesis/report prompts; it contains no raw rows.
+    sourceProfiles: [],
     hypotheses: [],
     selectedHypId: null,
     // Human-editable working copy of the hypothesis the engineer confirms —

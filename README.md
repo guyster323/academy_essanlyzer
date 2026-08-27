@@ -11,7 +11,7 @@ LG에너지솔루션 ESS 분석파트의 CS 의뢰 기반 BMS/EMS 이슈 분석 
 ├─ ZIP/중첩ZIP 카탈로그 + 스트리밍 파싱   ├─ /api/detect-issues
 │  (파일은 로컬에서만 처리 — 업로드 없음)  ├─ /api/detect-anomaly
 ├─ 로그 포맷 자동 감지                    ├─ /api/generate-hypotheses
-│  (일반 CSV / AEMO MMS 리포트)          └─ /api/draft-report
+│  (일반 CSV / AEMO MMS / LFP cell-array)  └─ /api/draft-report
 ├─ 엔티티(BESS 등) 필터 + 그룹 집계          → AI_PROVIDER=cli(기본, 데모용) | api(운영용)
 └─ 통계/샘플/알람 컨텍스트만 백엔드 전송
 ```
@@ -45,10 +45,26 @@ LG에너지솔루션 ESS 분석파트의 CS 의뢰 기반 BMS/EMS 이슈 분석 
 |---|---|---|
 | 일반 CSV/TSV | 첫 줄이 헤더, 이후 데이터 행 | 전형적인 BMS/EMS export |
 | AEMO MMS 리포트 | `C,`(주석)/`I,`(헤더)/`D,`(데이터) 레코드 타입 | 실제 컬럼은 4번째 필드부터 시작 |
+| LFP cell-array 필드 CSV | `Timestamp` + `U_Battery` + `U_Cell_1..8` 헤더 | 파일 1개를 system 1개로 보고 cross-cell 파생지표 계산 |
 
-AEMO 포맷은 `PARTICIPANTID`/`FPP_UNITID` 같은 엔티티 컬럼이 있으면 엔티티별로 그룹 집계하며,
-`MW_QUALITY_FLAG != 1`을 알람 신호로 취급합니다. 값에 `BESS`가 포함된 엔티티가 감지되면 필터
-입력칸에 자동으로 `BESS`를 채워 넣습니다(수정 가능).
+AEMO 포맷은 물리 설비 식별자인 `FPP_UNITID`를 시장 참여자 회사 코드인 `PARTICIPANTID`보다
+우선하여 엔티티별로 그룹 집계합니다. `MW_QUALITY_FLAG != 1`은 품질 보조 신호로 남기되,
+`MEASURED_MW` 전체 구간의 rolling mean/std·MAD robust z-score·ramp를 별도로 계산해 품질 플래그가
+정상이어도 출력 이벤트를 탐지합니다. 값에 `BESS`가 포함된 엔티티가 감지되면 필터 입력칸에
+자동으로 `BESS`를 채워 넣습니다(수정 가능).
+
+LFP cell-array는 정적 alarm 컬럼이 없는 것을 정상으로 취급하지 않고, 각 행에서 각 Cell의
+`Vdev_i = U_Cell_i - robust_center(다른 7개 Cell)`, robust z-score, `U_Battery - Σ(U_Cell_i)`를
+계산합니다. 가장 벗어난 Cell은 데이터에서 선택하며 Cell 8을 사전 지정하지 않습니다. 모든 파생
+통계와 알람 컨텍스트는 고정 크기 rolling/bounded 구조로만 보관됩니다.
+
+AI 단계에는 감지된 포맷 프로파일과 파생 요약이 함께 전달됩니다. 계통급 telemetry는 Battery/BMS,
+PCS, PPC, EMS, Telemetry/SCADA, Dispatch, Forecast, Grid, 정상반응 domain을 사용하고, cell-array는
+Cell/Pack·Electrical Path·Operating Condition·Balancing/BMS·Thermal/Sensor domain을 사용합니다.
+모든 anomaly/hypothesis는 `Observed`·`Derived`·`Inferred` 근거 계층을 구분하며, 반증 가능 증거와
+현재 로그에 없는 검증 신호를 명시합니다. cell-array의 저항/전압 패턴만으로 전기화학적 열화,
+커넥터, 부식 또는 정확한 반품 원인을 확정하지 않고 최대 `Cell N 경로의 유효 직렬저항 증가`
+수준으로 제한합니다.
 
 ## 대용량 ZIP(중첩 zip 포함) 처리
 
@@ -57,6 +73,10 @@ AEMO 포맷은 `PARTICIPANTID`/`FPP_UNITID` 같은 엔티티 컬럼이 있으면
 2. 20MB 이하 항목은 바로 스트리밍 집계됩니다(소규모 zip 편의성 유지).
 3. 그보다 큰 항목은 "카탈로그됨" 상태로 남고, "분석 포함(스트리밍 시작)" 버튼을 눌러야 실제로
    스트리밍 파싱이 시작됩니다 — 원치 않는 대량 CPU/시간 소모를 방지합니다.
+
+개별 항목의 압축 해제에서 JSZip의 `uncompressed data size mismatch` 같은 오류가 발생하면 해당
+로그 항목만 `읽기 실패` 상태로 표시하고, 다른 ZIP 항목은 계속 카탈로그/스트리밍합니다. 손상된
+중첩 zip은 오류 수준의 제외 메모로 표시되며, 압축 형식 전체를 지원하지 않는 것으로 처리하지 않습니다.
 
 ## 시작하기
 
@@ -78,6 +98,10 @@ npm start               # NODE_ENV=production node server/index.js — 단일 �
 ## 지켜야 할 원칙
 
 - **사람 검토 체크포인트 유지**: 가설 선택·심각도 확정 없이는 보고서 생성 버튼이 활성화되지 않습니다.
+- **파생 신호와 한계 명시**: 정적 flag가 없는 데이터도 파생 이상을 계산하되, 파생 관측을 물리적
+  root cause 확정으로 승격하지 않습니다.
+- **프롬프트 예산 동기화**: 프런트 `src/log-engine.js`와 백엔드 `server/lib/validation.js`의
+  `MAX_LOG_TEXT_CHARS=300000`을 함께 유지하며, 생략이 발생하면 프롬프트와 UI에 명시합니다.
 - **실 고객 데이터 커밋 금지**: `.gitignore`가 `*.zip`/`*.csv`/`*.tsv`/`.env`를 제외합니다. 개발·테스트는
   샘플/가상 데이터 또는 공개 데이터만 사용하세요.
 - **localStorage 미사용**: 케이스 히스토리는 세션 메모리에만 유지되며 새로고침 시 초기화됩니다.

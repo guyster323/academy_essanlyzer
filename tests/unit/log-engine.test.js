@@ -3,6 +3,9 @@ import assert from 'node:assert/strict';
 import { makeAccumulator, feedLine } from '../../src/log-engine.js';
 import { detectFormat, GENERIC_FORMAT, AEMO_MMS_FORMAT } from '../../src/formats.js';
 
+const AEMO_HEADER = 'I,FPP,UNIT_MW,1,INTERVAL_DATETIME,MEASUREMENT_DATETIME,FPP_UNITID,VERSIONNO,MEASURED_MW,MW_QUALITY_FLAG,SCHEDULED_MW,DEVIATION_MW,PARTICIPANTID';
+const LFP_HEADER = 'Timestamp,U_Battery,I_Battery,SOC_Battery,U_Cell_1,U_Cell_2,U_Cell_3,U_Cell_4,U_Cell_5,U_Cell_6,U_Cell_7,U_Cell_8';
+
 function accumulate(text, format) {
   const fmt = format || detectFormat(text.split(/\r?\n/).filter(l => l.trim()));
   const acc = makeAccumulator(fmt);
@@ -44,13 +47,43 @@ test('regression: OV001 alarm code sample from the original prototype still trig
 });
 
 test('regression: AEMO MW_QUALITY_FLAG != 1 still triggers an alarm and stats stay bounded to real columns', () => {
-  const header = 'I,FPP,UNIT_MW,1,INTERVAL_DATETIME,MEASUREMENT_DATETIME,FPP_UNITID,VERSIONNO,MEASURED_MW,MW_QUALITY_FLAG,SCHEDULED_MW,DEVIATION_MW,PARTICIPANTID';
   const comment = 'C,SETP.WORLD,NEXT_DAY_FPPMW,AEMO,PUBLIC,2025/08/17,07:00:12,1,NEXT_DAY_FPP_MW,1';
   const row1 = 'D,FPP,UNIT_MW,1,"2025/08/16 04:05:00","2025/08/16 04:00:04",BALB1,1,0.00000000,1,0.00000,0.00000,BALBESS';
   const row2 = 'D,FPP,UNIT_MW,1,"2025/08/16 04:05:00","2025/08/16 04:00:08",BALB1,1,0.00000000,2,0.00000,0.00000,BALBESS';
-  const acc = accumulate([comment, header, row1, row2].join('\n'), AEMO_MMS_FORMAT);
+  const acc = accumulate([comment, AEMO_HEADER, row1, row2].join('\n'), AEMO_MMS_FORMAT);
   assert.equal(acc.alarmCount, 1);
-  assert.ok(!('INTERVAL_DATETIME' in (acc.groups.BALBESS.stats)));
-  assert.ok(!('MEASUREMENT_DATETIME' in (acc.groups.BALBESS.stats)));
-  assert.ok('MEASURED_MW' in acc.groups.BALBESS.stats);
+  assert.ok(acc.groups.BALB1);
+  assert.equal(acc.groups.BALBESS, undefined);
+  assert.ok(!('INTERVAL_DATETIME' in (acc.groups.BALB1.stats)));
+  assert.ok(!('MEASUREMENT_DATETIME' in (acc.groups.BALB1.stats)));
+  assert.ok('MEASURED_MW' in acc.groups.BALB1.stats);
+});
+
+test('AEMO derived detection flags an MEASURED_MW jump even when MW_QUALITY_FLAG is normal', () => {
+  const rows = Array.from({ length: 9 }, (_, i) =>
+    `D,FPP,UNIT_MW,1,"2025/08/16 04:00:${String(i).padStart(2, '0')}","2025/08/16 04:00:${String(i).padStart(2, '0')}",WDBESS1,1,10,1,10,0,WDBESS1`
+  );
+  rows.push('D,FPP,UNIT_MW,1,"2025/08/16 04:01:00","2025/08/16 04:01:00",WDBESS1,1,-60,1,10,-70,WDBESS1');
+  const acc = accumulate([AEMO_HEADER, ...rows].join('\n'), AEMO_MMS_FORMAT);
+  const derived = acc.groups.WDBESS1.derived;
+  assert.ok(derived.alarmCount >= 1);
+  assert.ok(derived.metricStats.mwRobustZ.max >= 3);
+});
+
+test('LFP cell-array detection identifies the largest data-driven Vdev cell', () => {
+  const rows = [
+    '2025-01-01T00:00:00Z,26.4,0,50,3.3,3.3,3.3,3.3,3.3,3.3,3.3,3.3',
+    '2025-01-01T00:00:05Z,26.4,0,50,3.3,3.3,3.3,3.3,3.3,3.3,3.3,3.8'
+  ];
+  const acc = accumulate([LFP_HEADER, ...rows].join('\n'));
+  assert.equal(acc.derived.alarmCount, 1);
+  assert.equal(acc.derived.categoryCounts.outlierCell['Cell 8'], 1);
+  assert.ok(acc.derived.metricStats.maxAbsVdev.max > 0.4);
+});
+
+test('LFP cell-array leaves normal peer-cell rows unalarmed', () => {
+  const row = '2025-01-01T00:00:00Z,26.4,0,50,3.30,3.31,3.30,3.30,3.31,3.30,3.30,3.31';
+  const acc = accumulate([LFP_HEADER, row].join('\n'));
+  assert.equal(acc.alarmCount, 0);
+  assert.equal(acc.derived.alarmCount, 0);
 });

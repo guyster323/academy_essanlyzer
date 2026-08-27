@@ -28,15 +28,69 @@ export function collectActiveLogBlocks() {
     pastedSummary = {
       label: '직접 붙여넣은 텍스트', columns: acc.columns || [], delimiter: acc.delimiter || ',',
       rowCount: acc.rowCount, alarmCount: acc.alarmCount, headSample: acc.headSample,
-      alarmSamples: acc.alarmSamples, stats: acc.stats, groups: null
+      alarmSamples: acc.alarmSamples, alarmAnnotations: acc.alarmAnnotations,
+      stats: acc.stats, groups: null, formatId: GENERIC_FORMAT.id,
+      formatLabel: GENERIC_FORMAT.label, entityColumn: null, derived: acc.derived
     };
   }
 
   return activeSources.map(s => ({
     label: s.path, columns: s.columns, delimiter: s.delimiter,
     rowCount: s.rowCount, alarmCount: s.alarmCount, headSample: s.headSample,
-    alarmSamples: s.alarmSamples, stats: s.stats, groups: s.groups
+    alarmSamples: s.alarmSamples, alarmAnnotations: s.alarmAnnotations,
+    stats: s.stats, groups: s.groups, formatId: s.format?.id || 'generic',
+    formatLabel: s.format?.label || '일반 CSV/TSV', entityColumn: s.entityColumn || null,
+    derived: s.derived
   })).concat(pastedSummary ? [pastedSummary] : []);
+}
+
+function formatDerivedDetails(derived) {
+  if (!derived || !derived.label) return '';
+  const metricText = Object.entries(derived.metricStats || {})
+    .slice(0, 20)
+    .map(([key, value]) => `  - ${key}: min=${value.min}, max=${value.max}, avg=${avgOf(value)}`)
+    .join('\n') || '  (파생 수치 없음)';
+  const reasonEntries = Object.entries(derived.reasonCounts || {}).sort((a, b) => b[1] - a[1]);
+  const reasonText = reasonEntries.slice(0, 8)
+    .map(([reason, count]) => `  - ${reason}: ${count}건`).join('\n') || '  (파생 알람 없음)';
+  const reasonRest = reasonEntries.length > 8
+    ? `\n  - 기타 파생 알람 사유 ${reasonEntries.slice(8).reduce((sum, [, count]) => sum + count, 0)}건`
+    : '';
+  const categoryEntries = Object.entries(derived.categoryCounts || {}).flatMap(([key, values]) =>
+    Object.entries(values).map(([value, count]) => `${key}=${value}: ${count}건`)
+  );
+  const categoryText = categoryEntries.length
+    ? `\n- 파생 범주 집계:\n  - ${categoryEntries.slice(0, 8).join('\n  - ')}`
+    : '';
+  return `- 파생 탐지 방식: ${derived.label}
+- 파생 이상 행 수: ${derived.alarmCount || 0}건
+- 파생 지표 통계 (bounded running summary):
+${metricText}
+- 파생 이상 사유 집계:
+${reasonText}${reasonRest}${categoryText}`;
+}
+
+function formatAlarmAnnotations(annotations) {
+  if (!Array.isArray(annotations) || !annotations.length) return '';
+  return annotations.map(annotation => {
+    if (annotation.kind === 'derived') {
+      const details = Object.entries(annotation.details || {})
+        .filter(([key, value]) => key !== 'evidenceTier' && value !== null && value !== undefined)
+        .map(([key, value]) => `${key}=${typeof value === 'object' ? JSON.stringify(value) : value}`)
+        .join(', ');
+      return `파생(${annotation.reason}${details ? `; ${details}` : ''})`;
+    }
+    return `${annotation.kind || 'signal'}(${annotation.reason || ''})`;
+  }).join(' | ');
+}
+
+function buildTruncationNote(truncation) {
+  const parts = [];
+  if (truncation.excludedSources) parts.push(`출처 파일 ${truncation.excludedSources}개 미포함`);
+  if (truncation.excludedGroups) parts.push(`엔티티 그룹 ${truncation.excludedGroups}개 상세 생략`);
+  if (truncation.excludedAlarmContexts) parts.push(`알람 컨텍스트 ${truncation.excludedAlarmContexts}건 생략`);
+  if (truncation.textTruncatedChars) parts.push(`텍스트 ${truncation.textTruncatedChars.toLocaleString()}자 절단`);
+  return `[참고: 데이터 규모 제한으로 일부가 생략된 상태입니다 — ${parts.join(', ')}. 생략된 부분에 대한 판단은 "추가 확인 필요"로 명시하십시오.]`;
 }
 
 // alarmBudget: how many more alarm-context windows this call is allowed to
@@ -45,22 +99,28 @@ export function collectActiveLogBlocks() {
 // the caller can track the budget and report what got left out.
 function renderFlatBlock(block, alarmBudget) {
   const d = block.delimiter || ',';
-  const statsText = Object.entries(block.stats).map(([k, v]) => `  - ${k}: min=${v.min}, max=${v.max}, avg=${avgOf(v)}`).join('\n') || '  (수치 컬럼 없음)';
+  const statsText = Object.entries(block.stats || {}).map(([k, v]) => `  - ${k}: min=${v.min}, max=${v.max}, avg=${avgOf(v)}`).join('\n') || '  (수치 컬럼 없음)';
   const headText = block.headSample.map(r => block.columns.map(c => r[c]).join(d)).join('\n') || '  (없음)';
-  const available = block.alarmSamples.length;
+  const available = (block.alarmSamples || []).length;
   const used = Math.max(0, Math.min(available, alarmBudget));
-  const shown = block.alarmSamples.slice(0, used);
+  const shown = (block.alarmSamples || []).slice(0, used);
   const alarmCtxText = shown.length
-    ? shown.map((win, i) => `  [알람#${i + 1}]\n` + win.map(r => '   ' + block.columns.map(c => r[c]).join(d)).join('\n')).join('\n')
+    ? shown.map((win, i) => {
+      const annotation = formatAlarmAnnotations((block.alarmAnnotations || [])[i]);
+      return `  [알람#${i + 1}]${annotation ? ` · ${annotation}` : ''}\n` +
+        win.map(r => '   ' + block.columns.map(c => r[c]).join(d)).join('\n');
+    }).join('\n')
     : (available ? '  (요청 전체 알람 컨텍스트 예산 초과로 이 출처 분은 생략됨)' : '  (알람 코드 발생 행 없음)');
+  const derivedText = formatDerivedDetails(block.derived);
   const text = `### 출처 파일: ${block.label}
+- 감지 포맷: ${block.formatLabel || block.formatId || '일반 CSV/TSV'}
 - 총 행 수(스트리밍 집계): ${block.rowCount} / 알람·이상코드 발생 행: ${block.alarmCount}건 / 컬럼: ${block.columns.join(', ')}
 - 수치 컬럼 통계 (전체 행 기준 running min/max/avg):
 ${statsText}
-- 파일 시작부 샘플:
+${derivedText ? derivedText + '\n' : ''}- 파일 시작부 샘플:
 ${d}${block.columns.join(d)}
 ${headText}
-- 알람 발생 전후 컨텍스트 (이번 요청에 포함 ${used}건 / 감지 ${available}건, 각 최대 ${CONTEXT_WINDOW}행):
+- 알람·파생 이상 발생 전후 컨텍스트 (이번 요청에 포함 ${used}건 / 감지 ${available}건, 각 최대 ${CONTEXT_WINDOW}행):
 ${alarmCtxText}`;
   return { text, used, available };
 }
@@ -78,7 +138,14 @@ function renderGroupedBlock(src, alarmBudget) {
   let used = 0;
   let available = 0;
   const groupBlocks = top.map(([entityValue, g]) => {
-    const r = renderFlatBlock({ ...g, label: `${src.label} · 엔티티 ${entityValue}`, delimiter: src.delimiter, columns: src.columns }, remainingBudget);
+    const r = renderFlatBlock({
+      ...g,
+      label: `${src.label} · 엔티티 ${entityValue}`,
+      delimiter: src.delimiter,
+      columns: src.columns,
+      formatId: src.formatId,
+      formatLabel: src.formatLabel
+    }, remainingBudget);
     remainingBudget -= r.used;
     used += r.used;
     available += r.available;
@@ -109,6 +176,19 @@ export function blocksToPromptText(allBlocks) {
   };
 
   const includedBlocks = allBlocks.slice(0, MAX_SELECTED_SOURCES);
+  const sourceProfiles = includedBlocks.map(block => {
+    const derivedAlarmCount = block.groups
+      ? Object.values(block.groups).reduce((sum, group) => sum + (group.derived?.alarmCount || 0), 0)
+      : (block.derived?.alarmCount || 0);
+    return {
+      sourceFile: block.label,
+      formatId: block.formatId || 'generic',
+      formatLabel: block.formatLabel || '일반 CSV/TSV',
+      entityColumn: block.entityColumn || null,
+      rowCount: Number.isInteger(block.rowCount) ? block.rowCount : 0,
+      derivedAlarmCount
+    };
+  });
   let totalRows = 0;
   let alarmBudget = MAX_TOTAL_ALARM_CONTEXTS;
   let alarmAvailableTotal = 0;
@@ -132,23 +212,37 @@ export function blocksToPromptText(allBlocks) {
   });
   truncation.excludedAlarmContexts = Math.max(0, alarmAvailableTotal - alarmUsedTotal);
 
-  let text = blockTexts.length ? blockTexts.join('\n\n') : '(입력된 로그 데이터 없음)';
-  if (text.length > MAX_LOG_TEXT_CHARS) {
-    truncation.textTruncatedChars = text.length - MAX_LOG_TEXT_CHARS;
-    text = text.slice(0, MAX_LOG_TEXT_CHARS) + '\n...(문자 수 제한으로 이하 생략)';
+  const rawText = blockTexts.length ? blockTexts.join('\n\n') : '(입력된 로그 데이터 없음)';
+  const hasStructuralTruncation = Boolean(
+    truncation.excludedSources || truncation.excludedGroups || truncation.excludedAlarmContexts
+  );
+  let text = rawText;
+
+  // Reserve room for the omission notice itself. The client and server share
+  // MAX_LOG_TEXT_CHARS, so the serialized combinedLogText must remain within
+  // that exact limit even when a truncation note is required.
+  if (hasStructuralTruncation || rawText.length > MAX_LOG_TEXT_CHARS) {
+    let contentLimit = Math.min(rawText.length, MAX_LOG_TEXT_CHARS);
+    let note = '';
+    for (let i = 0; i < 20; i++) {
+      truncation.textTruncatedChars = Math.max(0, rawText.length - contentLimit);
+      note = buildTruncationNote(truncation);
+      const nextLimit = Math.min(rawText.length, Math.max(0, MAX_LOG_TEXT_CHARS - note.length - 2));
+      if (nextLimit === contentLimit) break;
+      contentLimit = nextLimit;
+    }
+    truncation.textTruncatedChars = Math.max(0, rawText.length - contentLimit);
+    note = buildTruncationNote(truncation);
+    const finalLimit = Math.min(contentLimit, Math.max(0, MAX_LOG_TEXT_CHARS - note.length - 2));
+    if (finalLimit !== contentLimit) {
+      contentLimit = finalLimit;
+      truncation.textTruncatedChars = Math.max(0, rawText.length - contentLimit);
+      note = buildTruncationNote(truncation);
+    }
+    text = note + '\n\n' + rawText.slice(0, contentLimit);
   }
 
-  const anyTruncation = truncation.excludedSources || truncation.excludedGroups || truncation.excludedAlarmContexts || truncation.textTruncatedChars;
-  if (anyTruncation) {
-    const parts = [];
-    if (truncation.excludedSources) parts.push(`출처 파일 ${truncation.excludedSources}개 미포함`);
-    if (truncation.excludedGroups) parts.push(`엔티티 그룹 ${truncation.excludedGroups}개 상세 생략`);
-    if (truncation.excludedAlarmContexts) parts.push(`알람 컨텍스트 ${truncation.excludedAlarmContexts}건 생략`);
-    if (truncation.textTruncatedChars) parts.push(`텍스트 ${truncation.textTruncatedChars.toLocaleString()}자 절단`);
-    text = `[참고: 데이터 규모 제한으로 일부가 생략된 상태입니다 — ${parts.join(', ')}. 생략된 부분에 대한 판단은 "추가 확인 필요"로 명시하십시오.]\n\n${text}`;
-  }
-
-  return { text, totalRows, count: includedBlocks.length, truncation };
+  return { text, totalRows, count: includedBlocks.length, truncation, sourceProfiles };
 }
 
 /* =========================================================
@@ -179,11 +273,12 @@ export async function detectIssuesFromLogs() {
   state.issueDetectionStatus = 'loading';
   render();
 
-  const { text: combinedLogText, totalRows, count, truncation } = blocksToPromptText(allBlocks);
+  const { text: combinedLogText, totalRows, count, truncation, sourceProfiles } = blocksToPromptText(allBlocks);
   state.lastTruncation = truncation;
+  state.sourceProfiles = sourceProfiles;
 
   try {
-    const json = await detectIssuesApi({ combinedLogText, totalRows, sourceCount: count });
+    const json = await detectIssuesApi({ combinedLogText, totalRows, sourceCount: count, sourceProfiles });
     state.detectedIssues = json.issues || [];
     state.issueDetectionStatus = 'done';
     if (state.detectedIssues.length === 1) {
@@ -217,13 +312,14 @@ export async function runAnomalyDetection() {
   render();
 
   const allBlocks = collectActiveLogBlocks();
-  const { text: combinedLogText, totalRows, count, truncation } = blocksToPromptText(allBlocks);
+  const { text: combinedLogText, totalRows, count, truncation, sourceProfiles } = blocksToPromptText(allBlocks);
   state.lastTruncation = truncation;
+  state.sourceProfiles = sourceProfiles;
 
   try {
     const json = await detectAnomalyApi({
       csText: state.csText, priorCase: state.priorCase,
-      combinedLogText, totalRows, sourceCount: count
+      combinedLogText, totalRows, sourceCount: count, sourceProfiles
     });
     state.issueStructured = json.issueStructured || {};
     state.anomalyWindows = json.anomalyWindows || [];
@@ -251,7 +347,8 @@ export async function runHypothesisGeneration() {
       issueStructured: state.issueStructured,
       anomalyWindows: state.anomalyWindows,
       priorCase: state.priorCase,
-      referenceDocsText
+      referenceDocsText,
+      sourceProfiles: state.sourceProfiles || []
     });
     state.hypotheses = json.hypotheses || [];
     // Human review checkpoint: nothing is pre-selected. The engineer must
@@ -301,7 +398,8 @@ export async function runReportGeneration() {
       anomalyWindows: state.anomalyWindows,
       confirmedHyp: state.confirmedHypothesis,
       finalSeverity: state.finalSeverity,
-      finalSeverityReason: state.finalSeverityReason
+      finalSeverityReason: state.finalSeverityReason,
+      sourceProfiles: state.sourceProfiles || []
     });
     state.report = json.report || {};
     state.email = json.email || {};
@@ -529,7 +627,31 @@ export function submitIntake() {
 
 // Fields the engineer can edit once a hypothesis is chosen as the basis for
 // the confirmed one. severity/severityReason stay separate (own UI section).
-const EDITABLE_HYP_FIELDS = ['name', 'domain', 'expectedSignature', 'actualObservation', 'evidence'];
+const EDITABLE_HYP_FIELDS = [
+  'name', 'domain', 'expectedSignature', 'actualObservation', 'evidence',
+  'evidenceTier', 'disconfirmingEvidence', 'missingSignals', 'claimLimit'
+];
+
+function isCellArrayCase() {
+  return (state.sourceProfiles || []).some(profile => profile.formatId === 'lfp-cell-array');
+}
+
+function defaultHypothesisFields() {
+  const cellArray = isCellArrayCase();
+  return {
+    name: '',
+    domain: cellArray ? 'Cell/Pack' : 'Battery/BMS',
+    expectedSignature: '',
+    actualObservation: '',
+    evidence: '',
+    evidenceTier: 'Inferred',
+    disconfirmingEvidence: '추가 확인 필요: 이 가설을 반증할 신호를 확인하십시오.',
+    missingSignals: '추가 확인 필요: 현재 공개 로그에 없는 검증 신호입니다.',
+    claimLimit: cellArray
+      ? '현재 데이터로는 Cell N 경로의 유효 직렬저항 증가 수준까지만 입증 가능하며 물리적 원인은 확정할 수 없다.'
+      : '현재 로그가 직접 입증하는 범위와 추가 확인이 필요한 인과 해석을 구분한다.'
+  };
+}
 
 export function selectHypothesis(id) {
   state.selectedHypId = id;
@@ -540,7 +662,8 @@ export function selectHypothesis(id) {
     // is intentionally NOT copied from severityDraft here — the human must
     // set it themselves (the AI draft is still visible as a read-only hint
     // on the card) so the confirm button stays gated on a real action.
-    state.confirmedHypothesis = Object.fromEntries(EDITABLE_HYP_FIELDS.map(f => [f, h[f] || '']));
+    const defaults = defaultHypothesisFields();
+    state.confirmedHypothesis = Object.fromEntries(EDITABLE_HYP_FIELDS.map(f => [f, h[f] || defaults[f] || '']));
     state.finalSeverity = null;
     state.finalSeverityReason = '';
   }
@@ -549,7 +672,8 @@ export function selectHypothesis(id) {
 
 export function startCustomHypothesis() {
   state.selectedHypId = 'CUSTOM';
-  state.confirmedHypothesis = Object.fromEntries(EDITABLE_HYP_FIELDS.map(f => [f, f === 'domain' ? 'Battery/BMS' : '']));
+  const defaults = defaultHypothesisFields();
+  state.confirmedHypothesis = Object.fromEntries(EDITABLE_HYP_FIELDS.map(f => [f, defaults[f] || '']));
   state.finalSeverity = null;
   state.finalSeverityReason = '';
   render();
