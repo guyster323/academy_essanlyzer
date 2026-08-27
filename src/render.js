@@ -129,7 +129,7 @@ function renderIntake() {
 
     <div class="field-group">
       <label style="display:flex;align-items:flex-start;gap:8px;font-size:11.5px;color:var(--text-secondary);cursor:pointer;">
-        <input type="checkbox" id="sensitiveConfirm" style="margin-top:2px;accent-color:var(--amber);width:14px;height:14px;flex-shrink:0;">
+        <input type="checkbox" id="sensitiveConfirm" ${state.sensitiveDataConfirmed ? 'checked' : ''} style="margin-top:2px;accent-color:var(--amber);width:14px;height:14px;flex-shrink:0;" onchange="state.sensitiveDataConfirmed=this.checked">
         <span>고객명·사이트 위치·실 설비 식별자·개인정보를 제거했음을 확인합니다. <span class="req">*</span></span>
       </label>
       <div class="field-warn" id="warnSensitiveConfirm">위 확인란에 체크해야 분석을 시작할 수 있습니다.</div>

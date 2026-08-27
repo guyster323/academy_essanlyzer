@@ -1,0 +1,46 @@
+<!DOCTYPE html>
+<html lang="ko"><head><meta charset="utf-8"/>
+<title>Case B System 6 — independent evidence (stride-80)</title>
+<style>
+  body{font-family:'Malgun Gothic',sans-serif;color:#1a1a1a;max-width:900px;margin:24px auto;padding:0 16px;line-height:1.6;}
+  h1{font-size:20px;} h2{font-size:15px;border-bottom:1px solid #ddd;padding-bottom:4px;}
+  .box{border:1px solid #ccc;padding:10px 12px;margin:8px 0;}
+  table{border-collapse:collapse;width:100%;font-size:13px;}
+  td,th{border:1px solid #ddd;padding:6px 8px;vertical-align:top;}
+  .warn{background:#fff8e1;}
+</style></head><body>
+<h1>Case B — System 6 independent evidence pack</h1>
+<p>생성: 2026-08-27 · Orca live · 입력 <code>data_sys_6_stride80.csv</code> (원본 19,248,213행 중 1/80, 240,603행, 전체 일자 span 유지)</p>
+<div class="box warn"><strong>범위.</strong> 이상구간 탐지·B-F1–F6 레지스트리까지는 완료. 가설/임원 보고서는 Claude CLI 세션 한도(<code>resets 3:30am Asia/Seoul</code>)로 이 세션에서 생성하지 못했다. 아래는 LLM 초안이 아니라 로그에서 계산된 관측이다.</div>
+<h2>What happened (from detect)</h2>
+<p>TU Darmstadt/MIT LFP System 6, 8s cell-array. OEM 알람 컬럼 없음. 파생 cross-cell Vdev 9,366건. 사전 Cell 라벨 없음.</p>
+<h2>Figures</h2>
+<table>
+<tr><th>ID</th><th>Available</th><th>Claim</th></tr>
+<tr><td>B-F1</td><td>yes</td><td>Cell 8 경로 유효 직렬저항이 동료와 분리 (전기화학/커넥터/부식 미확정). eventCount 4000, SOC/T/I match 1285, ΔR≈1.52e-4</td></tr>
+<tr><td>B-F2</td><td>yes</td><td>매칭 후에도 분리 잔존 (1285/4000)</td></tr>
+<tr><td>B-F3</td><td>yes</td><td>전압 잔차(vRange) — 저항이 아님</td></tr>
+<tr><td>B-F4</td><td>yes</td><td>Resistance knee ≈ 2018-11-27 (piecewise+kneedle)</td></tr>
+<tr><td>B-F5</td><td>no</td><td>GP/BattGP 미구현 — Unknown</td></tr>
+<tr><td>B-F6</td><td>no</td><td>레지스트리가 balancing current 컬럼 없음으로 표시. 로그에는 I_CNV_Cell_n이 있음 — 후속 수정 대상</td></tr>
+</table>
+<div class="box"><strong>데이터가 입증하는 것</strong>
+<p>파생 이상 9,366건 중 outlierCell=Cell 8이 9,271건(99.0%). 충전 시 Cell 8 +Vdev, 방전 시 −Vdev(극성 대칭). voltage closure |error|≤0.014 V. 최초 Vdev 플래그 2018-10-10. 정지 시 편차는 ~3 mV로 작다.</p></div>
+<div class="box"><strong>데이터가 강하게 시사하는 것</strong>
+<p>부하 의존 + 극성 대칭 Vdev와 B-F1/B-F2 저항 분리는 용량 불균형만으로는 설명하기 어렵고 경로 저항(셀/커넥터) 후보를 올린다. Knee는 2018-11-27 부근.</p></div>
+<div class="box"><strong>데이터가 판단할 수 없는 것</strong>
+<p>전기화학 열화 vs 커넥터/부식. GP fault probability (B-F5). 반품 사유/fault type. Stride-80이 이벤트 저항 샘플을 얼마나 희석했는지.</p></div>
+<h2>Windows (9)</h2>
+<ol>
+<li>2018-10-10 충전 개시 — 최초 z=3.02, Cell 8 +38 mV (Observed)</li>
+<li>2018-10-24 방전 −156 A — Cell 8 −40~−58 mV (Observed)</li>
+<li>2018-11-14 고율 방전 반복 (고)</li>
+<li>2018-11-15 충전 + I_CNV_Cell_8 밸런싱 배출</li>
+<li>2018-11-28 충/방전 인접 극성 대칭</li>
+<li>2018-11-16~30 작은 절대 Vdev, 큰 robust z</li>
+<li>전 기간 집계 Cell 8 99.0% (Derived, 고)</li>
+<li>U_Cell_8 / I_CNV_Cell_8 포락선 (Derived)</li>
+<li>2018-05-03 베이스라인 → 2018-10-10 최초 플래그 (Inferred, 저)</li>
+</ol>
+<p>논문 Schaeffer et al. 대조는 독립 탐지 이후에만 수행한다. Cell 8 일치는 교차검증이지 입력 가정이 아니다. Vdev ≠ R.</p>
+</body></html>

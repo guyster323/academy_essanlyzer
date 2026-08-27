@@ -1,0 +1,18 @@
+{
+  "status": "detect-complete, hypothesis blocked by Claude CLI session limit (resets 3:30am Asia/Seoul)",
+  "source": "Orca live 2026-08-27, data_sys_6_stride80.csv, 240603 rows, 9366 derived Vdev alarms",
+  "issue": {
+    "issueType": "특정 Cell 전류 경로의 장기 유효 직렬저항 발산(증가) 여부 독립 검증. 반품 사유 및 정확한 fault type 미공개.",
+    "facility": "TU Darmstadt/MIT LFP 필드 데이터 System 6 — 8직렬 LFP cell-array (stride-80 of original 19,248,213 rows)",
+    "occurredAt": "로그 발췌 기준 최초 파생 이상 2018-10-10 08:26–08:31, 정상 베이스라인 2018-05-03."
+  },
+  "figures": [
+    {"id": "B-F1", "available": true, "claim": "Cell 8 경로의 유효 직렬저항이 동료 셀과 분리된다 (전기화학/커넥터/부식은 미확정)", "summary": {"outlierCell": 8, "deltaR": 0.00015226688316455892, "eventCount": 4000, "matchedCount": 1285}},
+    {"id": "B-F2", "available": true, "claim": "저항 분리가 SOC/T/I 매칭 후에도 남는가", "summary": {"matchedCount": 1285, "rawCount": 4000}},
+    {"id": "B-F3", "available": true, "claim": "Cell 전압 분산이 장기적으로 확대되는가 (전압 잔차 — 저항이 아님)"},
+    {"id": "B-F4", "available": true, "claim": "Resistance knee가 2018-11-27 부근에서 독립 탐지됨", "summary": {"cell": 8, "kneeT": 1543287600000}},
+    {"id": "B-F5", "available": false, "unavailableReason": "GP/BattGP는 이번 범위에서 미구현 — Unknown으로 남깁니다"},
+    {"id": "B-F6", "available": false, "unavailableReason": "balancing current 컬럼이 없어 B-F6를 그릴 수 없습니다"}
+  ],
+  "independentNote": "outlierCell is data-driven: 9271/9366 (99.0%) Cell 8. Not a hardcoded label. Vdev is not resistance. Physical RC (electrochem vs connector/corrosion) remains unknown."
+}

@@ -14,7 +14,8 @@ import {
 
 export const LOG_EXT_ALLOW = ['csv', 'txt', 'log', 'tsv', 'dat'];
 export const LOG_EXT_SKIP_NOTE = ['png', 'jpg', 'jpeg', 'gif', 'pdf', 'xlsx', 'xls', 'docx', 'pptx', 'exe', 'dll', 'bin', 'db'];
-export const CHUNK_BYTES = 4 * 1024 * 1024;      // 4MB read chunks
+export const CHUNK_BYTES = 256 * 1024;           // small enough that a 3MB CSV paints progress
+const LINES_PER_YIELD = 2000;                     // keep the UI thread responsive while feeding
 export const HEAD_SAMPLE_CAP = 15;                // rows kept from file/group start
 export const ALARM_SAMPLE_CAP = 40;               // alarm/anomaly context windows kept per file/group
 export const CONTEXT_WINDOW = 5;                  // rows of lookback kept per alarm window
@@ -55,8 +56,25 @@ export function scoreSource(name, headerLine) {
   return score;
 }
 
+const persistedFileBytes = new WeakMap();
+
+export function attachPersistedFileBytes(file, bytes) {
+  if (file && bytes) persistedFileBytes.set(file, bytes);
+}
+
+export function getPersistedFileBytes(file) {
+  return file ? persistedFileBytes.get(file) : undefined;
+}
+
 /* ---- Byte-chunk sources: plain File/Blob and JSZip entries ---- */
 export async function* fileByteChunks(file) {
+  const persisted = persistedFileBytes.get(file);
+  if (persisted) {
+    for (let offset = 0; offset < persisted.byteLength; offset += CHUNK_BYTES) {
+      yield persisted.subarray(offset, Math.min(persisted.byteLength, offset + CHUNK_BYTES));
+    }
+    return;
+  }
   let offset = 0;
   while (offset < file.size) {
     const slice = file.slice(offset, offset + CHUNK_BYTES);
@@ -306,6 +324,13 @@ export async function streamIntoSource(src, byteChunkIterable, onProgress) {
   const acc = makeAccumulator(src.format, src.entityFilter);
   let leftover = '';
   let processed = 0;
+  let sinceYield = 0;
+  const yieldToUi = async () => {
+    src.processedBytes = processed;
+    onProgress && onProgress();
+    await new Promise(resolve => setTimeout(resolve, 0));
+    sinceYield = 0;
+  };
 
   for await (const chunk of byteChunkIterable) {
     processed += chunk.byteLength || chunk.length || 0;
@@ -313,9 +338,11 @@ export async function streamIntoSource(src, byteChunkIterable, onProgress) {
     const combined = leftover + text;
     const lines = combined.split(/\r?\n/);
     leftover = lines.pop();
-    for (const line of lines) { if (line.trim()) feedLine(acc, line); }
-    src.processedBytes = processed;
-    onProgress && onProgress();
+    for (const line of lines) {
+      if (line.trim()) feedLine(acc, line);
+      if (++sinceYield >= LINES_PER_YIELD) await yieldToUi();
+    }
+    await yieldToUi();
   }
   const tail = decoder.decode();
   const finalCombined = leftover + tail;

@@ -1,9 +1,9 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
 import JSZip from 'jszip';
-import { formatZipEntryError, markSourceError, normalizeZipSize, isMacosArtifactPath } from '../../src/zip.js';
+import { formatZipEntryError, markSourceError, normalizeZipSize, isMacosArtifactPath, persistBrowserFile } from '../../src/zip.js';
 import * as zipModule from '../../src/zip.js';
-import { zipEntryByteChunks } from '../../src/log-engine.js';
+import { zipEntryByteChunks, getPersistedFileBytes } from '../../src/log-engine.js';
 import { GENERIC_FORMAT } from '../../src/formats.js';
 
 const TEST_ENTRY_NAME = 'field_data/data_sys_6.csv';
@@ -399,4 +399,13 @@ test('isMacosArtifactPath flags an inline AppleDouble file outside a __MACOSX tr
 test('isMacosArtifactPath flags entries under a __MACOSX folder reached via a nested-zip path', () => {
   assert.equal(isMacosArtifactPath('outer.zip/__MACOSX/data.csv'), true);
   assert.equal(isMacosArtifactPath('outer.zip/field_data/data.csv'), false);
+});
+
+test('persistBrowserFile copies bytes so later reads do not depend on the original File handle', async () => {
+  const original = new File(['hello,world\n'], 'x.csv', { type: 'text/csv' });
+  const owned = await persistBrowserFile(original);
+  assert.equal(owned.name, 'x.csv');
+  const persisted = getPersistedFileBytes(owned);
+  assert.ok(persisted);
+  assert.equal(new TextDecoder().decode(persisted), 'hello,world\n');
 });
