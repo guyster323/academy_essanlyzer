@@ -31,6 +31,17 @@ function makeGroupedBlock(label, groupCount, alarmsPerGroup) {
   return { label, columns: ['timestamp', 'value'], delimiter: ',', rowCount: groupCount * 100, alarmCount: groupCount * alarmsPerGroup, groups };
 }
 
+test('series bins are not copied into the prompt text', () => {
+  const huge = { t: 1, count: 1, min: { value: 0 }, max: { value: 9 }, mean: { value: 1 } };
+  const block = makeFlatBlock('with-series', 0);
+  block.seriesByEntity = {
+    u1: { entityId: 'u1', signals: ['value'], bins: Array.from({ length: 2000 }, () => huge) }
+  };
+  const { text } = blocksToPromptText([block]);
+  assert.equal(text.includes('"bins"'), false);
+  assert.ok(text.length < 50_000);
+});
+
 test('more than MAX_SELECTED_SOURCES sources are capped and reported', () => {
   const blocks = Array.from({ length: 17 }, (_, i) => makeFlatBlock(`source-${i}`, 0));
   const { count, truncation } = blocksToPromptText(blocks);

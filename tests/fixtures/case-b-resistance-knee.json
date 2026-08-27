@@ -1,0 +1,12 @@
+{
+  "description": "Synthetic 8-cell LFP. Cell 8 event-resistance rises and knees after day ~1100. Cell 5 has a late voltage-residual spike that must NOT be treated as the resistance-divergence cell. Physical root cause stays unresolved.",
+  "days": 1400,
+  "kneeDay": 1100,
+  "resistanceCell": 8,
+  "vdevSpikeCell": 5,
+  "vdevSpikeDay": 200,
+  "nominalR": 0.8,
+  "postKneeSlope": 0.004,
+  "preKneeSlope": 0.0002,
+  "currentA": -20
+}

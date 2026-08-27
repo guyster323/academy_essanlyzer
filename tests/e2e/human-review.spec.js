@@ -25,7 +25,14 @@ const MOCK_HYPOTHESES = {
 };
 
 const MOCK_REPORT = {
-  report: { headline: 'h', occurrence: 'o', anomalySummary: 'a', rootCause: 'r', actionRecommendation: 'ar' },
+  report: {
+    headline: 'h', occurrence: 'o', anomalySummary: 'a', rootCause: 'r', actionRecommendation: 'ar',
+    provenBox: '입증', suggestedBox: '시사', unknownBox: '불가',
+    independentFindings: ['finding'],
+    ftaLeaves: [{ branch: 'Battery/BMS', disposition: 'Possible', evidenceIds: ['E001'] }],
+    evidenceCitations: [{ field: 'headline', evidenceIds: ['E001'], figureIds: [] }],
+    managementImplications: ['조치']
+  },
   email: { to: 'CS', subject: 's', body: 'b' }
 };
 

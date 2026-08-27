@@ -102,6 +102,10 @@ JSZip 압축 해제 중 `uncompressed data size mismatch`가 발생하면 entry 
 Grid·Normal Response domain을 사용하고, LFP cell-array에서는 Cell/Pack·Electrical Path·운영조건·
 balancing·thermal domain을 사용합니다.
 
+이상구간·보고서는 클라이언트 캔버스 Figure(A-F1~F5, B-F1~F4·F6)와 Evidence ledger를 포함합니다.
+시계열은 브라우저에만 남고 프롬프트에는 Figure 카탈로그(ID·claim·요약 통계)만 전달합니다.
+공개 결과 대조(`/api/compare-published`)는 독립 findings를 동결한 뒤 마지막에만 실행합니다.
+
 LFP 로그의 resistance/voltage pattern만으로 전기화학적 열화, 커넥터 저항, 부식, 실제 반품 사유를
 확정할 수 없습니다. 서버 검증은 cell-array 응답이 `Cell N 경로의 유효 직렬저항 증가` 수준의
 주장 한계와 물리 원인 미확정을 명시하도록 요구합니다. 이 제한은 `selectedHypId`와

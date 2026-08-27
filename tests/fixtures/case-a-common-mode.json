@@ -1,0 +1,15 @@
+{
+  "description": "Synthetic AEMO-like MW series. commonMode: three DUIDs drop together. localOnly: only WDBESS1 drops. A-F4 must classify these oppositely. Times are milliseconds from an arbitrary epoch; dtMs is the sample interval.",
+  "dtMs": 4000,
+  "baseline": 50,
+  "length": 40,
+  "dropAtIndex": 22,
+  "drop": 45,
+  "commonMode": {
+    "entities": ["WDBESS1", "SOLAR1", "SOLAR2"]
+  },
+  "localOnly": {
+    "focus": "WDBESS1",
+    "peers": ["SOLAR1", "SOLAR2"]
+  }
+}

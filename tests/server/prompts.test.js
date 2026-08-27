@@ -24,6 +24,7 @@ test('AEMO prompts require independent MEASURED_MW evidence and grid-domain hypo
   assert.match(hypotheses, /Telemetry\/SCADA/);
   assert.match(hypotheses, /disconfirmingEvidence/);
   assert.match(hypotheses, /missingSignals/);
+  assert.match(hypotheses, /A-F4/);
 });
 
 test('cell-array prompts force data-driven peer-cell analysis and root-cause limits', () => {
@@ -43,5 +44,7 @@ test('cell-array prompts force data-driven peer-cell analysis and root-cause lim
   assert.match(prompt, /robust_center\(다른 7개 Cell\)/);
   assert.match(prompt, /Cell N 경로의 유효 직렬저항 증가/);
   assert.match(prompt, /Cell 8을 사전 가정하거나 하드코딩하지 마라/);
+  assert.match(prompt, /B-F1/);
   assert.match(report, /확정 원인이 아닌 미확인 대안/);
+  assert.match(report, /Vdev/);
 });

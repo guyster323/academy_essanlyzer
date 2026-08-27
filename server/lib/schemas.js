@@ -14,6 +14,8 @@
  */
 
 export const EVIDENCE_TIERS = ['Observed', 'Derived', 'Inferred'];
+export const FTA_DISPOSITIONS = ['Confirmed', 'Probable', 'Possible', 'Unlikely', 'Rejected', 'Unobservable'];
+export const AGREE_ENUM = ['yes', 'no', 'partial', 'unknown'];
 export const HYPOTHESIS_DOMAINS = [
   'Battery/BMS', 'PCS', 'PPC', 'EMS', 'Telemetry/SCADA', 'Dispatch', 'Forecast', 'Grid',
   'Normal Response', 'Contactor/CB', 'Cooling/HVAC', 'Communication/Sensor',
@@ -136,6 +138,28 @@ export const hypothesesTool = {
   }
 };
 
+const ftaLeafSchema = {
+  type: 'object',
+  additionalProperties: false,
+  properties: {
+    branch: { type: 'string' },
+    disposition: { type: 'string', enum: FTA_DISPOSITIONS },
+    evidenceIds: { type: 'array', items: { type: 'string' } }
+  },
+  required: ['branch', 'disposition', 'evidenceIds']
+};
+
+const citationSchema = {
+  type: 'object',
+  additionalProperties: false,
+  properties: {
+    field: { type: 'string' },
+    evidenceIds: { type: 'array', items: { type: 'string' } },
+    figureIds: { type: 'array', items: { type: 'string' } }
+  },
+  required: ['field', 'evidenceIds', 'figureIds']
+};
+
 export const draftReportTool = {
   name: 'report_draft',
   description: '분석 보고서 초안과 CS 회신 메일 초안을 보고한다.',
@@ -152,9 +176,20 @@ export const draftReportTool = {
           occurrence: { type: 'string' },
           anomalySummary: { type: 'string' },
           rootCause: { type: 'string' },
-          actionRecommendation: { type: 'string' }
+          actionRecommendation: { type: 'string' },
+          provenBox: { type: 'string' },
+          suggestedBox: { type: 'string' },
+          unknownBox: { type: 'string' },
+          independentFindings: { type: 'array', items: { type: 'string' }, minItems: 1, maxItems: 3 },
+          ftaLeaves: { type: 'array', items: ftaLeafSchema, maxItems: 12 },
+          evidenceCitations: { type: 'array', items: citationSchema, maxItems: 20 },
+          managementImplications: { type: 'array', items: { type: 'string' }, minItems: 1, maxItems: 5 }
         },
-        required: ['headline', 'occurrence', 'anomalySummary', 'rootCause', 'actionRecommendation']
+        required: [
+          'headline', 'occurrence', 'anomalySummary', 'rootCause', 'actionRecommendation',
+          'provenBox', 'suggestedBox', 'unknownBox', 'independentFindings', 'ftaLeaves',
+          'evidenceCitations', 'managementImplications'
+        ]
       },
       email: {
         type: 'object',
@@ -168,5 +203,36 @@ export const draftReportTool = {
       }
     },
     required: ['report', 'email']
+  }
+};
+
+export const publishedComparisonTool = {
+  name: 'report_published_comparison',
+  description: '독립 분석 findings를 동결한 채 공개 보고서/논문과 대조한 표만 보고한다. findings를 수정하지 않는다.',
+  strict: true,
+  input_schema: {
+    type: 'object',
+    additionalProperties: false,
+    properties: {
+      rows: {
+        type: 'array',
+        minItems: 1,
+        maxItems: 16,
+        items: {
+          type: 'object',
+          additionalProperties: false,
+          properties: {
+            item: { type: 'string' },
+            independentFinding: { type: 'string' },
+            publishedFinding: { type: 'string' },
+            agree: { type: 'string', enum: AGREE_ENUM },
+            rawSufficient: { type: 'boolean' },
+            notes: { type: 'string' }
+          },
+          required: ['item', 'independentFinding', 'publishedFinding', 'agree', 'rawSufficient', 'notes']
+        }
+      }
+    },
+    required: ['rows']
   }
 };

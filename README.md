@@ -77,7 +77,12 @@ LG에너지솔루션 ESS 분석파트의 CS 의뢰 기반 BMS/EMS 이슈 분석 
 |---|---|---|
 | 일반 CSV/TSV | 첫 줄이 헤더, 이후 데이터 행 | 전형적인 BMS/EMS export |
 | AEMO MMS 리포트 | `C,`(주석)/`I,`(헤더)/`D,`(데이터) 레코드 타입 | 실제 컬럼은 4번째 필드부터 시작 |
-| LFP cell-array 필드 CSV | `Timestamp` + `U_Battery` + `U_Cell_1..8` 헤더 | 파일 1개를 system 1개로 보고 cross-cell 파생지표 계산 |
+| LFP cell-array 필드 CSV | `Timestamp` + `U_Battery` + `U_Cell_1..8` 헤더 | 파일 1개를 system 1개로 보고 cross-cell 파생지표 + 이벤트 저항 계산 |
+
+스트리밍 중 고정 크기 다운샘플 시계열을 브라우저에만 남기고, 이상구간·보고서 화면에 Figure를 그립니다
+(A-F1~F5, B-F1~F4·F6). 포인트 배열은 Claude로 보내지 않습니다. GP/BattGP(B-F5)와 Dispatch Target(A-F6)은
+데이터가 없으면 unavailable로 명시합니다. 공개 AEMO/논문 대조는 보고서 생성 이후 선택 단계입니다.
+골든 케이스 체크리스트: `docs/verification/gold-case-acceptance.md`.
 
 AEMO 포맷은 물리 설비 식별자인 `FPP_UNITID`를 시장 참여자 회사 코드인 `PARTICIPANTID`보다
 우선하여 엔티티별로 그룹 집계합니다. `MW_QUALITY_FLAG != 1`은 품질 보조 신호로 남기되,

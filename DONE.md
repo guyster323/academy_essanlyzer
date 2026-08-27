@@ -128,3 +128,14 @@ alarm 89건, cross-cell Vdev로 Cell 5/Cell 7을 데이터 기반으로 정확�
 - fallback은 저장/deflate 엔트리만 지원하며 암호화·multi-disk·지원하지 않는 압축 방식·실제 손상은 해당 source
   오류로 격리한다. 중앙 디렉터리와 ZIP64 record에는 각각 64MiB 상한이 있고, CRC를 별도로 검증하지 않는다.
 - 실제 ZIP과 원시 로그는 커밋하지 않았으며, 대용량 ZIP은 로컬 작업트리에서만 사용했다.
+
+## 2026-08-27 근거 그래프 · 임원 보고서 · 공개결과 대조
+
+청사진 5단계 워크플로우는 유지한 채, 스트리밍 중 고정 크기 시계열을 브라우저에만 남기고 Figure를 그린다.
+
+- `src/series-engine.js`, `src/charts.js`, `src/figures.js`, `src/forensics/aemo.js`, `src/forensics/lfp.js`
+- A-F1~F5, B-F1~F4·F6. B-F5(GP)와 A-F6(Dispatch Target)는 데이터/범위 없으면 unavailable.
+- 보고서 스키마에 3-box, FTA, independent findings, figure citation. `/api/compare-published`는 findings를 덮어쓰지 않음.
+- HTML 내보내기(`src/report-export.js`). 히스토리 스냅샷에서 series/Figure는 제외.
+- 골든 케이스 수용 기준: `docs/verification/gold-case-acceptance.md`
+- 의도적 한계: GP/BattGP 미구현, A-F6는 Target 컬럼이 있을 때만, 원본 ZIP은 커밋하지 않음.

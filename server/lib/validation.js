@@ -1,5 +1,5 @@
 import { z } from 'zod';
-import { EVIDENCE_TIERS, HYPOTHESIS_DOMAINS } from './schemas.js';
+import { EVIDENCE_TIERS, HYPOTHESIS_DOMAINS, FTA_DISPOSITIONS, AGREE_ENUM } from './schemas.js';
 
 // Shared with the frontend's prompt-budget constants (src/pipeline.js) —
 // keep these two in sync when either changes.
@@ -108,6 +108,33 @@ const REQUEST_SCHEMAS = {
     confirmedHyp: confirmedHypRequestSchema,
     finalSeverity: SEVERITY_ENUM,
     finalSeverityReason: z.string().min(1).max(2000),
+    sourceProfiles: sourceProfilesSchema.optional(),
+    figureCatalog: z.array(z.object({
+      id: z.string().max(40),
+      claim: z.string().max(800),
+      available: z.boolean(),
+      unavailableReason: z.string().max(500).optional(),
+      evidenceTier: EVIDENCE_TIER_ENUM.optional(),
+      summaryStats: z.any().optional()
+    })).max(16).optional(),
+    evidenceLedger: z.array(z.object({
+      id: z.string().max(20),
+      figureId: z.string().max(40).optional(),
+      observation: z.string().max(800),
+      supports: z.string().max(400).optional(),
+      contradicts: z.string().max(400).optional(),
+      confidence: z.string().max(40).optional()
+    })).max(80).optional()
+  }).strict(),
+
+  'compare-published': z.object({
+    independentFindings: z.array(z.string().max(2000)).min(1).max(3),
+    figureCatalog: z.array(z.object({
+      id: z.string().max(40),
+      claim: z.string().max(800),
+      available: z.boolean()
+    })).max(16).optional(),
+    publishedExcerpt: z.string().min(1).max(MAX_REFERENCE_DOCS_CHARS),
     sourceProfiles: sourceProfilesSchema.optional()
   }).strict()
 };
@@ -150,9 +177,35 @@ const RESPONSE_SCHEMAS = {
   'draft-report': z.object({
     report: z.object({
       headline: substantiveText(1000), occurrence: substantiveText(3000), anomalySummary: substantiveText(3000),
-      rootCause: substantiveText(3000), actionRecommendation: substantiveText(3000)
+      rootCause: substantiveText(3000), actionRecommendation: substantiveText(3000),
+      provenBox: substantiveText(3000),
+      suggestedBox: substantiveText(3000),
+      unknownBox: substantiveText(3000),
+      independentFindings: z.array(substantiveText(2000)).min(1).max(3),
+      ftaLeaves: z.array(z.object({
+        branch: substantiveText(300),
+        disposition: z.enum(FTA_DISPOSITIONS),
+        evidenceIds: z.array(z.string().max(20)).max(10)
+      }).strict()).max(12),
+      evidenceCitations: z.array(z.object({
+        field: z.string().max(80),
+        evidenceIds: z.array(z.string().max(20)).max(10),
+        figureIds: z.array(z.string().max(40)).max(8)
+      }).strict()).max(20),
+      managementImplications: z.array(substantiveText(1000)).min(1).max(5)
     }).strict(),
     email: z.object({ to: z.string().min(1), subject: substantiveText(500), body: substantiveText(5000) }).strict()
+  }).strict(),
+
+  'compare-published': z.object({
+    rows: z.array(z.object({
+      item: substantiveText(200),
+      independentFinding: substantiveText(2000),
+      publishedFinding: substantiveText(2000),
+      agree: z.enum(AGREE_ENUM),
+      rawSufficient: z.boolean(),
+      notes: z.string().max(2000)
+    }).strict()).min(1).max(16)
   }).strict()
 };
 
@@ -216,5 +269,30 @@ export function parseStructuredResult(kind, input, context = {}) {
     throw err;
   }
   if (kind === 'generate-hypotheses') validateContextualHypotheses(result.data, context);
+  if (kind === 'draft-report') validateReportCitations(result.data, context);
+  if (kind === 'compare-published') validateComparisonDoesNotRewrite(result.data, context);
   return result.data;
+}
+
+function validateReportCitations(result, context) {
+  const available = (context?.figureCatalog || []).filter(f => f && f.available).map(f => f.id);
+  if (!available.length) return;
+  const cited = new Set();
+  (result.report.evidenceCitations || []).forEach(c => (c.figureIds || []).forEach(id => cited.add(id)));
+  const hit = available.some(id => cited.has(id));
+  if (hit) return;
+  const err = new Error('모델 응답 검증 실패: 사용 가능한 Figure가 있는데 headline/rootCause에 figureIds 인용이 없습니다.');
+  err.status = 502;
+  throw err;
+}
+
+function validateComparisonDoesNotRewrite(result, context) {
+  const frozen = (context?.independentFindings || []).map(s => String(s).trim());
+  if (!frozen.length) return;
+  const joined = (result.rows || []).map(r => r.independentFinding).join('\n');
+  const lost = frozen.find(f => f && !joined.includes(f.slice(0, 40)));
+  if (!lost) return;
+  const err = new Error('모델 응답 검증 실패: 공개결과 대조가 독립 findings를 덮어쓰거나 누락했습니다.');
+  err.status = 502;
+  throw err;
 }

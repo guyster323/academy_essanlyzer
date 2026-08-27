@@ -14,6 +14,9 @@ export function freshState() {
     csvText: '',
     priorCase: '',
     logSources: [],
+    figureSpecs: [],
+    evidenceLedger: [],
+    publishedComparison: null,
     zipScanning: false,
     zipSkipped: [],
     referenceDocs: [], // {id, name, text, truncated, charCount} — extracted locally from HTML/PPTX
