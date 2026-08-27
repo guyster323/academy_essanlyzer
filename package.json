@@ -1,0 +1,33 @@
+{
+  "name": "ess-bms-analysis-workstation",
+  "version": "0.1.0",
+  "private": true,
+  "type": "module",
+  "description": "LG에너지솔루션 ESS BMS/EMS 이슈 분석 워크스테이션 — 로그 스트리밍 파서 + Claude 기반 반자동 분석 파이프라인",
+  "engines": {
+    "node": "^20.19.0 || >=22.12.0"
+  },
+  "scripts": {
+    "dev": "concurrently -n server,client -c yellow,cyan \"npm:dev:server\" \"npm:dev:client\"",
+    "dev:server": "node --watch server/index.js",
+    "dev:client": "vite",
+    "build": "vite build",
+    "start": "cross-env NODE_ENV=production node server/index.js",
+    "test:unit": "node --test",
+    "test:e2e": "playwright test",
+    "test": "npm run test:unit && npm run test:e2e"
+  },
+  "dependencies": {
+    "@anthropic-ai/sdk": "^0.121.0",
+    "dotenv": "^16.4.5",
+    "express": "^4.21.1",
+    "jszip": "^3.10.1",
+    "zod": "^4.4.3"
+  },
+  "devDependencies": {
+    "@playwright/test": "^1.62.1",
+    "concurrently": "^9.1.0",
+    "cross-env": "^7.0.3",
+    "vite": "^8.2.2"
+  }
+}

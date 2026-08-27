@@ -1,0 +1,1711 @@
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>ESS BMS 이슈 분석 워크스테이션</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link href="https://fonts.googleapis.com/css2?family=IBM+Plex+Mono:wght@400;500;600;700&family=IBM+Plex+Sans+KR:wght@400;500;600;700&display=swap" rel="stylesheet">
+<script src="https://cdnjs.cloudflare.com/ajax/libs/jszip/3.10.1/jszip.min.js"></script>
+<style>
+  :root{
+    --bg-base:#0A0C0F;
+    --bg-panel:#12151A;
+    --bg-raised:#181C22;
+    --bg-inset:#0D1013;
+    --border:#242A32;
+    --border-soft:#1B2027;
+    --text-primary:#E8EAED;
+    --text-secondary:#93A0AF;
+    --text-muted:#576270;
+    --amber:#FFAB2E;
+    --amber-dim:#3A2C12;
+    --cyan:#3ED6D0;
+    --cyan-dim:#0F2A29;
+    --red:#FF5A5F;
+    --red-dim:#3A1418;
+    --green:#33D17E;
+    --green-dim:#0F2A1D;
+    --font-mono:'IBM Plex Mono',monospace;
+    --font-sans:'IBM Plex Sans KR','IBM Plex Sans',sans-serif;
+  }
+  *{box-sizing:border-box;}
+  html,body{margin:0;padding:0;background:var(--bg-base);color:var(--text-primary);font-family:var(--font-sans);}
+  body{
+    background-image:
+      linear-gradient(rgba(255,255,255,0.015) 1px, transparent 1px),
+      linear-gradient(90deg, rgba(255,255,255,0.015) 1px, transparent 1px);
+    background-size:28px 28px;
+  }
+  ::-webkit-scrollbar{width:8px;height:8px;}
+  ::-webkit-scrollbar-track{background:var(--bg-base);}
+  ::-webkit-scrollbar-thumb{background:var(--border);border-radius:4px;}
+
+  #app{display:grid;grid-template-columns:260px 1fr;min-height:100vh;}
+  @media (max-width:860px){ #app{grid-template-columns:1fr;} .sidebar{position:static;height:auto;} }
+
+  /* ---------- Sidebar ---------- */
+  .sidebar{
+    background:var(--bg-panel);
+    border-right:1px solid var(--border);
+    padding:20px 16px;
+    display:flex;flex-direction:column;
+    position:sticky;top:0;height:100vh;
+  }
+  .brand{display:flex;align-items:center;gap:9px;margin-bottom:4px;}
+  .brand-mark{width:9px;height:9px;background:var(--amber);box-shadow:0 0 8px var(--amber);flex-shrink:0;}
+  .brand-title{font-size:12.5px;font-weight:700;letter-spacing:0.02em;line-height:1.3;}
+  .brand-sub{font-size:10px;color:var(--text-muted);font-family:var(--font-mono);margin:2px 0 20px 18px;letter-spacing:0.03em;}
+
+  .btn{
+    font-family:var(--font-sans);
+    border:1px solid var(--border);
+    background:var(--bg-raised);
+    color:var(--text-primary);
+    padding:9px 12px;
+    font-size:11.5px;
+    font-weight:600;
+    border-radius:3px;
+    cursor:pointer;
+    transition:all .15s ease;
+    letter-spacing:0.01em;
+  }
+  .btn:hover{border-color:var(--text-muted);background:#1E232B;}
+  .btn:disabled{opacity:0.35;cursor:not-allowed;}
+  .btn-primary{background:var(--amber);border-color:var(--amber);color:#1A1204;}
+  .btn-primary:hover{background:#FFC05E;border-color:#FFC05E;}
+  .btn-primary:disabled{background:var(--bg-raised);border-color:var(--border);color:var(--text-muted);}
+  .btn-block{width:100%;}
+  .btn-ghost{background:transparent;border-color:var(--border);}
+  .btn-ghost:hover{background:var(--bg-raised);}
+  .btn-sm{padding:5px 9px;font-size:10.5px;}
+
+  .side-section-label{font-size:9.5px;color:var(--text-muted);font-family:var(--font-mono);letter-spacing:0.08em;text-transform:uppercase;margin:22px 0 8px 2px;}
+  .case-list{flex:1;overflow-y:auto;display:flex;flex-direction:column;gap:6px;margin-top:2px;}
+  .case-item{
+    border:1px solid var(--border-soft);
+    background:var(--bg-inset);
+    border-radius:3px;
+    padding:9px 10px;
+    cursor:pointer;
+    transition:border-color .15s;
+  }
+  .case-item:hover{border-color:var(--text-muted);}
+  .case-item.active{border-color:var(--amber);}
+  .case-item-title{font-size:11px;font-weight:600;color:var(--text-primary);margin-bottom:4px;line-height:1.35;}
+  .case-item-meta{display:flex;align-items:center;gap:6px;font-size:9.5px;color:var(--text-muted);font-family:var(--font-mono);}
+  .case-empty{font-size:11px;color:var(--text-muted);padding:12px 4px;line-height:1.6;}
+
+  .sev-dot{width:7px;height:7px;border-radius:50%;flex-shrink:0;}
+  .sev-상{background:var(--red);box-shadow:0 0 5px var(--red);}
+  .sev-중{background:var(--amber);}
+  .sev-하{background:var(--green);}
+  .sev-pending{background:var(--text-muted);}
+
+  .sidebar-footer{margin-top:14px;padding-top:14px;border-top:1px solid var(--border-soft);font-size:9.5px;color:var(--text-muted);font-family:var(--font-mono);line-height:1.6;}
+
+  /* ---------- Main ---------- */
+  .main{padding:26px 34px 60px;max-width:1180px;}
+  @media (max-width:860px){ .main{padding:20px 16px 50px;} }
+
+  .page-header{margin-bottom:22px;}
+  .page-title{font-size:19px;font-weight:700;letter-spacing:-0.01em;}
+  .page-desc{font-size:12px;color:var(--text-secondary);margin-top:4px;}
+
+  /* ---------- Stepper ---------- */
+  .stepper{display:flex;align-items:flex-start;margin-bottom:30px;overflow-x:auto;padding-bottom:4px;}
+  .step-node{display:flex;flex-direction:column;align-items:center;min-width:110px;position:relative;}
+  .step-circle{
+    width:26px;height:26px;border-radius:50%;
+    border:2px solid var(--border);
+    background:var(--bg-panel);
+    display:flex;align-items:center;justify-content:center;
+    font-family:var(--font-mono);font-size:10px;font-weight:700;color:var(--text-muted);
+    z-index:1;
+    transition:all .2s;
+  }
+  .step-node.done .step-circle{border-color:var(--green);color:var(--green);background:var(--green-dim);}
+  .step-node.active .step-circle{border-color:var(--amber);color:var(--amber);background:var(--amber-dim);box-shadow:0 0 10px rgba(255,171,46,0.35);}
+  .step-label{font-size:10px;margin-top:7px;color:var(--text-muted);text-align:center;font-weight:600;letter-spacing:0.01em;line-height:1.3;padding:0 4px;}
+  .step-node.active .step-label{color:var(--amber);}
+  .step-node.done .step-label{color:var(--text-secondary);}
+  .step-trace{
+    position:absolute;top:12px;left:50%;width:100%;height:2px;background:var(--border);z-index:0;
+  }
+  .step-node.done .step-trace{background:var(--green);}
+  .step-node:first-child .step-trace{display:none;}
+
+  /* ---------- Panels ---------- */
+  .panel{background:var(--bg-panel);border:1px solid var(--border);border-radius:4px;padding:18px 20px;margin-bottom:16px;}
+  .panel-head{display:flex;align-items:center;gap:8px;margin-bottom:4px;}
+  .panel-tag{width:3px;height:14px;background:var(--amber);flex-shrink:0;}
+  .panel-title{font-size:12px;font-weight:700;letter-spacing:0.02em;text-transform:uppercase;color:var(--text-primary);}
+  .panel-desc{font-size:11.5px;color:var(--text-secondary);margin:6px 0 14px 11px;line-height:1.6;}
+
+  label.field-label{display:block;font-size:11px;font-weight:600;color:var(--text-secondary);margin-bottom:6px;letter-spacing:0.01em;}
+  label.field-label .req{color:var(--red);margin-left:3px;}
+  textarea,input[type=text],select{
+    width:100%;
+    background:var(--bg-inset);
+    border:1px solid var(--border);
+    color:var(--text-primary);
+    font-family:var(--font-mono);
+    font-size:11.5px;
+    padding:10px 11px;
+    border-radius:3px;
+    resize:vertical;
+    line-height:1.55;
+  }
+  textarea:focus,input:focus,select:focus{outline:none;border-color:var(--amber);}
+  textarea::placeholder,input::placeholder{color:var(--text-muted);font-family:var(--font-sans);}
+  .field-group{margin-bottom:16px;}
+  .field-hint{font-size:10px;color:var(--text-muted);margin-top:5px;}
+  .field-warn{font-size:10.5px;color:var(--amber);margin-top:5px;display:none;}
+  .field-warn.show{display:block;}
+
+  .file-row{display:flex;gap:8px;align-items:center;margin-bottom:8px;flex-wrap:wrap;}
+  .file-row input[type=file]{display:none;}
+  .csv-preview{margin-top:8px;font-size:10px;font-family:var(--font-mono);color:var(--text-muted);background:var(--bg-inset);border:1px solid var(--border-soft);border-radius:3px;padding:8px 10px;display:none;}
+  .csv-preview.show{display:block;}
+
+  /* ---------- Source Manager (ZIP / multi-file) ---------- */
+  .scan-spinner{display:inline-flex;align-items:center;gap:7px;font-size:10.5px;color:var(--amber);font-family:var(--font-mono);}
+  .scan-spinner .dot{width:6px;height:6px;border-radius:50%;background:var(--amber);animation:pulse 0.9s ease-in-out infinite;}
+  @keyframes pulse{0%,100%{opacity:0.25;}50%{opacity:1;}}
+
+  .source-empty{font-size:10.5px;color:var(--text-muted);padding:10px 2px;border:1px dashed var(--border);border-radius:3px;text-align:center;margin-top:4px;}
+  .source-list{margin-top:8px;display:flex;flex-direction:column;gap:6px;}
+  .source-item{
+    display:flex;align-items:flex-start;gap:9px;
+    background:var(--bg-inset);border:1px solid var(--border-soft);border-radius:3px;
+    padding:9px 10px;
+  }
+  .source-item.excluded{opacity:0.45;}
+  .source-item input[type=checkbox]{margin-top:2px;accent-color:var(--amber);width:14px;height:14px;flex-shrink:0;cursor:pointer;}
+  .source-main{flex:1;min-width:0;}
+  .source-path{
+    font-family:var(--font-mono);font-size:10.5px;color:var(--text-primary);
+    white-space:nowrap;overflow:hidden;text-overflow:ellipsis;
+  }
+  .source-path .folder-part{color:var(--text-muted);}
+  .source-meta-row{display:flex;align-items:center;gap:7px;margin-top:4px;flex-wrap:wrap;}
+  .source-badge{font-family:var(--font-mono);font-size:9px;padding:1px 6px;border-radius:2px;letter-spacing:0.03em;}
+  .badge-recommend{background:var(--green-dim);color:var(--green);border:1px solid rgba(51,209,126,0.4);}
+  .badge-low{background:var(--bg-raised);color:var(--text-muted);border:1px solid var(--border);}
+  .badge-skip{background:var(--red-dim);color:var(--red);border:1px solid rgba(255,90,95,0.4);}
+  .source-sub{font-size:9.5px;color:var(--text-muted);font-family:var(--font-mono);}
+  .source-remove{background:none;border:none;color:var(--text-muted);cursor:pointer;font-size:13px;padding:2px 6px;flex-shrink:0;}
+  .source-remove:hover{color:var(--red);}
+  .source-preview-toggle{background:none;border:none;color:var(--cyan);font-size:9.5px;cursor:pointer;padding:0;margin-left:8px;text-decoration:underline;}
+  .source-preview{
+    margin-top:6px;font-family:var(--font-mono);font-size:9.5px;color:var(--text-secondary);
+    background:var(--bg-panel);border:1px solid var(--border-soft);border-radius:3px;padding:7px 9px;
+    max-height:110px;overflow-y:auto;white-space:pre;display:none;
+  }
+  .source-preview.show{display:block;}
+  .source-status-line{display:flex;align-items:center;gap:8px;flex-wrap:wrap;margin-top:4px;}
+  .progress-track{width:100%;max-width:220px;height:4px;background:var(--bg-panel);border-radius:2px;overflow:hidden;flex-shrink:0;}
+  .progress-fill{height:100%;background:var(--amber);transition:width .18s ease;}
+  .enc-select{
+    width:auto;padding:2px 6px;font-size:9.5px;background:var(--bg-panel);
+    border:1px solid var(--border);color:var(--text-secondary);border-radius:2px;
+  }
+  .zip-summary-bar{
+    display:flex;align-items:center;gap:12px;font-size:10.5px;color:var(--text-secondary);
+    margin-top:8px;padding:8px 10px;background:var(--bg-inset);border:1px solid var(--border-soft);border-radius:3px;
+  }
+  .zip-summary-bar b{color:var(--text-primary);}
+  .skipped-note{font-size:10px;color:var(--text-muted);margin-top:6px;line-height:1.6;}
+
+  .form-actions{display:flex;justify-content:space-between;align-items:center;margin-top:6px;}
+  .sample-btn{font-size:10.5px;color:var(--cyan);background:none;border:none;cursor:pointer;text-decoration:underline;padding:0;font-family:var(--font-sans);}
+
+  /* ---------- Quick-start templates ---------- */
+  .tmpl-section{margin-bottom:16px;}
+  .tmpl-label-row{display:flex;align-items:center;gap:7px;margin-bottom:9px;}
+  .tmpl-label{font-size:10.5px;font-weight:700;color:var(--text-secondary);letter-spacing:0.02em;}
+  .tmpl-sub{font-size:10px;color:var(--text-muted);}
+  .tmpl-chip-row{display:flex;flex-wrap:wrap;gap:7px;}
+  .tmpl-chip{
+    font-family:var(--font-sans);
+    background:var(--bg-inset);
+    border:1px solid var(--border);
+    color:var(--text-secondary);
+    padding:6px 11px;
+    font-size:11px;
+    font-weight:600;
+    border-radius:14px;
+    cursor:pointer;
+    transition:all .15s ease;
+    white-space:nowrap;
+  }
+  .tmpl-chip:hover{border-color:var(--amber);color:var(--amber);background:var(--amber-dim);}
+  .tmpl-chip:active{transform:scale(0.97);}
+  .tmpl-fill-note{font-size:9.5px;color:var(--text-muted);margin-top:7px;line-height:1.6;}
+  .tmpl-fill-note b{color:var(--cyan);}
+
+  /* ---------- Auto-detected issue candidates ---------- */
+  .issue-detect-box{
+    border:1px solid var(--cyan);background:var(--cyan-dim);border-radius:4px;
+    padding:13px 15px;margin:4px 0 16px;
+  }
+  .issue-detect-box.error{border-color:var(--red);background:var(--red-dim);}
+  .issue-detect-box.empty{border-color:var(--border);background:var(--bg-inset);}
+  .issue-detect-box.loading{display:flex;align-items:center;}
+  .issue-detect-box.error,.issue-detect-box.empty{display:flex;align-items:center;justify-content:space-between;gap:10px;flex-wrap:wrap;font-size:11.5px;color:var(--text-secondary);}
+  .issue-detect-label{font-size:10.5px;font-weight:700;color:var(--cyan);letter-spacing:0.02em;margin-bottom:10px;}
+  .issue-card-list{display:flex;flex-direction:column;gap:7px;}
+  .issue-card{
+    background:var(--bg-inset);border:1px solid var(--border);border-radius:3px;
+    padding:9px 12px;cursor:pointer;transition:border-color .15s;
+  }
+  .issue-card:hover{border-color:var(--cyan);}
+  .issue-card.selected{border-color:var(--amber);box-shadow:0 0 0 1px var(--amber) inset;}
+  .issue-card-top{display:flex;align-items:center;gap:8px;}
+  .issue-card-title{font-size:12px;font-weight:700;color:var(--text-primary);}
+  .issue-card-meta{font-size:10px;color:var(--text-muted);font-family:var(--font-mono);margin-top:5px;}
+
+  /* ---------- Loading ---------- */
+  .loading-box{display:flex;flex-direction:column;align-items:center;justify-content:center;padding:44px 20px;gap:14px;}
+  .scan-bar{width:220px;height:3px;background:var(--bg-inset);border-radius:2px;overflow:hidden;position:relative;}
+  .scan-bar::after{content:'';position:absolute;top:0;left:-40%;width:40%;height:100%;background:linear-gradient(90deg,transparent,var(--amber),transparent);animation:scan 1.1s ease-in-out infinite;}
+  @keyframes scan{0%{left:-40%;}100%{left:100%;}}
+  .loading-text{font-family:var(--font-mono);font-size:11px;color:var(--amber);letter-spacing:0.03em;}
+  .loading-sub{font-size:10.5px;color:var(--text-muted);}
+
+  .error-box{border:1px solid var(--red);background:var(--red-dim);border-radius:4px;padding:14px 16px;display:flex;align-items:flex-start;gap:10px;margin-bottom:16px;}
+  .error-box .msg{flex:1;font-size:11.5px;color:#FFC2C4;line-height:1.6;}
+  .error-box .msg b{color:var(--red);}
+
+  /* ---------- Headline ---------- */
+  .headline-box{border:1px solid var(--amber);background:var(--amber-dim);border-radius:4px;padding:16px 18px;margin-bottom:18px;}
+  .headline-eyebrow{font-family:var(--font-mono);font-size:9.5px;color:var(--amber);letter-spacing:0.1em;margin-bottom:6px;}
+  .headline-text{font-size:14.5px;font-weight:700;color:#FFE1AD;line-height:1.5;}
+
+  /* ---------- Tables ---------- */
+  table{width:100%;border-collapse:collapse;font-size:11.5px;}
+  th{
+    text-align:left;font-family:var(--font-mono);font-size:9.5px;color:var(--text-muted);
+    text-transform:uppercase;letter-spacing:0.05em;padding:8px 10px;border-bottom:1px solid var(--border);
+  }
+  td{padding:9px 10px;border-bottom:1px solid var(--border-soft);color:var(--text-primary);vertical-align:top;}
+  tr:last-child td{border-bottom:none;}
+  .lv-badge{display:inline-block;padding:2px 7px;border-radius:2px;font-family:var(--font-mono);font-size:10px;font-weight:700;}
+  .lv-고{background:var(--red-dim);color:var(--red);border:1px solid rgba(255,90,95,0.4);}
+  .lv-중{background:var(--amber-dim);color:var(--amber);border:1px solid rgba(255,171,46,0.4);}
+  .lv-저{background:var(--cyan-dim);color:var(--cyan);border:1px solid rgba(62,214,208,0.4);}
+  .mono{font-family:var(--font-mono);}
+
+  /* ---------- Hypothesis cards ---------- */
+  .hyp-card{border:1px solid var(--border);border-radius:4px;background:var(--bg-inset);padding:16px 17px;margin-bottom:12px;transition:border-color .15s;}
+  .hyp-card.selected{border-color:var(--amber);box-shadow:0 0 0 1px var(--amber) inset;}
+  .hyp-top{display:flex;align-items:flex-start;justify-content:space-between;gap:12px;margin-bottom:10px;}
+  .hyp-name-row{display:flex;align-items:center;gap:9px;flex-wrap:wrap;}
+  .hyp-radio{margin-top:2px;accent-color:var(--amber);width:15px;height:15px;flex-shrink:0;cursor:pointer;}
+  .hyp-name{font-size:13px;font-weight:700;color:var(--text-primary);}
+  .domain-badge{font-family:var(--font-mono);font-size:9.5px;padding:2px 7px;border-radius:2px;border:1px solid var(--border);color:var(--text-secondary);background:var(--bg-raised);letter-spacing:0.02em;}
+  .conf-badge{font-family:var(--font-mono);font-size:9.5px;padding:2px 7px;border-radius:2px;letter-spacing:0.02em;}
+  .conf-High{background:var(--green-dim);color:var(--green);}
+  .conf-Medium{background:var(--amber-dim);color:var(--amber);}
+  .conf-Low{background:var(--bg-raised);color:var(--text-muted);}
+
+  .evidence-grid{display:grid;grid-template-columns:1fr 1fr;gap:10px;margin:12px 0;}
+  @media (max-width:700px){.evidence-grid{grid-template-columns:1fr;}}
+  .ev-block{background:var(--bg-panel);border:1px solid var(--border-soft);border-radius:3px;padding:9px 11px;}
+  .ev-label{font-family:var(--font-mono);font-size:9px;color:var(--text-muted);text-transform:uppercase;letter-spacing:0.06em;margin-bottom:5px;}
+  .ev-text{font-size:11.5px;color:var(--text-secondary);line-height:1.55;}
+  .ev-text.support{color:#B9E8CC;}
+
+  .sev-row{display:flex;align-items:center;gap:10px;margin-top:12px;padding-top:12px;border-top:1px solid var(--border-soft);flex-wrap:wrap;}
+  .sev-row label{font-size:10.5px;color:var(--text-muted);font-weight:600;}
+  .sev-select{width:auto;padding:5px 8px;font-size:11px;}
+  .sev-reason-input{flex:1;min-width:180px;font-size:11px;padding:6px 9px;}
+
+  .checkpoint-banner{
+    display:flex;align-items:center;gap:9px;
+    background:var(--cyan-dim);border:1px solid var(--cyan);border-radius:3px;
+    padding:10px 13px;margin-bottom:14px;font-size:11px;color:#BFF3F0;
+  }
+  .checkpoint-banner b{color:var(--cyan);}
+
+  /* ---------- Report ---------- */
+  .report-section{margin-bottom:16px;}
+  .report-section-label{font-family:var(--font-mono);font-size:10px;color:var(--amber);letter-spacing:0.06em;text-transform:uppercase;margin-bottom:6px;font-weight:700;}
+  .report-section-body{font-size:12px;line-height:1.75;color:var(--text-primary);}
+
+  .email-box{background:var(--bg-inset);border:1px solid var(--border);border-radius:4px;padding:16px 18px;}
+  .email-meta{font-family:var(--font-mono);font-size:11px;color:var(--text-secondary);margin-bottom:4px;}
+  .email-subject{font-size:12.5px;font-weight:700;color:var(--text-primary);margin:8px 0 12px;padding-bottom:10px;border-bottom:1px solid var(--border-soft);}
+  .email-body{font-size:11.5px;line-height:1.75;color:var(--text-primary);white-space:pre-wrap;}
+
+  .copy-btn{display:inline-flex;align-items:center;gap:5px;}
+  .toast{
+    position:fixed;bottom:22px;left:50%;transform:translateX(-50%);
+    background:var(--green-dim);border:1px solid var(--green);color:var(--green);
+    padding:9px 18px;border-radius:4px;font-size:11.5px;font-weight:600;
+    opacity:0;pointer-events:none;transition:opacity .2s, transform .2s;
+    font-family:var(--font-mono);z-index:99;
+  }
+  .toast.show{opacity:1;transform:translateX(-50%) translateY(-4px);}
+
+  .human-note{font-size:10.5px;color:var(--text-muted);margin-top:14px;padding-top:12px;border-top:1px solid var(--border-soft);line-height:1.7;}
+  .human-note b{color:var(--text-secondary);}
+
+  .btn-row{display:flex;gap:8px;margin-top:18px;flex-wrap:wrap;}
+
+  .stat-strip{display:flex;gap:18px;margin-bottom:16px;flex-wrap:wrap;}
+  .stat-chip{font-family:var(--font-mono);font-size:10.5px;color:var(--text-secondary);}
+  .stat-chip b{color:var(--text-primary);}
+
+  .readonly-flag{display:inline-flex;align-items:center;gap:6px;font-size:10.5px;color:var(--text-muted);font-family:var(--font-mono);margin-bottom:14px;}
+  .readonly-dot{width:6px;height:6px;border-radius:50%;background:var(--text-muted);}
+</style>
+</head>
+<body>
+<div id="app">
+  <aside class="sidebar">
+    <div class="brand">
+      <div class="brand-mark"></div>
+      <div class="brand-title">ESS BMS 이슈 분석<br>워크스테이션</div>
+    </div>
+    <div class="brand-sub">v2.0 · Phase 1-3 통합</div>
+
+    <button class="btn btn-primary btn-block" onclick="startNewCase()">+ 신규 이슈 분석</button>
+
+    <div class="side-section-label">케이스 히스토리 (세션)</div>
+    <div class="case-list" id="caseList">
+      <div class="case-empty">아직 처리한 케이스가 없습니다.<br>신규 이슈 분석을 시작하세요.</div>
+    </div>
+
+    <div class="sidebar-footer">
+      SESSION-ONLY STORAGE<br>
+      브라우저 세션 종료 시 초기화됨.<br>
+      실 고객 데이터 입력 금지 — 샘플/가상 데이터만 사용.
+    </div>
+  </aside>
+
+  <main class="main">
+    <div class="page-header">
+      <div class="page-title" id="pageTitle">신규 이슈 분석</div>
+      <div class="page-desc" id="pageDesc">CS 의뢰 텍스트와 BMS 로그를 입력하면 이상 구간 탐지부터 보고서·회신 메일 초안까지 자동 생성됩니다.</div>
+    </div>
+
+    <div class="stepper" id="stepper"></div>
+
+    <div id="viewRoot"></div>
+  </main>
+</div>
+
+<div class="toast" id="toast"></div>
+
+<script>
+/* =========================================================
+   STATE
+========================================================= */
+const STEPS = ['의뢰 입력','이상구간 탐지','가설 생성','사람 검토','보고서·메일 초안','완료'];
+let state = null;
+let caseHistory = [];
+let activeCaseId = null;
+
+function freshState(){
+  return {
+    id: 'CASE-' + Date.now().toString(36).toUpperCase(),
+    createdAt: new Date().toLocaleString('ko-KR'),
+    step: 0,
+    csText: '',
+    csvText: '',
+    priorCase: '',
+    logSources: [],
+    zipScanning: false,
+    zipSkipped: [],
+    detectedIssues: [],
+    issueDetectionStatus: 'idle', /* idle | loading | done | error */
+    selectedIssueId: null,
+    parsedRows: [],
+    columns: [],
+    issueStructured: null,
+    anomalyWindows: [],
+    hypotheses: [],
+    selectedHypId: null,
+    finalSeverity: null,
+    finalSeverityReason: '',
+    report: null,
+    email: null,
+    error: null,
+    loadingLabel: '',
+    phase: 'idle', /* idle | loading-anomaly | loading-hyp | loading-report */
+    readOnly: false
+  };
+}
+
+const PERSONA = "당신은 LG에너지솔루션 ESS(Energy Storage System) BMS/EMS 분석 전문 엔지니어입니다. 데이터에 근거해 엄격하고 간결하게 판단하며, 로그에 존재하지 않는 수치나 사실을 추정하여 만들어내지 않습니다. 확인이 필요한 사항은 명확히 '추가 확인 필요'로 표기합니다.";
+
+const SAMPLE_CS = "2024년 6월 3일 현장 ESS 랙 #3에서 과전압 경보 발생. 운영자 보고에 따르면 오전 10시 32분경 BMS 알람 후 자동 차단됨. 해당 랙 최근 3개월간 동일 증상 2회 이력 있음.";
+const SAMPLE_CSV = `timestamp,voltage_V,current_A,temp_C,soc_pct,alarm_code
+2024-06-03 10:29:10,3.58,11.9,27.8,79,0
+2024-06-03 10:30:01,3.61,12.3,28.1,81,0
+2024-06-03 10:30:40,3.66,12.9,28.6,82,0
+2024-06-03 10:31:45,3.74,13.8,29.4,83,0
+2024-06-03 10:32:05,3.85,14.6,30.9,86,0
+2024-06-03 10:32:11,3.91,15.2,31.7,87,OV001
+2024-06-03 10:32:13,3.95,15.6,32.1,88,OV001
+2024-06-03 10:32:15,0.02,0.0,32.0,88,OV001
+2024-06-03 10:35:00,3.70,0.0,30.5,88,0
+2024-06-03 10:40:00,3.68,0.0,29.2,88,0`;
+const SAMPLE_PRIOR = "유사 케이스: 2024년 3월 동일 모델 랙 #1 과전압, 원인은 BMS 셀 밸런싱 로직 오작동으로 판정. 심각도 '중' 처리.";
+
+/* Quick-start CS-request phrase templates — click to prefill, then edit */
+const CS_TEMPLATES = [
+  { label:'과전압 경보', text:'전력망 ESS 사이트 A동 랙 #{랙번호}에서 과전압(OV) 경보 발생. {날짜} {시각}경 BMS 알람 후 자동 차단됨. 해당 랙 최근 {기간} 내 동일 증상 {횟수}회 이력 있음.' },
+  { label:'과전류/방전 이상', text:'{날짜} {시각}경 ESS 랙 #{랙번호} 방전 중 과전류(OC) 보호 동작. 부하 급증 구간에서 전류값이 정격 대비 급상승 후 시스템 정지. 재기동 후 현재 정상 동작 중.' },
+  { label:'셀 온도 편차/과열', text:'주택용 ESS 옥외 설치형 뱅크에서 셀 온도 편차 경고 발생. {날짜} 이후 특정 모듈의 최고/최저 셀 온도 편차가 지속적으로 확대되는 추세이며, 공조 정상 가동 중임에도 편차가 좁혀지지 않음.' },
+  { label:'SOC 급락/추정오차', text:'{날짜} {시각}경 ESS 랙 #{랙번호}에서 SOC가 단시간 내 비정상적으로 급락. 실제 방전 이력 대비 SOC 추정치 하락폭이 커 BMS SOC 캘리브레이션 오차 가능성 의심됨.' },
+  { label:'SOH 저하 경향', text:'ESS 랙 #{랙번호}의 SOH가 최근 {기간}간 완만하지 않고 계단식으로 저하되는 패턴 관측됨. 특정 이벤트(급속충전/고온 노출 등) 이후 저하 기울기가 변화했는지 확인 필요.' },
+  { label:'컨택터/CB 트립', text:'{날짜} {시각}경 ESS 랙 #{랙번호} 메인 컨택터(또는 차단기) 트립 발생. 트립 직전 전압/전류 급변 여부와 보호 시퀀스 정상 동작 여부 확인 요청. 수동 리셋 후 재투입 {가능/불가}.' },
+  { label:'공조(HVAC) 이상', text:'ESS 컨테이너 내 공조(HVAC) 이상으로 실내 온도가 설정 상한을 초과하여 상승 중. {날짜}부터 냉방 사이클이 정상적으로 종료되지 않는 패턴 관측됨. 배터리 온도 영향 여부 확인 필요.' },
+  { label:'통신 두절/PCS Fault', text:'{날짜} {시각}경 EMS-BMS 간 통신(CAN/Modbus) 순간 두절 발생, 동시에 PCS(인버터)에서 Fault 코드 발생. 통신 복구 후 정상 운전 재개되었으나 원인 재발 방지 대책 필요.' },
+  { label:'UPS 백업시간 단축', text:'UPS 제품군 배터리 팩에서 정전 시 백업 유지시간이 스펙 대비 단축되는 현상 반복 보고. {날짜} 정전 테스트 시 예상 대비 {단축시간} 조기 방전 종료됨. SOH 저하 또는 셀 불균형 여부 확인 요청.' }
+];
+
+/* =========================================================
+   STREAMING LOG PROCESSOR
+   Handles CSV/TXT/LOG entries of arbitrary size (500MB+) without
+   ever materializing the full file as one JS string. Only bounded
+   derived artifacts (stats, head sample, alarm-context windows)
+   are retained — so downstream AI prompt size stays constant
+   regardless of source file size.
+========================================================= */
+const LOG_EXT_ALLOW = ['csv','txt','log','tsv','dat'];
+const LOG_EXT_SKIP_NOTE = ['png','jpg','jpeg','gif','pdf','xlsx','xls','docx','pptx','zip','exe','dll','bin','db'];
+const CHUNK_BYTES = 4 * 1024 * 1024;      // 4MB read chunks
+const HEAD_SAMPLE_CAP = 15;                // rows kept from file start
+const ALARM_SAMPLE_CAP = 40;               // alarm/anomaly context windows kept
+const CONTEXT_WINDOW = 5;                  // rows of lookback kept per alarm window
+const LARGE_FILE_WARN_BYTES = 150 * 1024 * 1024; // soft warning threshold (150MB)
+
+function detectDelimiter(sampleLine){
+  const candidates = [',', '\t', ';', '|'];
+  let best = ',', bestCount = -1;
+  candidates.forEach(d => {
+    const count = sampleLine.split(d).length - 1;
+    if(count > bestCount){ bestCount = count; best = d; }
+  });
+  return bestCount > 0 ? best : ',';
+}
+
+// Legacy small-input helper retained for the sample-loader path only.
+function parseTable(text, delimiterOverride){
+  const lines = text.trim().split(/\r?\n/).filter(l => l.trim().length>0);
+  if(lines.length < 2) return {columns:[], rows:[], delimiter: delimiterOverride||','};
+  const delimiter = delimiterOverride || detectDelimiter(lines[0]);
+  const columns = lines[0].split(delimiter).map(c => c.trim().replace(/^"|"$/g,''));
+  const rows = lines.slice(1).map(line => {
+    const cells = line.split(delimiter).map(c => c.trim().replace(/^"|"$/g,''));
+    const obj = {};
+    columns.forEach((c,i) => obj[c] = cells[i] !== undefined ? cells[i] : '');
+    return obj;
+  });
+  return {columns, rows, delimiter};
+}
+function parseCsv(text){ return parseTable(text, ','); }
+
+function scoreSource(name, headerLine){
+  let score = 0;
+  const lname = name.toLowerCase();
+  if(/bms|ess|pcs|ems|cell|alarm|fault|log/i.test(lname)) score += 2;
+  if(headerLine){
+    if(/time|timestamp|date/i.test(headerLine)) score += 3;
+    if(/volt|voltage|current|temp|soc|soh|alarm|fault|status/i.test(headerLine)) score += 2;
+  }
+  const ext = (name.split('.').pop()||'').toLowerCase();
+  if(!LOG_EXT_ALLOW.includes(ext)) score -= 5;
+  return score;
+}
+
+function formatBytes(n){
+  if(n < 1024) return n + ' B';
+  if(n < 1024*1024) return (n/1024).toFixed(1) + ' KB';
+  return (n/1024/1024).toFixed(2) + ' MB';
+}
+
+function avgOf(stat){ return stat.count ? (stat.sum/stat.count).toFixed(2) : '—'; }
+
+/* ---- Byte-chunk sources: plain File/Blob and JSZip entries ---- */
+async function* fileByteChunks(file){
+  let offset = 0;
+  while(offset < file.size){
+    const slice = file.slice(offset, offset + CHUNK_BYTES);
+    const buf = await slice.arrayBuffer();
+    yield new Uint8Array(buf);
+    offset += CHUNK_BYTES;
+  }
+}
+
+// Wraps JSZip's event-based internalStream as an async-iterable, with
+// backpressure (pause/resume) so we never buffer the whole entry at once.
+function zipEntryByteChunks(entry){
+  return {
+    [Symbol.asyncIterator](){
+      const stream = entry.internalStream('uint8array');
+      const queue = [];
+      let waiter = null, ended = false, errored = null;
+      stream.on('data', (chunk) => {
+        queue.push(chunk);
+        stream.pause();
+        if(waiter){ const w = waiter; waiter = null; w(); }
+      });
+      stream.on('end', () => { ended = true; if(waiter){ const w = waiter; waiter = null; w(); } });
+      stream.on('error', (e) => { errored = e; if(waiter){ const w = waiter; waiter = null; w(); } });
+      stream.resume();
+      return {
+        async next(){
+          while(queue.length === 0 && !ended && !errored){
+            await new Promise(res => { waiter = res; });
+          }
+          if(errored) throw errored;
+          if(queue.length){
+            const chunk = queue.shift();
+            stream.resume();
+            return {value: chunk, done: false};
+          }
+          return {value: undefined, done: true};
+        }
+      };
+    }
+  };
+}
+
+function detectEncodingFromBytes(bytes){
+  try{
+    new TextDecoder('utf-8', {fatal:true}).decode(bytes);
+    return 'utf-8';
+  }catch(e){
+    return 'euc-kr';
+  }
+}
+
+/* ---- Core incremental line processor shared by all source types ---- */
+function makeAccumulator(){
+  return {
+    columns: null, delimiter: null, alarmColIdx: -1,
+    rowCount: 0, alarmCount: 0,
+    headSample: [], alarmSamples: [], recentWindow: [],
+    stats: {}
+  };
+}
+
+function feedLine(acc, line){
+  if(!line) return;
+  if(acc.columns === null){
+    acc.delimiter = detectDelimiter(line);
+    acc.columns = line.split(acc.delimiter).map(c => c.trim().replace(/^"|"$/g,''));
+    acc.alarmColIdx = acc.columns.findIndex(c => /alarm|fault|status/i.test(c));
+    return;
+  }
+  const cells = line.split(acc.delimiter).map(c => c.trim().replace(/^"|"$/g,''));
+  acc.rowCount++;
+
+  const rowObj = {};
+  acc.columns.forEach((c,i) => {
+    const val = cells[i] !== undefined ? cells[i] : '';
+    rowObj[c] = val;
+    if(i === acc.alarmColIdx) return;
+    if(/^(timestamp|time|date)/i.test(c)) return; // avoid mis-parsing date strings as numbers
+    const v = parseFloat(val);
+    if(!isNaN(v)){
+      if(!acc.stats[c]) acc.stats[c] = {min:v, max:v, sum:0, count:0};
+      const s = acc.stats[c];
+      if(v < s.min) s.min = v;
+      if(v > s.max) s.max = v;
+      s.sum += v; s.count++;
+    }
+  });
+
+  if(acc.headSample.length < HEAD_SAMPLE_CAP) acc.headSample.push(rowObj);
+
+  acc.recentWindow.push(rowObj);
+  if(acc.recentWindow.length > CONTEXT_WINDOW) acc.recentWindow.shift();
+
+  if(acc.alarmColIdx >= 0){
+    const v = (cells[acc.alarmColIdx] || '').trim();
+    const isAlarm = v && v !== '0' && v.toUpperCase() !== 'OK' && v.toUpperCase() !== 'NORMAL';
+    if(isAlarm){
+      acc.alarmCount++;
+      if(acc.alarmSamples.length < ALARM_SAMPLE_CAP){
+        acc.alarmSamples.push([...acc.recentWindow]);
+      }
+    }
+  }
+}
+
+async function streamIntoSource(src, byteChunkIterable, onProgress){
+  const decoder = new TextDecoder(src.encoding === 'euc-kr' ? 'euc-kr' : 'utf-8', {fatal:false});
+  const acc = makeAccumulator();
+  let leftover = '';
+  let processed = 0;
+
+  for await (const chunk of byteChunkIterable){
+    processed += chunk.byteLength || chunk.length || 0;
+    const text = decoder.decode(chunk, {stream:true});
+    const combined = leftover + text;
+    const lines = combined.split(/\r?\n/);
+    leftover = lines.pop();
+    for(const line of lines){ if(line.trim()) feedLine(acc, line); }
+    src.processedBytes = processed;
+    onProgress && onProgress();
+  }
+  const tail = decoder.decode();
+  const finalCombined = leftover + tail;
+  if(finalCombined.trim()) feedLine(acc, finalCombined);
+
+  src.columns = acc.columns || [];
+  src.delimiter = acc.delimiter || ',';
+  src.rowCount = acc.rowCount;
+  src.alarmCount = acc.alarmCount;
+  src.headSample = acc.headSample;
+  src.alarmSamples = acc.alarmSamples;
+  src.stats = acc.stats;
+  src.score = scoreSource(src.name, src.columns.join(src.delimiter));
+  src.status = 'ready';
+}
+
+/* ---- Source registry ---- */
+let sourceIdCounter = 0;
+
+function makeSourceShell(name, path, sizeBytes, origin, ref){
+  return {
+    id: 'SRC-' + (++sourceIdCounter),
+    name, path: path || name, origin,
+    sizeBytes: sizeBytes || 0, sizeLabel: formatBytes(sizeBytes || 0),
+    status: 'processing', errorMsg: '',
+    encoding: 'utf-8', encodingAuto: true,
+    delimiter: ',', columns: [],
+    rowCount: 0, alarmCount: 0,
+    headSample: [], alarmSamples: [],
+    stats: {}, processedBytes: 0,
+    score: 0, selected: false, showPreview: false,
+    _ref: ref
+  };
+}
+
+async function detectEncodingForRef(ref){
+  try{
+    if(ref.type === 'file'){
+      const head = await ref.file.slice(0, 262144).arrayBuffer();
+      return detectEncodingFromBytes(new Uint8Array(head));
+    }
+    if(ref.type === 'zipEntry'){
+      // Peek at a small decompressed prefix by consuming just the first chunk.
+      for await (const chunk of zipEntryByteChunks(ref.entry)){
+        return detectEncodingFromBytes(chunk);
+      }
+      return 'utf-8';
+    }
+  }catch(e){ /* fall through */ }
+  return 'utf-8';
+}
+
+async function processSource(src){
+  src.status = 'processing';
+  src.processedBytes = 0;
+  render();
+  let lastRender = Date.now();
+  const throttledProgress = () => {
+    const now = Date.now();
+    if(now - lastRender > 180){ lastRender = now; render(); }
+  };
+  try{
+    if(src._ref.type === 'paste'){
+      const acc = makeAccumulator();
+      src._ref.text.trim().split(/\r?\n/).forEach(line => { if(line.trim()) feedLine(acc, line); });
+      src.columns = acc.columns || []; src.delimiter = acc.delimiter || ',';
+      src.rowCount = acc.rowCount; src.alarmCount = acc.alarmCount;
+      src.headSample = acc.headSample; src.alarmSamples = acc.alarmSamples;
+      src.stats = acc.stats;
+      src.score = scoreSource(src.name, src.columns.join(src.delimiter));
+      src.status = 'ready';
+    } else if(src._ref.type === 'file'){
+      await streamIntoSource(src, fileByteChunks(src._ref.file), throttledProgress);
+    } else if(src._ref.type === 'zipEntry'){
+      await streamIntoSource(src, zipEntryByteChunks(src._ref.entry), throttledProgress);
+    }
+  }catch(e){
+    console.error(e);
+    src.status = 'error';
+    src.errorMsg = e.message || String(e);
+  }
+  render();
+}
+
+async function reprocessSourceEncoding(id, newEncoding){
+  const src = state.logSources.find(s => s.id === id);
+  if(!src) return;
+  src.encoding = newEncoding;
+  src.encodingAuto = false;
+  await processSource(src);
+  autoSelectTopCandidates();
+  render();
+  scheduleAutoDetect();
+}
+
+function autoSelectTopCandidates(){
+  const readySources = state.logSources.filter(s => s.status === 'ready');
+  if(!readySources.some(s => s.selected)){
+    const best = readySources.filter(s => s.score >= 3);
+    (best.length ? best : readySources.slice(0,1)).forEach(s => s.selected = true);
+  }
+}
+
+async function registerAndProcess(name, path, sizeBytes, origin, ref){
+  const src = makeSourceShell(name, path, sizeBytes, origin, ref);
+  state.logSources.push(src);
+  render();
+  if(ref.type !== 'paste'){
+    src.encoding = await detectEncodingForRef(ref);
+  }
+  await processSource(src);
+  autoSelectTopCandidates();
+  render();
+  scheduleAutoDetect();
+  return src;
+}
+
+async function handleCsvFileUpload(evt){
+  const files = Array.from(evt.target.files || []);
+  evt.target.value = '';
+  for(const file of files){
+    if(file.size > LARGE_FILE_WARN_BYTES){
+      state.zipSkipped.push({name:file.name, reason:'대용량 파일(' + formatBytes(file.size) + ') — 스트리밍 방식으로 처리되며 다소 시간이 걸릴 수 있습니다.', level:'info'});
+    }
+    await registerAndProcess(file.name, file.name, file.size, 'file', {type:'file', file});
+  }
+}
+
+async function handleZipUpload(evt){
+  const file = evt.target.files[0];
+  evt.target.value = '';
+  if(!file) return;
+
+  if(typeof JSZip === 'undefined'){
+    state.zipSkipped = [{name:file.name, reason:'ZIP 파서 로드 실패 — 네트워크 상태를 확인하세요.'}];
+    render();
+    return;
+  }
+
+  state.zipScanning = true;
+  state.zipSkipped = [];
+  render();
+
+  if(file.size > LARGE_FILE_WARN_BYTES){
+    state.zipSkipped.push({name:file.name, reason:'ZIP 아카이브 용량 ' + formatBytes(file.size) + ' — 브라우저 메모리 상황에 따라 처리 시간이 길어질 수 있습니다. 데스크톱 브라우저 사용을 권장합니다.', level:'info'});
+  }
+
+  try{
+    // Pass the Blob/File directly (not a pre-read ArrayBuffer) so JSZip can
+    // manage large-archive memory more efficiently internally.
+    const zip = await JSZip.loadAsync(file);
+    const entries = Object.values(zip.files).filter(f => !f.dir);
+
+    for(const entry of entries){
+      const ext = (entry.name.split('.').pop() || '').toLowerCase();
+      const baseName = entry.name.split('/').pop();
+
+      if(LOG_EXT_SKIP_NOTE.includes(ext)){
+        state.zipSkipped.push({name: entry.name, reason: '분석 대상 외 파일 형식(.' + ext + ')'});
+        continue;
+      }
+      if(!LOG_EXT_ALLOW.includes(ext)){
+        state.zipSkipped.push({name: entry.name, reason: '미지원 확장자(.' + (ext||'없음') + ')'});
+        continue;
+      }
+      render();
+      try{
+        await registerAndProcess(baseName, entry.name, (entry._data && entry._data.uncompressedSize) || 0, 'zip', {type:'zipEntry', entry});
+      }catch(e){
+        state.zipSkipped.push({name: entry.name, reason: '읽기 실패(바이너리 또는 손상 추정)'});
+      }
+    }
+  }catch(e){
+    console.error(e);
+    state.zipSkipped.push({name:file.name, reason:'ZIP 압축 해제 실패 — 파일이 손상되었거나 지원하지 않는 형식입니다.'});
+  }
+
+  state.zipScanning = false;
+  render();
+}
+
+function toggleSourceSelected(id){
+  const s = state.logSources.find(x => x.id === id);
+  if(s) s.selected = !s.selected;
+  render();
+  scheduleAutoDetect();
+}
+
+function toggleSourcePreview(id){
+  const s = state.logSources.find(x => x.id === id);
+  if(s) s.showPreview = !s.showPreview;
+  render();
+}
+
+function removeSource(id){
+  state.logSources = state.logSources.filter(x => x.id !== id);
+  render();
+}
+
+/* =========================================================
+   CLAUDE API CALL
+========================================================= */
+async function callClaude(prompt){
+  const response = await fetch("https://api.anthropic.com/v1/messages", {
+    method: "POST",
+    headers: {"Content-Type": "application/json"},
+    body: JSON.stringify({
+      model: "claude-sonnet-4-6",
+      max_tokens: 1000,
+      messages: [{role: "user", content: prompt}]
+    })
+  });
+  if(!response.ok){
+    throw new Error("API 응답 오류 (status " + response.status + ")");
+  }
+  const data = await response.json();
+  const text = (data.content || [])
+    .filter(b => b.type === 'text')
+    .map(b => b.text)
+    .join('\n');
+  return text;
+}
+
+function parseJsonSafe(text){
+  let cleaned = text.trim();
+  cleaned = cleaned.replace(/^```json/i,'').replace(/^```/,'').replace(/```$/,'').trim();
+  const firstBrace = cleaned.indexOf('{');
+  const lastBrace = cleaned.lastIndexOf('}');
+  if(firstBrace >= 0 && lastBrace > firstBrace){
+    cleaned = cleaned.slice(firstBrace, lastBrace+1);
+  }
+  return JSON.parse(cleaned);
+}
+
+/* =========================================================
+   PIPELINE STEP FUNCTIONS
+========================================================= */
+/* ---- Shared: collect selected sources + pasted text into prompt-ready blocks ---- */
+function collectActiveLogBlocks(){
+  const pastedEl = document.getElementById('inputCsv');
+  const pastedText = (pastedEl ? pastedEl.value : state.csvText || '').trim();
+  state.csvText = pastedText;
+
+  const activeSources = state.logSources.filter(s => s.selected && s.status === 'ready');
+  let pastedSummary = null;
+  if(pastedText){
+    const acc = makeAccumulator();
+    pastedText.split(/\r?\n/).forEach(line => { if(line.trim()) feedLine(acc, line); });
+    pastedSummary = {
+      label: '직접 붙여넣은 텍스트', columns: acc.columns || [], delimiter: acc.delimiter || ',',
+      rowCount: acc.rowCount, alarmCount: acc.alarmCount, headSample: acc.headSample, alarmSamples: acc.alarmSamples, stats: acc.stats
+    };
+  }
+
+  return activeSources.map(s => ({
+    label: s.path, columns: s.columns, delimiter: s.delimiter,
+    rowCount: s.rowCount, alarmCount: s.alarmCount, headSample: s.headSample, alarmSamples: s.alarmSamples, stats: s.stats
+  })).concat(pastedSummary ? [pastedSummary] : []);
+}
+
+function blocksToPromptText(allBlocks){
+  let totalRows = 0;
+  const blocks = allBlocks.map(src => {
+    totalRows += src.rowCount;
+    const d = src.delimiter || ',';
+    const statsText = Object.entries(src.stats).map(([k,v]) => `  - ${k}: min=${v.min}, max=${v.max}, avg=${avgOf(v)}`).join('\n') || '  (수치 컬럼 없음)';
+    const headText = src.headSample.map(r => src.columns.map(c=>r[c]).join(d)).join('\n') || '  (없음)';
+    const alarmCtxText = src.alarmSamples.length
+      ? src.alarmSamples.slice(0, 15).map((win, i) => `  [알람#${i+1}]\n` + win.map(r => '   ' + src.columns.map(c=>r[c]).join(d)).join('\n')).join('\n')
+      : '  (알람 코드 발생 행 없음)';
+    return `### 출처 파일: ${src.label}
+- 총 행 수(스트리밍 집계): ${src.rowCount} / 알람·이상코드 발생 행: ${src.alarmCount}건 / 컬럼: ${src.columns.join(', ')}
+- 수치 컬럼 통계 (전체 행 기준 running min/max/avg):
+${statsText}
+- 파일 시작부 샘플:
+${d}${src.columns.join(d)}
+${headText}
+- 알람 발생 전후 컨텍스트 (최대 15건 발췌, 각 최대 ${CONTEXT_WINDOW}행):
+${alarmCtxText}`;
+  });
+  return {text: blocks.length ? blocks.join('\n\n') : '(입력된 로그 데이터 없음)', totalRows, count: allBlocks.length};
+}
+
+/* ---- Step 1 automation: detect candidate issues directly from uploaded logs ---- */
+let autoDetectTimer = null;
+
+function scheduleAutoDetect(){
+  if(state.step !== 0) return;
+  clearTimeout(autoDetectTimer);
+  autoDetectTimer = setTimeout(() => {
+    if(state.step !== 0) return;
+    if(state.issueDetectionStatus === 'loading') return;
+    const ta = document.getElementById('inputCsText');
+    if(ta && ta.value.trim().length > 0) return; // don't clobber user-entered text
+    if(!state.logSources.some(s => s.selected && s.status === 'ready')) return;
+    detectIssuesFromLogs();
+  }, 700);
+}
+
+async function detectIssuesFromLogs(){
+  const allBlocks = collectActiveLogBlocks();
+  if(!allBlocks.length){
+    state.issueDetectionStatus = 'idle';
+    render();
+    return;
+  }
+  state.issueDetectionStatus = 'loading';
+  render();
+
+  const {text: combinedLogText, totalRows} = blocksToPromptText(allBlocks);
+
+  const prompt = `${PERSONA}
+
+[BMS/EMS 로그 데이터 — 총 ${allBlocks.length}개 출처 파일, 합계 ${totalRows}행]
+${combinedLogText}
+
+작업: 위 로그 데이터를 검토하여 CS(고객지원) 이슈 의뢰로 특정될 만한 사건을 자동으로 탐지하라.
+- 알람 코드 발생, 정상범위 이탈, 급격한 변화 패턴을 근거로 판단하라.
+- 시간상 근접하고 동일 원인으로 보이는 알람은 하나의 이슈로 묶고, 서로 다른 시점·다른 알람 유형은 별개 이슈로 구분하라.
+- 최대 4개까지 식별하라. 로그에 실제 존재하는 값만 인용하고 임의로 만들지 마라.
+- 이상 징후가 전혀 없으면 issues를 빈 배열로 반환하라.
+
+각 이슈는 다음을 포함해야 한다:
+- title: 이슈를 한 줄로 요약한 제목 (예: "랙 #3 과전압(OV001) 경보")
+- occurredAt: 로그에 근거한 발생 일시 (알 수 없으면 "미상")
+- sourceFile: 해당 이슈가 발견된 출처 파일명
+- description: CS 이슈 의뢰 문서 형식의 2~3문장 서술 (발생 일시·증상·관측 수치·이력 여부를 포함해, 실제 CS 담당자가 작성한 것처럼 서술)
+- alarmCodes: 관련 알람 코드 배열
+- level: "고"|"중"|"저" (심각도 초벌 판단)
+
+다음 JSON 형식으로만 응답하라. 설명, 코드블록 금지:
+{"issues":[{"id":"I1","title":"","occurredAt":"","sourceFile":"","description":"","alarmCodes":[],"level":"중"}]}`;
+
+  try{
+    const text = await callClaude(prompt);
+    const json = parseJsonSafe(text);
+    state.detectedIssues = json.issues || [];
+    state.issueDetectionStatus = 'done';
+    if(state.detectedIssues.length === 1){
+      selectDetectedIssue(state.detectedIssues[0].id, true);
+    }
+  }catch(e){
+    console.error(e);
+    state.detectedIssues = [];
+    state.issueDetectionStatus = 'error';
+  }
+  render();
+}
+
+function selectDetectedIssue(id, skipRender){
+  const issue = state.detectedIssues.find(i => i.id === id);
+  if(!issue) return;
+  state.selectedIssueId = id;
+  state.csText = issue.description;
+  document.getElementById('warnCsText') && document.getElementById('warnCsText').classList.remove('show');
+  if(!skipRender) render();
+}
+
+async function runAnomalyDetection(){
+  state.error = null;
+  state.loadingLabel = 'CS 의뢰 구조화 및 이상 구간 탐지 중';
+  state.phase = 'loading-anomaly';
+  state.step = 1;
+  render();
+
+  const allBlocks = collectActiveLogBlocks();
+  state.columns = allBlocks[0] ? allBlocks[0].columns : [];
+  const {text: combinedLogText, totalRows} = blocksToPromptText(allBlocks);
+
+  const prompt = `${PERSONA}
+
+[CS 이슈 의뢰 내용]
+${state.csText}
+
+[참고 유사 케이스]
+${state.priorCase || '없음'}
+
+[BMS/EMS 로그 데이터 — 총 ${allBlocks.length}개 출처 파일, 합계 ${totalRows}행 (원본 대용량 로그는 스트리밍 방식으로 전체를 스캔한 뒤, 통계와 알람 전후 구간만 발췌한 것임)]
+${combinedLogText}
+
+작업:
+1) CS 의뢰 텍스트에서 이슈 유형, 설비, 발생 시각, 이력 정보를 구조화하라.
+2) 각 출처 파일에서 이상 구간(정상범위 이탈, 알람 코드, 급격한 변화)을 식별하라. 통계는 전체 행을 스트리밍 집계한 값이므로 신뢰할 수 있으나, 개별 수치는 제공된 샘플·알람 컨텍스트에 실제 등장하는 값만 인용하고 임의로 만들지 마라. 여러 출처 파일 간 시간대가 겹치면 상호 연관성도 고려하라. 이상 구간이 없다면 anomalyWindows를 빈 배열로 반환하라.
+3) 각 이상 구간 항목에는 반드시 어느 출처 파일(sourceFile)에서 발견되었는지 명시하라.
+
+다음 JSON 형식으로만 응답하라. 설명, 코드블록, 그 외 텍스트를 절대 포함하지 마라:
+{"issueStructured":{"issueType":"","facility":"","occurredAt":"","priorHistory":""},"anomalyWindows":[{"timestamp":"","sourceFile":"","parameter":"","observedValue":"","normalRange":"","deviation":"","alarmCode":"","level":"고"}]}`;
+
+  try{
+    const text = await callClaude(prompt);
+    const json = parseJsonSafe(text);
+    state.issueStructured = json.issueStructured || {};
+    state.anomalyWindows = json.anomalyWindows || [];
+    state.step = 1;
+    state.phase = 'result-anomaly';
+  }catch(e){
+    console.error(e);
+    state.error = {stage:'anomaly', message: e.message || String(e)};
+    state.phase = 'idle';
+  }
+  render();
+}
+
+async function runHypothesisGeneration(){
+  state.error = null;
+  state.loadingLabel = '이상 구간 패턴 기반 원인 가설 생성 중';
+  state.phase = 'loading-hyp';
+  state.step = 2;
+  render();
+
+  const prompt = `${PERSONA}
+
+[이슈 구조화 정보]
+${JSON.stringify(state.issueStructured)}
+
+[이상 구간 목록]
+${JSON.stringify(state.anomalyWindows)}
+
+[참고 유사 케이스]
+${state.priorCase || '없음'}
+
+작업: 위 이상 구간 패턴을 근거로 원인 가설을 2~3개 생성하라. 각 가설은 아래 요소를 모두 포함해야 한다.
+- domain: "Battery/BMS" | "PCS" | "EMS" | "Contactor/CB" | "Cooling/HVAC" | "Communication/Sensor" 중 하나
+- expectedSignature: 이 원인이 사실이라면 로그에 나타나야 할 신호
+- actualObservation: 실제 로그에서 관측된 내용 (이상구간 목록의 수치를 인용)
+- evidence: 이 가설을 지지 또는 반증하는 근거 1~2문장
+- confidence: "High" | "Medium" | "Low"
+- severityDraft: "상" | "중" | "하"
+- severityReason: 심각도 판단 근거 1문장
+
+다음 JSON 형식으로만 응답하라. 설명이나 코드블록 없이 JSON만 출력하라:
+{"hypotheses":[{"id":"H1","name":"","domain":"","expectedSignature":"","actualObservation":"","evidence":"","confidence":"","severityDraft":"","severityReason":""}]}`;
+
+  try{
+    const text = await callClaude(prompt);
+    const json = parseJsonSafe(text);
+    state.hypotheses = json.hypotheses || [];
+    state.selectedHypId = state.hypotheses.length ? state.hypotheses[0].id : null;
+    state.finalSeverity = state.hypotheses.length ? state.hypotheses[0].severityDraft : null;
+    state.finalSeverityReason = state.hypotheses.length ? state.hypotheses[0].severityReason : '';
+    state.step = 3;
+    state.phase = 'result-hyp';
+  }catch(e){
+    console.error(e);
+    state.error = {stage:'hypothesis', message: e.message || String(e)};
+    state.phase = 'result-anomaly';
+  }
+  render();
+}
+
+async function runReportGeneration(){
+  state.error = null;
+  state.loadingLabel = '보고서 및 CS 회신 메일 초안 생성 중';
+  state.phase = 'loading-report';
+  state.step = 4;
+  render();
+
+  const confirmedHyp = state.hypotheses.find(h => h.id === state.selectedHypId);
+
+  const prompt = `${PERSONA}
+
+[이슈 구조화 정보] ${JSON.stringify(state.issueStructured)}
+[이상 구간] ${JSON.stringify(state.anomalyWindows)}
+[엔지니어 확정 원인 가설] ${JSON.stringify(confirmedHyp)}
+[엔지니어 최종 심각도] ${state.finalSeverity} (사유: ${state.finalSeverityReason})
+
+작업: 위 내용을 종합하여 분석 보고서 초안과 CS 회신 메일 초안을 작성하라.
+- headline은 전체 분석을 한 줄로 꿰뚫는 핵심 메시지여야 한다 (추측성 표현 배제).
+- 모든 문장은 단정하고 간결한 보고서 문체를 사용한다.
+- occurrence(발생 개요), anomalySummary(이상 구간 요약), rootCause(확정 원인 및 근거), actionRecommendation(조치 권고)은 각 2~3문장 이내로 작성한다.
+- email.body에는 인사말, 현상, 추정 원인, 심각도, 조치 방향, 맺음말을 포함한 완결된 메일 본문을 작성한다.
+
+다음 JSON 형식으로만 응답하라. 설명이나 코드블록 없이 JSON만 출력하라:
+{"report":{"headline":"","occurrence":"","anomalySummary":"","rootCause":"","actionRecommendation":""},"email":{"to":"CS 담당자","subject":"","body":""}}`;
+
+  try{
+    const text = await callClaude(prompt);
+    const json = parseJsonSafe(text);
+    state.report = json.report || {};
+    state.email = json.email || {};
+    state.step = 5;
+    state.phase = 'result-report';
+
+    const idx = caseHistory.findIndex(c => c.id === state.id);
+    const snapshot = JSON.parse(JSON.stringify(state));
+    if(idx >= 0) caseHistory[idx] = snapshot; else caseHistory.unshift(snapshot);
+  }catch(e){
+    console.error(e);
+    state.error = {stage:'report', message: e.message || String(e)};
+    state.phase = 'result-hyp';
+  }
+  render();
+}
+
+/* =========================================================
+   ACTIONS
+========================================================= */
+function startNewCase(){
+  state = freshState();
+  activeCaseId = state.id;
+  render();
+}
+
+function loadSample(){
+  state.csText = SAMPLE_CS;
+  state.csvText = SAMPLE_CSV;
+  state.priorCase = SAMPLE_PRIOR;
+  render();
+}
+
+function onFieldChange(field, value){
+  state[field] = value;
+}
+
+function applyCsTemplate(idx){
+  const tmpl = CS_TEMPLATES[idx];
+  if(!tmpl) return;
+  const ta = document.getElementById('inputCsText');
+  if(!ta) return;
+  ta.value = tmpl.text;
+  state.csText = tmpl.text;
+  state.selectedIssueId = null;
+  document.getElementById('warnCsText').classList.remove('show');
+  ta.focus();
+  // Auto-select the first {placeholder} so the user can immediately type over it
+  const match = tmpl.text.match(/\{[^}]+\}/);
+  if(match){
+    ta.setSelectionRange(match.index, match.index + match[0].length);
+  } else {
+    ta.setSelectionRange(ta.value.length, ta.value.length);
+  }
+}
+
+function onFileUpload(evt){
+  const file = evt.target.files[0];
+  if(!file) return;
+  const reader = new FileReader();
+  reader.onload = (e) => {
+    state.csvText = e.target.result;
+    render();
+  };
+  reader.readAsText(file);
+}
+
+function submitIntake(){
+  const csText = document.getElementById('inputCsText').value.trim();
+  const csvText = document.getElementById('inputCsv').value.trim();
+  const priorCase = document.getElementById('inputPrior').value.trim();
+
+  if(state.logSources.some(s => s.status === 'processing') || state.zipScanning){
+    showToast('로그 파일 스캔이 아직 진행 중입니다 — 완료 후 다시 시도해 주세요');
+    return;
+  }
+
+  let hasError = false;
+  if(csText.length < 30){
+    document.getElementById('warnCsText').classList.add('show');
+    hasError = true;
+  } else {
+    document.getElementById('warnCsText').classList.remove('show');
+  }
+
+  const selectedSources = state.logSources.filter(s => s.selected);
+  const hasPastedTimestamp = csvText.length >= 20 && (() => {
+    const {columns} = parseTable(csvText);
+    return columns.some(c => /time|date/i.test(c));
+  })();
+  const hasSelectedTimestamp = selectedSources.some(s => s.columns.some(c => /time|date/i.test(c)));
+
+  if(!selectedSources.length && !hasPastedTimestamp){
+    document.getElementById('warnCsv').classList.add('show');
+    hasError = true;
+  } else if(selectedSources.length && !hasSelectedTimestamp && !hasPastedTimestamp){
+    document.getElementById('warnCsv').classList.add('show');
+    hasError = true;
+  } else {
+    document.getElementById('warnCsv').classList.remove('show');
+  }
+  if(hasError) return;
+
+  state.csText = csText;
+  state.csvText = csvText;
+  state.priorCase = priorCase;
+  runAnomalyDetection();
+}
+
+function selectHypothesis(id){
+  state.selectedHypId = id;
+  const h = state.hypotheses.find(x => x.id === id);
+  if(h){
+    state.finalSeverity = h.severityDraft;
+    state.finalSeverityReason = h.severityReason;
+  }
+  render();
+}
+
+function updateSeverity(val){ state.finalSeverity = val; }
+function updateSeverityReason(val){ state.finalSeverityReason = val; }
+
+function confirmAndGenerateReport(){
+  const reasonInput = document.getElementById('sevReasonInput');
+  if(reasonInput) state.finalSeverityReason = reasonInput.value;
+  const sevSelect = document.getElementById('sevSelect');
+  if(sevSelect) state.finalSeverity = sevSelect.value;
+  runReportGeneration();
+}
+
+function loadCaseFromHistory(id){
+  const c = caseHistory.find(x => x.id === id);
+  if(!c) return;
+  state = JSON.parse(JSON.stringify(c));
+  state.readOnly = true;
+  activeCaseId = id;
+  render();
+}
+
+function copyText(text, label){
+  navigator.clipboard.writeText(text).then(() => {
+    showToast((label||'내용') + ' 복사됨');
+  }).catch(() => {
+    showToast('복사 실패 — 브라우저 권한을 확인하세요');
+  });
+}
+
+function showToast(msg){
+  const t = document.getElementById('toast');
+  t.textContent = msg;
+  t.classList.add('show');
+  setTimeout(() => t.classList.remove('show'), 1800);
+}
+
+function retryStage(stage){
+  if(stage === 'anomaly') runAnomalyDetection();
+  if(stage === 'hypothesis') runHypothesisGeneration();
+  if(stage === 'report') runReportGeneration();
+}
+
+/* =========================================================
+   RENDER
+========================================================= */
+function esc(s){
+  if(s === undefined || s === null) return '';
+  return String(s).replace(/[&<>"']/g, c => ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));
+}
+
+function renderStepper(){
+  const cur = state.step;
+  let html = '';
+  STEPS.forEach((label, i) => {
+    let cls = 'step-node';
+    if(i < cur) cls += ' done';
+    else if(i === cur) cls += ' active';
+    html += `<div class="${cls}" style="flex:1;position:relative;">
+      <div class="step-trace"></div>
+      <div class="step-circle">${i < cur ? '✓' : i+1}</div>
+      <div class="step-label">${label}</div>
+    </div>`;
+  });
+  document.getElementById('stepper').innerHTML = html;
+}
+
+function renderCaseList(){
+  const el = document.getElementById('caseList');
+  if(!caseHistory.length){
+    el.innerHTML = '<div class="case-empty">아직 처리한 케이스가 없습니다.<br>신규 이슈 분석을 시작하세요.</div>';
+    return;
+  }
+  el.innerHTML = caseHistory.map(c => {
+    const active = c.id === activeCaseId ? ' active' : '';
+    const title = (c.issueStructured && c.issueStructured.issueType) ? c.issueStructured.issueType : 'CS 이슈 분석';
+    const sev = c.finalSeverity || 'pending';
+    const sevClass = c.finalSeverity ? ('sev-'+c.finalSeverity) : 'sev-pending';
+    return `<div class="case-item${active}" onclick="loadCaseFromHistory('${c.id}')">
+      <div class="case-item-title">${esc(title)}</div>
+      <div class="case-item-meta">
+        <span class="sev-dot ${sevClass}"></span>
+        <span>${esc(c.finalSeverity || '검토중')}</span>
+        <span>·</span>
+        <span>${esc(c.createdAt.split(' ')[0]||'')}</span>
+      </div>
+    </div>`;
+  }).join('');
+}
+
+function renderIntake(){
+  document.getElementById('pageTitle').textContent = '신규 이슈 분석 — 의뢰 입력';
+  document.getElementById('pageDesc').textContent = '로그를 업로드하면 이슈를 자동으로 감지해 CS 의뢰 내용을 채워드립니다. 실제 고객 데이터가 아닌 샘플/가상 데이터를 사용하시기 바랍니다.';
+
+  return `
+  <div class="panel">
+    <div class="panel-head"><div class="panel-tag"></div><div class="panel-title">Step 1 · BMS/EMS 로그 업로드 → 이슈 자동 감지</div></div>
+    <div class="panel-desc">로그를 올리면 잠시 후 아래에 감지된 이슈 후보가 나타납니다. 후보를 클릭하면 CS 의뢰 내용이 자동으로 채워지며, 이후 직접 수정할 수 있습니다.</div>
+
+    <div class="field-group">
+      <label class="field-label">BMS/EMS 로그 데이터 <span class="req">*</span></label>
+      <div class="file-row">
+        <button class="btn btn-sm btn-ghost" onclick="document.getElementById('csvFileInput').click()">CSV/TXT/LOG 파일 추가</button>
+        <input type="file" id="csvFileInput" accept=".csv,.txt,.log,.tsv" multiple onchange="handleCsvFileUpload(event)">
+        <button class="btn btn-sm btn-ghost" onclick="document.getElementById('zipFileInput').click()">ZIP 아카이브 업로드</button>
+        <input type="file" id="zipFileInput" accept=".zip" onchange="handleZipUpload(event)">
+        ${state.zipScanning ? `<span class="scan-spinner"><span class="dot"></span>ZIP 내부 스캔 중...</span>` : ''}
+      </div>
+      <div class="field-hint">ZIP 업로드 시 내부 폴더 구조와 무관하게 모든 하위 파일을 스트리밍 방식으로 스캔합니다. 수백 MB급 대용량 로그도 전체를 메모리에 올리지 않고 처리하며, 구분자(콤마·탭·세미콜론)와 인코딩(UTF-8/EUC-KR)은 자동 감지됩니다 — 필요 시 파일별로 인코딩을 수동 전환할 수 있습니다.</div>
+
+      ${renderSourceList()}
+
+      <div style="margin-top:14px;">
+        <label class="field-label" style="font-weight:500;color:var(--text-muted);">또는 텍스트 직접 붙여넣기 (선택 — 위 업로드와 함께 사용 가능)</label>
+        <textarea id="inputCsv" rows="5" oninput="state.csvText=this.value" placeholder="timestamp,voltage_V,current_A,temp_C,soc_pct,alarm_code&#10;2024-06-03 10:30:01,3.61,12.3,28.1,81,0&#10;...">${esc(state.csvText)}</textarea>
+      </div>
+      <div class="field-warn" id="warnCsv">최소 1개 이상의 로그 소스(업로드 파일 또는 붙여넣기)가 필요합니다. timestamp에 해당하는 컬럼이 포함되어야 이상 구간을 탐지할 수 있습니다.</div>
+    </div>
+
+    ${renderDetectedIssues()}
+
+    <div class="field-group">
+      <label class="field-label">CS 이슈 의뢰 내용 <span class="req">*</span></label>
+      <div class="tmpl-chip-row" style="margin-bottom:9px;">
+        ${CS_TEMPLATES.map((t,i) => `<button type="button" class="tmpl-chip" onclick="applyCsTemplate(${i})">${esc(t.label)}</button>`).join('')}
+      </div>
+      <textarea id="inputCsText" rows="4" oninput="state.csText=this.value" placeholder="예: 2024년 6월 3일 현장 ESS 랙 #3에서 과전압 경보 발생. 오전 10시 32분경 BMS 알람 후 자동 차단됨. 최근 3개월간 동일 증상 2회 이력.">${esc(state.csText)}</textarea>
+      <div class="field-hint">위 감지된 이슈를 클릭해 자동으로 채우거나, 빠른 입력 템플릿을 눌러 직접 작성할 수 있습니다.</div>
+      <div class="field-warn" id="warnCsText">CS 이슈 의뢰 내용을 30자 이상 입력해 주세요. 발생 일시·증상·이력 정보가 있으면 분석 정확도가 높아집니다.</div>
+    </div>
+
+    <div class="field-group">
+      <label class="field-label">참고할 과거 유사 케이스 (선택)</label>
+      <input type="text" id="inputPrior" oninput="state.priorCase=this.value" placeholder="예: 2024년 3월 동일 모델 랙 #1 과전압, 원인은 셀 밸런싱 로직 오작동으로 판정." value="${esc(state.priorCase)}">
+    </div>
+
+    <div class="form-actions">
+      <button class="sample-btn" onclick="loadSample()">샘플 케이스 불러오기 (OV001 과전압 예시)</button>
+      <button class="btn btn-primary" onclick="submitIntake()">이상 구간 탐지 시작 →</button>
+    </div>
+  </div>`;
+}
+
+function renderDetectedIssues(){
+  if(state.issueDetectionStatus === 'idle') return '';
+
+  if(state.issueDetectionStatus === 'loading'){
+    return `<div class="issue-detect-box loading">
+      <span class="scan-spinner"><span class="dot"></span>업로드된 로그에서 이슈 자동 감지 중...</span>
+    </div>`;
+  }
+  if(state.issueDetectionStatus === 'error'){
+    return `<div class="issue-detect-box error">
+      <span>자동 이슈 감지에 실패했습니다.</span>
+      <button class="btn btn-sm btn-ghost" onclick="detectIssuesFromLogs()">다시 시도</button>
+    </div>`;
+  }
+  if(!state.detectedIssues.length){
+    return `<div class="issue-detect-box empty">
+      <span>업로드된 로그에서 뚜렷한 이상 징후가 감지되지 않았습니다. 아래 CS 의뢰 내용을 직접 작성해 주세요.</span>
+      <button class="btn btn-sm btn-ghost" onclick="detectIssuesFromLogs()">다시 감지</button>
+    </div>`;
+  }
+
+  let html = `<div class="issue-detect-box">
+    <div class="issue-detect-label">자동 감지된 이슈 후보 (${state.detectedIssues.length}건) — 클릭하면 아래 CS 의뢰 내용이 채워집니다</div>
+    <div class="issue-card-list">`;
+  state.detectedIssues.forEach(iss => {
+    const sel = iss.id === state.selectedIssueId;
+    const codes = (iss.alarmCodes && iss.alarmCodes.length) ? iss.alarmCodes.join(', ') : '';
+    html += `<div class="issue-card ${sel?'selected':''}" onclick="selectDetectedIssue('${iss.id}')">
+      <div class="issue-card-top">
+        <span class="lv-badge lv-${esc(iss.level)||'중'}">${esc(iss.level)||'중'}</span>
+        <span class="issue-card-title">${esc(iss.title)}</span>
+      </div>
+      <div class="issue-card-meta">${esc(iss.occurredAt)||'시각 미상'} · ${esc(iss.sourceFile)||'—'}${codes ? ' · ' + esc(codes) : ''}</div>
+    </div>`;
+  });
+  html += `</div>
+    <button class="btn btn-sm btn-ghost" style="margin-top:9px;" onclick="detectIssuesFromLogs()">다시 감지</button>
+  </div>`;
+  return html;
+}
+
+function renderSourceList(){
+  let html = '';
+  if(!state.logSources.length && !state.zipSkipped.length){
+    return `<div class="source-empty">업로드된 파일이 없습니다. CSV/TXT/LOG 파일 또는 ZIP 아카이브를 추가하세요. 500MB급 대용량 로그도 스트리밍 방식으로 처리됩니다.</div>`;
+  }
+
+  if(state.logSources.length){
+    const selCount = state.logSources.filter(s=>s.selected).length;
+    const processingCount = state.logSources.filter(s=>s.status==='processing').length;
+    html += `<div class="zip-summary-bar">인식된 파일 <b>${state.logSources.length}개</b> · 분석에 포함 <b>${selCount}개</b> 선택됨` +
+      (processingCount ? ` · <span style="color:var(--amber)">${processingCount}개 처리 중</span>` : '') + `</div>`;
+    html += `<div class="source-list">`;
+    const sorted = [...state.logSources].sort((a,b) => b.score - a.score);
+    sorted.forEach(s => {
+      const pathParts = s.path.split('/');
+      const fileName = pathParts.pop();
+      const folderPart = pathParts.length ? pathParts.join('/') + '/' : '';
+      const dispDelim = s.delimiter === '\t' ? 'TAB' : (s.delimiter || ',');
+
+      let badge, statusLine;
+      if(s.status === 'processing'){
+        const pct = s.sizeBytes ? Math.min(100, Math.round((s.processedBytes / s.sizeBytes) * 100)) : null;
+        badge = `<span class="source-badge badge-low">스캔 중</span>`;
+        statusLine = `<div class="progress-track"><div class="progress-fill" style="width:${pct!==null?pct:8}%"></div></div>
+          <span class="source-sub">${pct!==null ? pct+'%' : formatBytes(s.processedBytes)+' 처리됨'} · ${esc(s.sizeLabel)}</span>`;
+      } else if(s.status === 'error'){
+        badge = `<span class="source-badge badge-skip">읽기 실패</span>`;
+        statusLine = `<span class="source-sub" style="color:var(--red)">${esc(s.errorMsg)}</span>`;
+      } else {
+        badge = s.score >= 3
+          ? `<span class="source-badge badge-recommend">BMS 로그 후보</span>`
+          : `<span class="source-badge badge-low">일반 파일</span>`;
+        const previewHeader = s.columns.join(' | ');
+        const previewRows = s.headSample.slice(0,5).map(r => s.columns.map(c=>r[c]).join(' | ')).join('\n');
+        statusLine = `<span class="source-sub">${esc(s.sizeLabel)} · ${s.rowCount.toLocaleString()}행 · 알람 ${s.alarmCount}건 · 구분자 '${dispDelim}'</span>
+          <select class="enc-select" onchange="reprocessSourceEncoding('${s.id}', this.value)">
+            <option value="utf-8" ${s.encoding==='utf-8'?'selected':''}>UTF-8</option>
+            <option value="euc-kr" ${s.encoding==='euc-kr'?'selected':''}>EUC-KR</option>
+          </select>
+          <button class="source-preview-toggle" onclick="toggleSourcePreview('${s.id}')">${s.showPreview?'미리보기 닫기':'미리보기'}</button>
+          <div class="source-preview ${s.showPreview?'show':''}">${esc(previewHeader)}\n${esc(previewRows)}</div>`;
+      }
+
+      html += `<div class="source-item ${s.selected?'':'excluded'}">
+        <input type="checkbox" ${s.selected?'checked':''} ${s.status!=='ready'?'disabled':''} onchange="toggleSourceSelected('${s.id}')">
+        <div class="source-main">
+          <div class="source-path"><span class="folder-part">${esc(folderPart)}</span>${esc(fileName)}</div>
+          <div class="source-meta-row">${badge}</div>
+          <div class="source-status-line">${statusLine}</div>
+        </div>
+        <button class="source-remove" onclick="removeSource('${s.id}')" title="제거">✕</button>
+      </div>`;
+    });
+    html += `</div>`;
+  }
+
+  if(state.zipSkipped.length){
+    const infoNotes = state.zipSkipped.filter(x => x.level === 'info');
+    const skipNotes = state.zipSkipped.filter(x => x.level !== 'info');
+    if(infoNotes.length){
+      html += `<div class="skipped-note" style="color:var(--cyan);">` +
+        infoNotes.map(x => esc(x.name.split('/').pop()) + ' — ' + esc(x.reason)).join('<br>') + `</div>`;
+    }
+    if(skipNotes.length){
+      html += `<div class="skipped-note">ZIP 내 제외된 파일 ${skipNotes.length}건: ` +
+        skipNotes.slice(0,6).map(x => esc(x.name.split('/').pop()) + '(' + esc(x.reason) + ')').join(', ') +
+        (skipNotes.length > 6 ? ` 외 ${skipNotes.length-6}건` : '') + `</div>`;
+    }
+  }
+
+  return html;
+}
+
+function renderLoading(){
+  return `<div class="panel"><div class="loading-box">
+    <div class="scan-bar"></div>
+    <div class="loading-text">${esc(state.loadingLabel)}</div>
+    <div class="loading-sub">Claude Sonnet 4.6 · 실시간 추론 진행 중</div>
+  </div></div>`;
+}
+
+function renderError(){
+  const stageLabel = {anomaly:'이상 구간 탐지', hypothesis:'가설 생성', report:'보고서 생성'}[state.error.stage] || '분석';
+  return `<div class="error-box">
+    <div class="msg"><b>${esc(stageLabel)} 단계 오류.</b> ${esc(state.error.message)}<br>네트워크 상태를 확인하고 다시 시도해 주세요. 반복 실패 시 입력 데이터 형식을 점검하시기 바랍니다.</div>
+    <button class="btn btn-sm" onclick="retryStage('${state.error.stage}')">다시 시도</button>
+  </div>`;
+}
+
+function renderAnomalyView(){
+  document.getElementById('pageTitle').textContent = '이상 구간 탐지 결과';
+  document.getElementById('pageDesc').textContent = 'AI가 로그를 스캔해 이상 구간을 자동 식별했습니다. 필요 시 원인 가설 생성 단계로 진행하십시오.';
+
+  const s = state.issueStructured || {};
+  let out = '';
+  if(state.error && state.error.stage === 'anomaly') out += renderError();
+
+  out += `<div class="panel">
+    <div class="panel-head"><div class="panel-tag"></div><div class="panel-title">이슈 구조화 요약</div></div>
+    <div class="stat-strip">
+      <div class="stat-chip">이슈 유형 <b>${esc(s.issueType||'—')}</b></div>
+      <div class="stat-chip">설비 <b>${esc(s.facility||'—')}</b></div>
+      <div class="stat-chip">발생 시각 <b>${esc(s.occurredAt||'—')}</b></div>
+    </div>
+    <div class="report-section-body" style="color:var(--text-secondary);font-size:11.5px;">${esc(s.priorHistory||'이력 정보 없음')}</div>
+  </div>`;
+
+  out += `<div class="panel">
+    <div class="panel-head"><div class="panel-tag"></div><div class="panel-title">이상 구간 목록 (${state.anomalyWindows.length}건)</div></div>`;
+
+  if(!state.anomalyWindows.length){
+    out += `<div style="font-size:11.5px;color:var(--text-muted);padding:10px 2px;">탐지된 이상 구간이 없습니다. 로그 데이터 범위 또는 임계값 설정을 확인하십시오.</div>`;
+  } else {
+    out += `<table><thead><tr><th>Timestamp</th><th>출처 파일</th><th>이상 파라미터</th><th>관측값</th><th>정상범위</th><th>편차</th><th>알람코드</th><th>수준</th></tr></thead><tbody>`;
+    state.anomalyWindows.forEach(a => {
+      out += `<tr>
+        <td class="mono">${esc(a.timestamp)}</td>
+        <td class="mono" style="color:var(--text-muted);font-size:10px;">${esc(a.sourceFile)||'—'}</td>
+        <td>${esc(a.parameter)}</td>
+        <td class="mono">${esc(a.observedValue)}</td>
+        <td class="mono">${esc(a.normalRange)}</td>
+        <td class="mono">${esc(a.deviation)}</td>
+        <td class="mono">${esc(a.alarmCode)||'—'}</td>
+        <td><span class="lv-badge lv-${esc(a.level)||'중'}">${esc(a.level)||'중'}</span></td>
+      </tr>`;
+    });
+    out += `</tbody></table>`;
+  }
+
+  out += `<div class="btn-row">
+    <button class="btn btn-ghost" onclick="startNewCase()">처음부터 다시</button>
+    <button class="btn btn-primary" onclick="runHypothesisGeneration()">원인 가설 생성 →</button>
+  </div></div>`;
+
+  return out;
+}
+
+function renderHypothesisView(){
+  document.getElementById('pageTitle').textContent = '원인 가설 검토 및 심각도 확정';
+  document.getElementById('pageDesc').textContent = state.readOnly ? '완료된 케이스의 검토 기록입니다.' : 'AI가 생성한 가설 중 유력 가설을 선택하고, 심각도를 최종 확정하십시오. 이 단계는 반드시 엔지니어가 수행합니다.';
+
+  let out = '';
+  if(state.error && state.error.stage === 'hypothesis') out += renderError();
+
+  out += `<div class="checkpoint-banner">
+    <span>◈</span>
+    <span><b>사람 검토 체크포인트</b> — AI가 제시한 가설은 초안입니다. 방향이 맞는지 확인 후 유력 가설을 선택하고 심각도를 최종 확정해 주세요.</span>
+  </div>`;
+
+  state.hypotheses.forEach(h => {
+    const selected = h.id === state.selectedHypId;
+    out += `<div class="hyp-card ${selected?'selected':''}">
+      <div class="hyp-top">
+        <div class="hyp-name-row">
+          <input type="radio" name="hypSelect" class="hyp-radio" ${selected?'checked':''} ${state.readOnly?'disabled':''} onchange="selectHypothesis('${h.id}')">
+          <span class="hyp-name">${esc(h.name)}</span>
+          <span class="domain-badge">${esc(h.domain)}</span>
+          <span class="conf-badge conf-${esc(h.confidence)}">신뢰도 ${esc(h.confidence)}</span>
+        </div>
+      </div>
+      <div class="evidence-grid">
+        <div class="ev-block"><div class="ev-label">Expected Signature</div><div class="ev-text">${esc(h.expectedSignature)}</div></div>
+        <div class="ev-block"><div class="ev-label">Actual Observation</div><div class="ev-text">${esc(h.actualObservation)}</div></div>
+      </div>
+      <div class="ev-block"><div class="ev-label">Evidence</div><div class="ev-text support">${esc(h.evidence)}</div></div>
+      <div class="sev-row">
+        <label>AI 심각도 초안:</label> <span class="lv-badge lv-${esc(h.severityDraft)}">${esc(h.severityDraft)}</span>
+        <span style="font-size:10.5px;color:var(--text-muted);">${esc(h.severityReason)}</span>
+      </div>
+    </div>`;
+  });
+
+  if(!state.readOnly){
+    const confirmedHyp = state.hypotheses.find(h => h.id === state.selectedHypId);
+    out += `<div class="panel">
+      <div class="panel-head"><div class="panel-tag"></div><div class="panel-title">심각도 최종 판정</div></div>
+      <div class="panel-desc">선택된 가설: <b style="color:var(--text-primary)">${esc(confirmedHyp?confirmedHyp.name:'—')}</b></div>
+      <div class="sev-row" style="border-top:none;padding-top:0;">
+        <label>최종 심각도</label>
+        <select id="sevSelect" class="sev-select">
+          <option value="상" ${state.finalSeverity==='상'?'selected':''}>상</option>
+          <option value="중" ${state.finalSeverity==='중'?'selected':''}>중</option>
+          <option value="하" ${state.finalSeverity==='하'?'selected':''}>하</option>
+        </select>
+        <input type="text" id="sevReasonInput" class="sev-reason-input" placeholder="판정 근거" value="${esc(state.finalSeverityReason)}">
+      </div>
+      <div class="btn-row">
+        <button class="btn btn-ghost" onclick="runHypothesisGeneration()">가설 다시 생성</button>
+        <button class="btn btn-primary" onclick="confirmAndGenerateReport()" ${!state.selectedHypId?'disabled':''}>가설·심각도 확정 → 보고서 생성</button>
+      </div>
+    </div>`;
+  }
+
+  return out;
+}
+
+function renderReportView(){
+  document.getElementById('pageTitle').textContent = '분석 보고서 및 CS 회신 메일 초안';
+  document.getElementById('pageDesc').textContent = state.readOnly ? '완료된 케이스 기록입니다.' : '최종 검토 후 발송하십시오. 심각도 최종 판정 및 공식 발송본 확정은 담당 엔지니어의 책임입니다.';
+
+  let out = '';
+  if(state.error && state.error.stage === 'report') out += renderError();
+
+  if(state.readOnly){
+    out += `<div class="readonly-flag"><span class="readonly-dot"></span>READ-ONLY · ${esc(state.createdAt)} 생성</div>`;
+  }
+
+  const r = state.report || {};
+  const confirmedHyp = state.hypotheses.find(h => h.id === state.selectedHypId) || {};
+
+  out += `<div class="headline-box">
+    <div class="headline-eyebrow">HEADLINE MESSAGE</div>
+    <div class="headline-text">${esc(r.headline)}</div>
+  </div>`;
+
+  out += `<div class="panel">
+    <div class="panel-head"><div class="panel-tag"></div><div class="panel-title">분석 보고서 초안</div></div>
+    <div class="report-section"><div class="report-section-label">발생 개요</div><div class="report-section-body">${esc(r.occurrence)}</div></div>
+    <div class="report-section"><div class="report-section-label">이상 구간 요약</div><div class="report-section-body">${esc(r.anomalySummary)}</div></div>
+    <div class="report-section"><div class="report-section-label">확정 원인 (${esc(confirmedHyp.name||'')})</div><div class="report-section-body">${esc(r.rootCause)}</div></div>
+    <div class="report-section"><div class="report-section-label">심각도</div><div class="report-section-body"><span class="lv-badge lv-${esc(state.finalSeverity)}">${esc(state.finalSeverity)}</span> &nbsp;${esc(state.finalSeverityReason)}</div></div>
+    <div class="report-section"><div class="report-section-label">조치 권고</div><div class="report-section-body">${esc(r.actionRecommendation)}</div></div>
+    <div class="btn-row">
+      <button class="btn btn-sm copy-btn" onclick="copyText(document.getElementById('reportFullText').value, '보고서')">보고서 전체 복사</button>
+    </div>
+    <textarea id="reportFullText" style="position:absolute;left:-9999px;">${esc('[헤드라인] '+r.headline+'\\n\\n[발생 개요]\\n'+r.occurrence+'\\n\\n[이상 구간 요약]\\n'+r.anomalySummary+'\\n\\n[확정 원인]\\n'+r.rootCause+'\\n\\n[심각도] '+state.finalSeverity+' — '+state.finalSeverityReason+'\\n\\n[조치 권고]\\n'+r.actionRecommendation)}</textarea>
+  </div>`;
+
+  const e = state.email || {};
+  out += `<div class="panel">
+    <div class="panel-head"><div class="panel-tag"></div><div class="panel-title">CS 회신 메일 초안</div></div>
+    <div class="email-box">
+      <div class="email-meta">수신: ${esc(e.to)}</div>
+      <div class="email-subject">${esc(e.subject)}</div>
+      <div class="email-body">${esc(e.body)}</div>
+    </div>
+    <div class="btn-row">
+      <button class="btn btn-sm copy-btn" onclick="copyText(document.getElementById('emailFullText').value, '메일 본문')">메일 본문 복사</button>
+    </div>
+    <textarea id="emailFullText" style="position:absolute;left:-9999px;">${esc((e.subject||'')+'\\n\\n'+(e.body||''))}</textarea>
+    <div class="human-note"><b>검토 필수:</b> 본 초안은 AI가 생성한 결과이며, 기술 표현 정확성·민감 정보 포함 여부·심각도 최종 판정을 담당 엔지니어가 검토·확정한 후 발송해야 합니다.</div>
+  </div>`;
+
+  if(!state.readOnly){
+    out += `<div class="btn-row"><button class="btn btn-primary" onclick="startNewCase()">완료 · 신규 케이스 시작</button></div>`;
+  } else {
+    out += `<div class="btn-row"><button class="btn btn-ghost" onclick="startNewCase()">신규 케이스 시작</button></div>`;
+  }
+
+  return out;
+}
+
+function render(){
+  renderStepper();
+  renderCaseList();
+
+  let html = '';
+  if(state.phase === 'loading-anomaly' || state.phase === 'loading-hyp' || state.phase === 'loading-report'){
+    html = renderLoading();
+  } else if(state.step === 0){
+    html = renderIntake();
+  } else if(state.step === 1){
+    html = renderAnomalyView();
+  } else if(state.step === 2 || state.step === 3){
+    html = renderHypothesisView();
+  } else if(state.step >= 4){
+    html = renderReportView();
+  }
+  document.getElementById('viewRoot').innerHTML = html;
+}
+
+/* =========================================================
+   INIT
+========================================================= */
+startNewCase();
+</script>
+</body>
+</html>

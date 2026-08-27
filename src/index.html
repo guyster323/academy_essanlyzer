@@ -1,0 +1,50 @@
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>ESS BMS 이슈 분석 워크스테이션</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link href="https://fonts.googleapis.com/css2?family=IBM+Plex+Mono:wght@400;500;600;700&family=IBM+Plex+Sans+KR:wght@400;500;600;700&display=swap" rel="stylesheet">
+<link rel="stylesheet" href="./styles.css">
+</head>
+<body>
+<div id="app">
+  <aside class="sidebar">
+    <div class="brand">
+      <div class="brand-mark"></div>
+      <div class="brand-title">ESS BMS 이슈 분석<br>워크스테이션</div>
+    </div>
+    <div class="brand-sub">v3.0 · 백엔드 분리 + AEMO 로그 파이프라인</div>
+
+    <button class="btn btn-primary btn-block" onclick="startNewCase()">+ 신규 이슈 분석</button>
+
+    <div class="side-section-label">케이스 히스토리 (세션)</div>
+    <div class="case-list" id="caseList">
+      <div class="case-empty">아직 처리한 케이스가 없습니다.<br>신규 이슈 분석을 시작하세요.</div>
+    </div>
+
+    <div class="sidebar-footer">
+      SESSION-ONLY STORAGE<br>
+      브라우저 세션 종료 시 초기화됨.<br>
+      실 고객 데이터 입력 금지 — 샘플/가상 데이터만 사용.
+    </div>
+  </aside>
+
+  <main class="main">
+    <div class="page-header">
+      <div class="page-title" id="pageTitle">신규 이슈 분석</div>
+      <div class="page-desc" id="pageDesc">CS 의뢰 텍스트와 BMS 로그를 입력하면 이상 구간 탐지부터 보고서·회신 메일 초안까지 자동 생성됩니다.</div>
+    </div>
+
+    <div class="stepper" id="stepper"></div>
+
+    <div id="viewRoot"></div>
+  </main>
+</div>
+
+<div class="toast" id="toast"></div>
+
+<script type="module" src="./main.js"></script>
+</body>
+</html>

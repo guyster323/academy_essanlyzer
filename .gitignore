@@ -1,0 +1,19 @@
+node_modules/
+dist/
+.env
+*.log
+.DS_Store
+
+# Playwright test artifacts (regenerated on every test run)
+test-results/
+playwright-report/
+blob-report/
+playwright/.cache/
+
+# Scratch/working files (e.g. PDF-page renders used during analysis)
+tmp/
+
+# 원본 로그 아카이브(실 데이터/대용량) — 저장소에 커밋하지 않음
+*.zip
+*.csv
+*.tsv

@@ -1,0 +1,78 @@
+import test from 'node:test';
+import assert from 'node:assert/strict';
+import { blocksToPromptText } from '../../src/pipeline.js';
+import { MAX_SELECTED_SOURCES, MAX_GROUPS_PER_SOURCE_IN_PROMPT, MAX_TOTAL_ALARM_CONTEXTS, MAX_LOG_TEXT_CHARS } from '../../src/log-engine.js';
+
+function makeAlarmSamples(n) {
+  return Array.from({ length: n }, (_, i) => [{ timestamp: `t${i}`, value: `v${i}` }]);
+}
+
+function makeFlatBlock(label, alarmCount) {
+  return {
+    label, columns: ['timestamp', 'value'], delimiter: ',',
+    rowCount: 1000, alarmCount,
+    headSample: [{ timestamp: 't0', value: '1' }],
+    alarmSamples: makeAlarmSamples(alarmCount),
+    stats: { value: { min: 0, max: 1, sum: 1, count: 1 } },
+    groups: null
+  };
+}
+
+function makeGroupedBlock(label, groupCount, alarmsPerGroup) {
+  const groups = {};
+  for (let i = 0; i < groupCount; i++) {
+    groups[`ENTITY_${i}`] = {
+      rowCount: 100, alarmCount: alarmsPerGroup,
+      headSample: [{ timestamp: 't0', value: '1' }],
+      alarmSamples: makeAlarmSamples(alarmsPerGroup),
+      stats: { value: { min: 0, max: 1, sum: 1, count: 1 } }
+    };
+  }
+  return { label, columns: ['timestamp', 'value'], delimiter: ',', rowCount: groupCount * 100, alarmCount: groupCount * alarmsPerGroup, groups };
+}
+
+test('more than MAX_SELECTED_SOURCES sources are capped and reported', () => {
+  const blocks = Array.from({ length: 17 }, (_, i) => makeFlatBlock(`source-${i}`, 0));
+  const { count, truncation } = blocksToPromptText(blocks);
+  assert.equal(count, MAX_SELECTED_SOURCES);
+  assert.equal(truncation.excludedSources, 17 - MAX_SELECTED_SOURCES);
+});
+
+test('entity groups beyond the per-source cap are excluded and reported, not silently dropped', () => {
+  const block = makeGroupedBlock('market-source', 25, 0);
+  const { text, truncation } = blocksToPromptText([block]);
+  assert.equal(truncation.excludedGroups, 25 - MAX_GROUPS_PER_SOURCE_IN_PROMPT);
+  assert.match(text, /기타 15개 엔티티 상세 생략/);
+});
+
+test('alarm-context windows are capped GLOBALLY across all sources, not per-source', () => {
+  // 3 sources x 40 alarms each = 120 available, way over the 60-window budget.
+  const blocks = [makeFlatBlock('a', 40), makeFlatBlock('b', 40), makeFlatBlock('c', 40)];
+  const { truncation } = blocksToPromptText(blocks);
+  assert.equal(truncation.excludedAlarmContexts, 120 - MAX_TOTAL_ALARM_CONTEXTS);
+});
+
+test('combined prompt text never exceeds MAX_LOG_TEXT_CHARS even with many large groups', () => {
+  const block = makeGroupedBlock('huge-source', MAX_GROUPS_PER_SOURCE_IN_PROMPT, 40);
+  const { text, truncation } = blocksToPromptText([block, block, block, block, block]);
+  assert.ok(text.length <= MAX_LOG_TEXT_CHARS + 200); // small allowance for the appended truncation-note suffix
+  if (text.length >= MAX_LOG_TEXT_CHARS) {
+    assert.ok(truncation.textTruncatedChars > 0);
+  }
+});
+
+test('no truncation occurs (and no truncation note is prefixed) for a small, well-bounded input', () => {
+  const blocks = [makeFlatBlock('single-source', 2)];
+  const { text, truncation } = blocksToPromptText(blocks);
+  assert.equal(truncation.excludedSources, 0);
+  assert.equal(truncation.excludedGroups, 0);
+  assert.equal(truncation.excludedAlarmContexts, 0);
+  assert.equal(truncation.textTruncatedChars, 0);
+  assert.doesNotMatch(text, /데이터 규모 제한으로/);
+});
+
+test('when anything is truncated, a human-readable note is prefixed into the prompt text itself', () => {
+  const blocks = Array.from({ length: 12 }, (_, i) => makeFlatBlock(`source-${i}`, 0));
+  const { text } = blocksToPromptText(blocks);
+  assert.match(text, /^\[참고: 데이터 규모 제한으로 일부가 생략된 상태입니다/);
+});
