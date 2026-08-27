@@ -95,3 +95,36 @@ alarm 89건, cross-cell Vdev로 Cell 5/Cell 7을 데이터 기반으로 정확�
   12:15–12:20 사건 시각에 전혀 의존하지 않고 탐지된 것으로, 전략 문서 Phase A2 요건과 일치한다.
   단, 이 단계에서는 AI 호출(가설 생성 등)까지는 재실행하지 않았다 — 해당 백엔드 경로는 Case B에서
   이미 동일 코드로 종단간 검증됐다.
+
+## 2026-08-27 대용량 ZIP 엔트리 스트리밍 우회 수정
+
+### 원인과 수정
+
+- JSZip이 `field_data/data_sys_6.csv`의 32비트 unsigned 압축 해제 크기 `2,889,184,963`을 signed 값
+  `-1,405,782,333`으로 보유하고, `internalStream()`의 최종 크기 검사에서 `Bug : uncompressed data size mismatch`를
+  발생시켰다.
+- `src/zip-stream.js`에 원본 `File`/`Blob`의 `slice()`만 사용하는 클라이언트 fallback을 추가했다. EOCD/ZIP64 중앙
+  디렉터리와 local header를 범위 읽기로 해석하고, 저장(method 0) 엔트리는 직접 스트리밍하며 deflate(method 8)는
+  명시적 pako 의존성으로 64KiB 범위 읽기와 8KiB push subchunk를 사용해 inflate한다. 중앙·로컬 파일명/플래그/압축 크기 결속, ZIP64 및 앞부분이
+  붙은 archive의 기준 오프셋, data descriptor, ZIP comment 속 가짜 EOCD를 검증한다.
+- `src/zip.js`는 top-level 원본 File을 entry reference에 보존하고, signed-size 엔트리는 처음부터 fallback을 사용하며,
+  양수 크기 엔트리가 JSZip mismatch를 내면 byte zero에서 한 번만 재시도한다. `probeSource()`도 같은 경로를 사용하고,
+  source별 오류 격리와 `streamIntoSource()` 계약은 유지했다.
+
+### 로컬 실제 데이터 검증
+
+- 네트워크 다운로드 없이 `C:\dev\ESSAnlyzer\Log_sample\Darmstadt_field_data.zip`을
+  `Log_sample/Darmstadt_field_data.zip`으로 `Copy-Item`했다. 양쪽 파일 크기는 `1,668,409,464`바이트이며
+  SHA-256은 `20966D5DB076A578832EF7B4850371E37B2940DDDF5CBBCDADC7DB20F0B57DD5`로 일치한다.
+- 실행 명령: `node tmp/verify-large-zip-entry.mjs`
+- `field_data/data_sys_6.csv`: compressed `274,874,973`, header/consumed bytes `2,889,184,963`,
+  row count `19,248,213`, static alarms `751,686`, derived alarms `751,686`, elapsed `407.66s`.
+
+### 회귀 검증과 제한
+
+- `npm run test:unit`: 76 passed, 0 failed.
+- `npm run build`: passed.
+- `npm run test:e2e`: 24 passed, 4 skipped.
+- fallback은 저장/deflate 엔트리만 지원하며 암호화·multi-disk·지원하지 않는 압축 방식·실제 손상은 해당 source
+  오류로 격리한다. 중앙 디렉터리와 ZIP64 record에는 각각 64MiB 상한이 있고, CRC를 별도로 검증하지 않는다.
+- 실제 ZIP과 원시 로그는 커밋하지 않았으며, 대용량 ZIP은 로컬 작업트리에서만 사용했다.

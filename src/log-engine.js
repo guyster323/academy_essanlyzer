@@ -7,6 +7,8 @@
    constant regardless of source file size.
 ========================================================= */
 
+import { zipEntryByteChunks, isJsZipUncompressedSizeMismatch } from './zip-stream.js';
+
 export const LOG_EXT_ALLOW = ['csv', 'txt', 'log', 'tsv', 'dat'];
 export const LOG_EXT_SKIP_NOTE = ['png', 'jpg', 'jpeg', 'gif', 'pdf', 'xlsx', 'xls', 'docx', 'pptx', 'exe', 'dll', 'bin', 'db'];
 export const CHUNK_BYTES = 4 * 1024 * 1024;      // 4MB read chunks
@@ -61,54 +63,9 @@ export async function* fileByteChunks(file) {
   }
 }
 
-// Wraps JSZip's event-based internalStream as an async-iterable, with
-// backpressure (pause/resume) so we never buffer the whole entry at once.
-export function zipEntryByteChunks(entry) {
-  return {
-    [Symbol.asyncIterator]() {
-      const stream = entry.internalStream('uint8array');
-      const queue = [];
-      let waiter = null, ended = false, errored = null;
-      stream.on('data', (chunk) => {
-        queue.push(chunk);
-        stream.pause();
-        if (waiter) { const w = waiter; waiter = null; w(); }
-      });
-      stream.on('end', () => { ended = true; if (waiter) { const w = waiter; waiter = null; w(); } });
-      stream.on('error', (e) => { errored = e; if (waiter) { const w = waiter; waiter = null; w(); } });
-      stream.resume();
-      return {
-        async next() {
-          while (queue.length === 0 && !ended && !errored) {
-            await new Promise(res => { waiter = res; });
-          }
-          if (errored) throw errored;
-          if (queue.length) {
-            const chunk = queue.shift();
-            stream.resume();
-            return { value: chunk, done: false };
-          }
-          return { value: undefined, done: true };
-        },
-        async return() {
-          ended = true;
-          stream.pause();
-          if (typeof stream.removeAllListeners === 'function') {
-            // Do not leave an unhandled asynchronous stream error behind if
-            // the probe stops after its bounded prefix. A no-op error
-            // listener is safer than detaching the error channel entirely.
-            stream.removeAllListeners('data');
-            stream.removeAllListeners('end');
-            stream.removeAllListeners('error');
-            stream.on('error', () => {});
-          }
-          if (waiter) { const w = waiter; waiter = null; w(); }
-          return { value: undefined, done: true };
-        }
-      };
-    }
-  };
-}
+// Keep the public byte-source contract in this module while the ZIP-specific
+// local-header/pako implementation stays isolated in zip-stream.js.
+export { zipEntryByteChunks, isJsZipUncompressedSizeMismatch };
 
 export function detectEncodingFromBytes(bytes) {
   try {

@@ -5,7 +5,7 @@ import { scheduleAutoDetect } from './pipeline.js';
 import {
   LOG_EXT_ALLOW, LOG_EXT_SKIP_NOTE, LARGE_FILE_WARN_BYTES,
   formatBytes, detectEncodingFromBytes, zipEntryByteChunks, fileByteChunks,
-  streamIntoSource, makeAccumulator, feedLine
+  streamIntoSource, makeAccumulator, feedLine, isJsZipUncompressedSizeMismatch
 } from './log-engine.js';
 import { detectFormat, GENERIC_FORMAT } from './formats.js';
 
@@ -89,21 +89,37 @@ function concatUint8(parts) {
 /** Peeks a small prefix of a source (without full streaming) to determine
  *  encoding, log format, and — for formats with a groupable entity column —
  *  whether a BESS-like value is present, to auto-suggest an entity filter. */
-async function probeSource(ref) {
+async function collectZipPrefix(ref) {
+  const parts = [];
+  let total = 0;
+
+  const collect = async (options) => {
+    parts.length = 0;
+    total = 0;
+    for await (const chunk of zipEntryByteChunks(ref.entry, ref.archiveFile, options)) {
+      parts.push(chunk);
+      total += chunk.length;
+      if (total >= PROBE_BYTES) break;
+    }
+  };
+
+  try {
+    await collect();
+  } catch (error) {
+    if (!ref.archiveFile || !isJsZipUncompressedSizeMismatch(error)) throw error;
+    await collect({ forceDirect: true });
+  }
+  return concatUint8(parts);
+}
+
+export async function probeSource(ref) {
   let headBytes;
   try {
     if (ref.type === 'file') {
       const buf = await ref.file.slice(0, PROBE_BYTES).arrayBuffer();
       headBytes = new Uint8Array(buf);
     } else if (ref.type === 'zipEntry') {
-      const parts = [];
-      let total = 0;
-      for await (const chunk of zipEntryByteChunks(ref.entry)) {
-        parts.push(chunk);
-        total += chunk.length;
-        if (total >= PROBE_BYTES) break;
-      }
-      headBytes = concatUint8(parts);
+      headBytes = await collectZipPrefix(ref);
     }
   } catch (e) {
     return { encoding: 'utf-8', format: GENERIC_FORMAT, entityColumn: null, entityFilterSuggestion: '', error: e };
@@ -156,7 +172,7 @@ async function catalogOneEntry(name, path, sizeBytes, ref) {
   return src;
 }
 
-async function catalogZipEntries(zip, pathPrefix, depth) {
+async function catalogZipEntries(zip, pathPrefix, depth, archiveFile) {
   const entries = Object.values(zip.files).filter(f => !f.dir);
 
   for (const entry of entries) {
@@ -183,7 +199,7 @@ async function catalogZipEntries(zip, pathPrefix, depth) {
       try {
         const buf = await entry.async('arraybuffer');
         const innerZip = await JSZip.loadAsync(buf);
-        await catalogZipEntries(innerZip, fullPath, depth + 1);
+        await catalogZipEntries(innerZip, fullPath, depth + 1, new Blob([buf]));
       } catch (e) {
         console.error(e);
         state.zipSkipped.push({ name: fullPath, reason: formatZipEntryError(e), level: 'error' });
@@ -203,7 +219,7 @@ async function catalogZipEntries(zip, pathPrefix, depth) {
     const sizeBytes = normalizeZipSize((entry._data && entry._data.uncompressedSize) || 0);
     render();
     try {
-      await catalogOneEntry(baseName, fullPath, sizeBytes, { type: 'zipEntry', entry });
+      await catalogOneEntry(baseName, fullPath, sizeBytes, { type: 'zipEntry', entry, archiveFile });
     } catch (e) {
       console.error(e);
       state.zipSkipped.push({ name: fullPath, reason: '읽기 실패(바이너리 또는 손상 추정)' });
@@ -224,13 +240,27 @@ export async function processSource(src) {
     if (src._ref.type === 'file') {
       await streamIntoSource(src, fileByteChunks(src._ref.file), throttledProgress);
     } else if (src._ref.type === 'zipEntry') {
-      await streamIntoSource(src, zipEntryByteChunks(src._ref.entry), throttledProgress);
+      await streamZipEntryIntoSource(src, src._ref, throttledProgress);
     }
   } catch (e) {
     console.error(e);
     markSourceError(src, e);
   }
   render();
+}
+
+export async function streamZipEntryIntoSource(src, ref, onProgress) {
+  try {
+    await streamIntoSource(src, zipEntryByteChunks(ref.entry, ref.archiveFile), onProgress);
+  } catch (error) {
+    if (!ref.archiveFile || !isJsZipUncompressedSizeMismatch(error)) throw error;
+    src.processedBytes = 0;
+    await streamIntoSource(
+      src,
+      zipEntryByteChunks(ref.entry, ref.archiveFile, { forceDirect: true }),
+      onProgress
+    );
+  }
 }
 
 export async function startSourceProcessing(id) {
@@ -291,7 +321,7 @@ export async function handleZipUpload(evt) {
 
   try {
     const zip = await JSZip.loadAsync(file);
-    await catalogZipEntries(zip, '', 0);
+    await catalogZipEntries(zip, '', 0, file);
   } catch (e) {
     console.error(e);
     state.zipSkipped.push({ name: file.name, reason: formatZipEntryError(e), level: 'error' });
