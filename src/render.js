@@ -1,4 +1,4 @@
-import { state, session, STEPS, CS_TEMPLATES, HYPOTHESIS_DOMAINS, isHumanReviewComplete } from './state.js';
+import { state, session, STEPS, CS_TEMPLATES, HYPOTHESIS_DOMAINS, isHumanReviewComplete, describeLoadingProgress } from './state.js';
 import { formatBytes, MAX_SELECTED_SOURCES } from './log-engine.js';
 
 export function esc(s) {
@@ -313,10 +313,13 @@ function renderSourceItem(s) {
 }
 
 function renderLoading() {
+  const elapsedSec = state.loadingStartedAt ? Math.floor((Date.now() - state.loadingStartedAt) / 1000) : 0;
+  const progressNote = describeLoadingProgress(elapsedSec);
   return `<div class="panel"><div class="loading-box">
     <div class="scan-bar"></div>
     <div class="loading-text">${esc(state.loadingLabel)}</div>
-    <div class="loading-sub">Claude · 백엔드 API 경유 · 실시간 추론 진행 중</div>
+    <div class="loading-sub">Claude · 백엔드 API 경유 · 실시간 추론 진행 중 · 경과 ${elapsedSec}초</div>
+    ${progressNote ? `<div class="loading-sub loading-progress-note">${esc(progressNote)}</div>` : ''}
   </div></div>`;
 }
 

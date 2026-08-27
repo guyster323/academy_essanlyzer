@@ -31,7 +31,10 @@ function substantiveText(maxLen) {
 const issueStructuredSchema = z.object({
   issueType: z.string().max(500),
   facility: z.string().max(500),
-  occurredAt: z.string().max(200),
+  // A source with no single incident time (e.g. a derived-detection sweep
+  // over a whole file) legitimately describes an observed date range plus a
+  // caveat about sample-window coverage — observed live to exceed 200 chars.
+  occurredAt: z.string().max(500),
   priorHistory: z.string().max(2000)
 }).strict();
 
@@ -50,9 +53,13 @@ const anomalyWindowSchema = z.object({
   timestamp: z.string().max(200),
   sourceFile: z.string().max(500),
   parameter: z.string().max(200),
-  observedValue: z.string().max(200),
+  // Format-aware derived detection (rolling z-score/MAD, cross-cell Vdev)
+  // legitimately cites several alarm instances with per-instance metrics —
+  // observed live to run well past a single-value 200-char budget. deviation
+  // gets the same room since it likewise cross-references raw source values.
+  observedValue: z.string().max(800),
   normalRange: z.string().max(200),
-  deviation: z.string().max(200),
+  deviation: z.string().max(800),
   alarmCode: z.string().max(200),
   level: LEVEL_ENUM,
   evidenceTier: EVIDENCE_TIER_ENUM

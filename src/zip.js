@@ -35,6 +35,30 @@ export function markSourceError(src, error) {
   return src;
 }
 
+// JSZip reads 32-bit size fields with bitwise ops that produce a signed
+// result in JS — any entry whose real size is >= 2^31 bytes (~2GB, well
+// within the classic zip format's 4GB cap) comes back negative. Reproduced
+// live against a ~2.75GB entry in a real public dataset archive. Recover the
+// intended unsigned value instead of showing/using a nonsensical negative
+// byte count.
+export function normalizeZipSize(size) {
+  return size < 0 ? size + 4294967296 : size;
+}
+
+// macOS Archive Utility artifacts: a "__MACOSX/" mirror tree of AppleDouble
+// resource-fork sidecar files (e.g. "__MACOSX/dir/._real.csv" next to
+// "dir/real.csv"). These keep the real file's extension, so they pass the
+// .csv/.txt allow-list and get queued as if they were real logs — but their
+// content is a small binary resource-fork blob, not text, so streaming them
+// can hang indefinitely and block the whole catalog (reproduced live against
+// a real macOS-zipped public dataset). Detected by name alone, independent
+// of extension, so it runs before any extension-based decision.
+export function isMacosArtifactPath(fullPath) {
+  const segments = fullPath.split('/');
+  const baseName = segments[segments.length - 1] || '';
+  return segments.includes('__MACOSX') || baseName.startsWith('._');
+}
+
 function makeSourceShell(name, path, sizeBytes, origin, ref) {
   return {
     id: 'SRC-' + (++sourceIdCounter),
@@ -140,12 +164,17 @@ async function catalogZipEntries(zip, pathPrefix, depth) {
     const baseName = entry.name.split('/').pop();
     const fullPath = pathPrefix ? pathPrefix + '/' + entry.name : entry.name;
 
+    if (isMacosArtifactPath(fullPath)) {
+      state.zipSkipped.push({ name: fullPath, reason: 'macOS 리소스 포크 부속 파일(AppleDouble) — 분석 대상 아님' });
+      continue;
+    }
+
     if (ext === 'zip') {
       if (depth >= NESTED_ZIP_MAX_DEPTH) {
         state.zipSkipped.push({ name: fullPath, reason: `중첩 zip 깊이 제한(${NESTED_ZIP_MAX_DEPTH}단계) 초과 — 건너뜀` });
         continue;
       }
-      const compSize = (entry._data && entry._data.compressedSize) || 0;
+      const compSize = normalizeZipSize((entry._data && entry._data.compressedSize) || 0);
       if (compSize > NESTED_ZIP_BUFFER_LIMIT) {
         state.zipSkipped.push({ name: fullPath, reason: `중첩 zip 용량(${formatBytes(compSize)})이 처리 한도(${formatBytes(NESTED_ZIP_BUFFER_LIMIT)})를 초과해 건너뜀` });
         continue;
@@ -171,7 +200,7 @@ async function catalogZipEntries(zip, pathPrefix, depth) {
       continue;
     }
 
-    const sizeBytes = (entry._data && entry._data.uncompressedSize) || 0;
+    const sizeBytes = normalizeZipSize((entry._data && entry._data.uncompressedSize) || 0);
     render();
     try {
       await catalogOneEntry(baseName, fullPath, sizeBytes, { type: 'zipEntry', entry });

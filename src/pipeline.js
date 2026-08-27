@@ -246,6 +246,29 @@ export function blocksToPromptText(allBlocks) {
 }
 
 /* =========================================================
+   LOADING PROGRESS — a live elapsed-time readout for the loading-* phases.
+   Real CLI calls against a real large source have been observed to take
+   100-240s (the format-aware anomaly/hypothesis prompts ask for more
+   cross-referenced, evidence-tiered reasoning than the original simpler
+   ones) — this exists so a slow-but-healthy call reads to the engineer as
+   "still working", not a frozen UI, without claiming granular server-side
+   progress we don't actually have (the CLI call returns once, atomically).
+========================================================= */
+let loadingTickTimer = null;
+
+function beginLoadingTick() {
+  state.loadingStartedAt = Date.now();
+  clearInterval(loadingTickTimer);
+  loadingTickTimer = setInterval(render, 1000);
+}
+
+function endLoadingTick() {
+  clearInterval(loadingTickTimer);
+  loadingTickTimer = null;
+  state.loadingStartedAt = null;
+}
+
+/* =========================================================
    STEP 1 AUTOMATION — detect candidate issues directly from uploaded logs
 ========================================================= */
 let autoDetectTimer = null;
@@ -309,6 +332,7 @@ export async function runAnomalyDetection() {
   state.loadingLabel = 'CS 의뢰 구조화 및 이상 구간 탐지 중';
   state.phase = 'loading-anomaly';
   state.step = 1;
+  beginLoadingTick();
   render();
 
   const allBlocks = collectActiveLogBlocks();
@@ -330,6 +354,7 @@ export async function runAnomalyDetection() {
     state.error = { stage: 'anomaly', message: e.message || String(e) };
     state.phase = 'idle';
   }
+  endLoadingTick();
   render();
 }
 
@@ -338,6 +363,7 @@ export async function runHypothesisGeneration() {
   state.loadingLabel = '이상 구간 패턴 기반 원인 가설 생성 중';
   state.phase = 'loading-hyp';
   state.step = 2;
+  beginLoadingTick();
   render();
 
   const { text: referenceDocsText } = buildReferenceDocsBlock(state.referenceDocs);
@@ -365,6 +391,7 @@ export async function runHypothesisGeneration() {
     state.error = { stage: 'hypothesis', message: e.message || String(e) };
     state.phase = 'result-anomaly';
   }
+  endLoadingTick();
   render();
 }
 
@@ -390,6 +417,7 @@ export async function runReportGeneration() {
   state.loadingLabel = '보고서 및 CS 회신 메일 초안 생성 중';
   state.phase = 'loading-report';
   state.step = 4;
+  beginLoadingTick();
   render();
 
   try {
@@ -417,6 +445,7 @@ export async function runReportGeneration() {
     state.error = { stage: 'report', message: e.message || String(e) };
     state.phase = 'result-hyp';
   }
+  endLoadingTick();
   render();
 }
 

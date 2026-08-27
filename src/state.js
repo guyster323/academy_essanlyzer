@@ -47,6 +47,12 @@ export function freshState() {
     finalReviewConfirmed: false,
     error: null,
     loadingLabel: '',
+    // Wall-clock start of the current loading-* phase (epoch ms) — drives the
+    // live elapsed-time readout in render.js so a slow CLI call (real calls
+    // against a large source have been observed to take 100-240s) reads as
+    // "still working" rather than a frozen UI. Cleared on every transition
+    // out of a loading phase (see pipeline.js's endLoadingTick()).
+    loadingStartedAt: null,
     phase: 'idle', /* idle | loading-anomaly | loading-hyp | loading-report */
     readOnly: false
   };
@@ -68,6 +74,21 @@ export function resetState() {
  *  selectHypothesis()/startCustomHypothesis(), the only writers of
  *  confirmedHypothesis). Lives here (not pipeline.js) so both pipeline.js
  *  and render.js can import it without an import cycle. */
+/** Live progress label for a loading-* phase, keyed off elapsed seconds
+ *  since beginLoadingTick() (pipeline.js) started the phase. Real CLI calls
+ *  against a real large source have been observed to take 100-240s — this
+ *  exists so a slow-but-healthy call reads as "still working", never a
+ *  frozen UI, without claiming granular server-side progress we don't
+ *  actually have (the CLI call returns once, atomically). Pure/DOM-free so
+ *  both pipeline.js (timer) and render.js (display) can use it without a
+ *  circular import between them. */
+export function describeLoadingProgress(elapsedSec) {
+  if (elapsedSec < 15) return null; // too soon to say anything beyond the base label
+  if (elapsedSec < 60) return 'Claude CLI 응답 대기 중';
+  if (elapsedSec < 150) return '데이터 규모·가설 개수에 따라 보통 1~3분 정도 걸립니다';
+  return '다소 지연되고 있습니다 — 자동 타임아웃 전까지 계속 기다려 주세요';
+}
+
 export function isHumanReviewComplete() {
   return Boolean(
     state.confirmedHypothesis &&

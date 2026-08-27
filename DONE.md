@@ -35,10 +35,63 @@
 - JSZip 오류 처리는 손상된 압축 데이터를 복구하는 방식이 아니다. entry를 오류 상태로 격리하고 형제 entry를 계속 처리하며, 손상된 nested ZIP은 오류 skip note로 남긴다. ZIP central directory/load 자체가 실패하거나 entry가 실제로 손상된 경우 해당 내용을 되살릴 수 없고, live archive fixture 검증은 샘플 파일이 이 워크트리에 없어 수행하지 않았다.
 - AI provider 연결부는 변경하지 않았다. 실제 Claude/Anthropic 호출과 실제 공개 archive의 end-to-end 분석은 별도 환경 검증이 필요하다.
 
-## 검증 결과
+## 검증 결과 (Codex 워커 산출물, 아래 "라이브 검증" 이전 상태)
 
 - `npm run test:unit` — 56 passed, 0 failed
 - `npm run test:e2e` — 24 passed, 4 skipped
 - `npm run build` — passed
 - `git diff --check` — passed
 - `Log_sample/*.zip` — `.gitignore`의 `*.zip` 규칙으로 ignore 확인; 샘플 데이터는 추가/커밋하지 않음
+
+---
+
+## 라이브 검증 및 후속 수정 (Claude Code, 실제 공개 데이터로 브라우저 구동)
+
+위 구현을 실제 `npm run dev` + 실제 Darmstadt/WDBESS1 아카이브로 처음부터 끝까지 구동해 검증했다.
+포맷 감지·파생 이상탐지 로직 자체는 실데이터에서 정확히 동작했으나(Case B: LFP 266,067행 스트리밍,
+alarm 89건, cross-cell Vdev로 Cell 5/Cell 7을 데이터 기반으로 정확히 지목 — Cell 8 사전 가정 없음),
+실전 규모 데이터로만 드러나는 결함 4건을 추가로 발견·수정했다.
+
+### 추가 수정 파일
+
+- `src/zip.js`: `normalizeZipSize()` 추가 — JSZip이 32비트 부호 있는 산술로 크기 필드를 읽어
+  실제 크기가 2^31바이트(~2GB) 이상인 항목의 크기가 음수로 표시되는 버그를 재현·수정
+  (실제 2.75GB 항목에서 재현). `isMacosArtifactPath()` 추가 — macOS로 압축한 zip의
+  `__MACOSX/._*` AppleDouble 부속 파일이 원본과 같은 `.csv` 확장자를 가져 정상 로그처럼
+  큐에 들어가지만 스트리밍이 0%에서 무한 대기해 `submitIntake()`의 "스캔 진행 중" 가드를
+  영구적으로 막아버리는 것을 재현·수정(이름 기반으로 완전히 건너뜀).
+- `server/lib/claude-cli.js`: `CLI_TIMEOUT_MS`를 120초 → 240초로 상향. 새 포맷 인식 프롬프트는
+  파생 통계 교차 참조·근거 계층 구분·반증/누락신호/claim-limit 등 더 엄격한 추론을 요구해,
+  실제 LFP 데이터 대상 detect-anomaly 호출이 ~102초, generate-hypotheses 호출이 180초를
+  초과하는 것을 직접 측정으로 확인했다(기존 120초 상한은 여유가 거의 없었음).
+- `server/lib/validation.js`: `anomalyWindowSchema.observedValue`/`deviation`을 200자 → 800자로,
+  `issueStructuredSchema.occurredAt`을 200자 → 500자로 상향. 파생탐지 기반 이상구간은 여러
+  알람 인스턴스의 개별 수치를 근거로 인용하도록 프롬프트가 유도하므로, 기존(단일 관측값 가정)
+  상한을 실제 응답이 초과하는 것을 확인했다.
+- `src/state.js`, `src/pipeline.js`, `src/render.js`: 로딩 중 진행 상태 표시 추가
+  (`state.loadingStartedAt`, `describeLoadingProgress()`, `beginLoadingTick()`/`endLoadingTick()`).
+  실제 호출이 100~240초 걸리는 것을 확인한 뒤, 정적 라벨 하나만 보여주던 로딩 화면에 실시간
+  경과 초와 단계별 안내 문구(15초/60초/150초 임계값)를 추가해 "멈춘 것처럼 보이는" 문제를 해소.
+  서버 쪽 진짜 진행률은 없음(`claude -p`가 원자적으로 한 번에 응답)을 명시하고 과장하지 않았다.
+- `tests/unit/zip.test.js`, `tests/server/validation.test.js`, `tests/unit/state.test.js`: 위 수정
+  전부에 대한 회귀 테스트 추가.
+
+### 라이브 검증에서 확인한 것
+
+- Case B(LFP, `field_data/data_sys_28.csv`, 37.97MB, 266,067행)를 실제 브라우저(orca 자동화)로
+  업로드 → 스트리밍 → 이상구간 탐지 → 가설 생성까지 전 구간 실제 Claude CLI 응답으로 완주.
+  outlierCell은 Cell 5/Cell 7로 데이터 기반 판정(논문의 Cell 8 가정과 무관), evidenceTier
+  Observed/Derived 구분 정확, 타임스탬프 중복 같은 실제 데이터 품질 이슈도 별도 관측 사실로 포착.
+- Case B(`field_data/data_sys_6.csv`, System 6 — 전략 문서의 1차 Target)는 실제 우회 불가능한
+  JSZip 라이브러리 결함으로 인해 스트리밍이 끝까지 완료되지 않음(2.75GB 항목, "Bug: uncompressed
+  data size mismatch"). 앱은 이를 해당 source만 오류 상태로 격리하고 다른 항목은 계속 처리하는
+  방식으로 정상 대응함을 확인했다 — 이는 완화이지 근본 수정이 아니다. **후속 과제**: 이 항목만
+  다른 압축 해제 경로(예: pako 직접 스트리밍 또는 서버사이드 사전 추출)로 우회하지 않는 한
+  System 6 자체는 이 브라우저 파이프라인만으로 분석할 수 없다.
+- Case A(WDBESS1 AEMO, 실제 사건일 2025-08-19 CSV, 497.86MB)도 실제 브라우저로 업로드→스트리밍까지
+  검증했다. 엔티티가 `FPP_UNITID`(WDBESS1)로 정확히 그룹되고 `PARTICIPANTID`(WDOWBESS)와 분리됨을
+  확인했다(우선순위 수정이 실데이터에서 실제로 적용됨). WDBESS1 그룹 10,800행 중 534행이 순수
+  `MEASURED_MW` 독립 통계 이상탐지로 플래그됨(robustZ 최대 25.92) — `MW_QUALITY_FLAG`나 공개된
+  12:15–12:20 사건 시각에 전혀 의존하지 않고 탐지된 것으로, 전략 문서 Phase A2 요건과 일치한다.
+  단, 이 단계에서는 AI 호출(가설 생성 등)까지는 재실행하지 않았다 — 해당 백엔드 경로는 Case B에서
+  이미 동일 코드로 종단간 검증됐다.

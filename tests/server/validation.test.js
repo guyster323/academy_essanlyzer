@@ -27,6 +27,30 @@ test('detect-issues request rejects unknown extra properties (strict)', () => {
   }), ValidationError);
 });
 
+test('detect-anomaly response accepts a rich, multi-instance derived-metric observedValue/deviation (reproduced live: format-aware derived detection legitimately exceeds a single-value 200-char budget)', () => {
+  const richText = 'vdev -0.0320V~-0.0430V, robust z 3.29~4.05 (알람#1: z=3.32, #2: z=3.29, #3: z=3.93, #4: z=4.05, #5: z=3.53, #6: z=3.63); voltageClosureError -0.002~-0.008V — Cell5가 6개 알람 모두에서 outlier로 지목, 동일 구간 원본 행에서 I_Battery가 0A대에서 -201.17A까지 급락';
+  assert.ok(richText.length > 200 && richText.length <= 800);
+  const result = parseStructuredResult('detect-anomaly', {
+    issueStructured: { issueType: 't', facility: 'f', occurredAt: 'o', priorHistory: 'p' },
+    anomalyWindows: [{
+      timestamp: '2014-08-21 08:43:34 ~ 09:02:10', sourceFile: 'data_sys_28.csv',
+      parameter: 'Vdev_Cell5', observedValue: richText, normalRange: '|robust z| <= 3',
+      deviation: richText, alarmCode: 'cross-cell Vdev anomaly', level: '고', evidenceTier: 'Derived'
+    }]
+  });
+  assert.equal(result.anomalyWindows[0].observedValue, richText);
+});
+
+test('detect-anomaly response still rejects an observedValue beyond the 800-char bound', () => {
+  assert.throws(() => parseStructuredResult('detect-anomaly', {
+    issueStructured: { issueType: 't', facility: 'f', occurredAt: 'o', priorHistory: 'p' },
+    anomalyWindows: [{
+      timestamp: 't', sourceFile: 'f', parameter: 'p', observedValue: 'x'.repeat(801),
+      normalRange: 'n', deviation: 'd', alarmCode: 'a', level: '고', evidenceTier: 'Derived'
+    }]
+  }));
+});
+
 test('detect-issues response rejects more than 4 issues', () => {
   const issue = { id: 'I1', title: 't', occurredAt: 'a', sourceFile: 'f', description: 'd', alarmCodes: [], level: '중' };
   assert.throws(() => parseStructuredResult('detect-issues', { issues: [issue, issue, issue, issue, issue] }));
