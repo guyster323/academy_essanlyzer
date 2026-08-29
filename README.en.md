@@ -115,6 +115,42 @@ is missing from the current logs. For cell-array sources, a resistance/voltage p
 can never be escalated to a confirmed electrochemical-degradation, connector, or corrosion
 root cause — the claim is capped at "increased effective series resistance in Cell N's path."
 
+## Executive report structure
+
+The report produced in Step 5 isn't a free-form summary — it follows a fixed schema
+specifically designed to make it structurally hard to overclaim
+(`buildDraftReportPrompt` in `server/lib/prompts.js`, `server/lib/schemas.js`).
+
+- **Headline**: a conclusion in one sentence, not a title — label-like phrasing (e.g. "Analysis
+  Results") is rejected.
+- **Occurrence / anomaly summary / root cause / action recommendation**: each capped at 2-3
+  sentences, with every sentence tagged `Observed` (in the raw log), `Derived` (computed), or
+  `Inferred` (hypothesis).
+- **Figure citation**: if any figure has `available: true`, the headline or root-cause text
+  must cite at least one figure id (`server/lib/validation.js`) — no claim is allowed to stand
+  without a chart behind it. Only catalog ids can be cited; raw time-series points never reach
+  the prompt.
+- **FTA (Fault Tree Analysis)**: every relevant domain branch is scored
+  `Confirmed`/`Probable`/`Possible`/`Unlikely`/`Rejected`/`Unobservable`.
+- **The 3-box**: *what the data proves* (Observed only), *what the data strongly suggests*
+  (inference from multiple pieces of evidence), and *what the data cannot determine* are kept
+  in three separate boxes so a "suggests" can't quietly slide into a "proves."
+- **Independent findings**: limited to 1-3 findings derived directly from the raw log —
+  copying a published report's or paper's conclusions verbatim is disallowed.
+- **"Save as HTML"**: bakes the charts into inline PNGs client-side and downloads one
+  fully self-contained HTML file (`src/report-export.js`) — viewable and shareable with no
+  server or network required.
+- **Compare against published results (optional)**: the last step, enabled only after the
+  report exists. Paste in an official AEMO announcement or a paper excerpt and it builds a
+  side-by-side table (agreement, whether RAW data was sufficient, notes) — this step can never
+  overwrite the independent findings already locked in
+  (`buildPublishedComparisonPrompt` in `server/lib/prompts.js`).
+
+Real output samples live in `Report/` — `case_a_report.html` (plus its published-comparison
+version) built from the public WDBESS1/AEMO data, `case_b_report.html` built from the public
+TU Darmstadt/MIT LFP data, and `case_b_findings.md`, which documents an issue hit along the
+way and how it was resolved.
+
 ## Large ZIP (including nested ZIP) handling
 
 Opening a large archive — e.g. seven days of 500MB-class CSVs, each zipped again inside the
@@ -171,3 +207,6 @@ npm start               # NODE_ENV=production node server/index.js — serves AP
 - [Beginner's Guide (docs/GETTING_STARTED.en.md)](docs/GETTING_STARTED.en.md) — step-by-step,
   no prior context required, from install to your first analysis
 - [DONE.md](DONE.md) — implementation/verification history
+- [Report/](Report/) — real executive reports and evidence from Case A/B runs
+- [design-mockups/](design-mockups/) — static mockups explored for a UI redesign direction
+  (start at `index.html`). Not wired to the app code.

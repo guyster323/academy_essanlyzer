@@ -107,6 +107,35 @@ Cell/Pack·Electrical Path·Operating Condition·Balancing/BMS·Thermal/Sensor d
 커넥터, 부식 또는 정확한 반품 원인을 확정하지 않고 최대 `Cell N 경로의 유효 직렬저항 증가`
 수준으로 제한합니다.
 
+## 실행 보고서(Executive Report) 구조
+
+Step 5에서 생성되는 보고서는 단순 요약이 아니라, 과대 주장을 구조적으로 막도록 설계된 고정 스키마를
+따릅니다(`server/lib/prompts.js`의 `buildDraftReportPrompt`, `server/lib/schemas.js`).
+
+- **헤드라인**: 제목이 아니라 결론형 한 문장. "분석 결과" 같은 라벨성 문구는 거부됩니다.
+- **발생 개요 / 이상 구간 요약 / 확정 원인 / 조치 권고**: 각 2~3문장 이내로, 문장 단위로
+  `Observed`(원문 관측)·`Derived`(파생 계산)·`Inferred`(가설)를 구분해 서술합니다.
+- **근거 그래프 인용**: `available: true`인 Figure가 하나라도 있으면 헤드라인 또는 확정 원인에
+  최소 1개의 figure id를 인용하도록 강제됩니다(`server/lib/validation.js`) — 그림 없는 주장을
+  막기 위함입니다. 인용은 카탈로그 id만 가능하며, 원문 시계열 포인트는 프롬프트에 실리지 않습니다.
+- **FTA(Fault Tree Analysis)**: 관련 domain별 branch마다 `Confirmed`/`Probable`/`Possible`/
+  `Unlikely`/`Rejected`/`Unobservable` 중 하나로 판정합니다.
+- **3-box**: *데이터가 입증하는 것*(Observed만) · *데이터가 시사하는 것*(복수 근거의 inference) ·
+  *데이터가 판단할 수 없는 것* 세 칸을 분리해, "시사하는 것"이 "입증하는 것"으로 슬쩍 넘어가지
+  못하게 합니다.
+- **Independent findings**: RAW 로그에서 직접 도출한 1~3개 finding만 허용되며, 공개 보고서·논문의
+  결론을 그대로 베끼는 것은 금지됩니다.
+- **HTML로 저장**: 차트를 클라이언트에서 PNG로 구워 넣어 완전히 자체완결된 단일 HTML 파일로
+  다운로드합니다(`src/report-export.js`) — 서버·네트워크 없이도 그대로 열람·공유할 수 있습니다.
+- **공개 결과와 대조(선택)**: 보고서 생성 이후에만 활성화되는 마지막 단계로, AEMO 공식 발표나
+  논문 발췌를 붙여넣으면 독립 분석과 항목별로 대조한 표(일치 여부·RAW 충분 여부·비고)를
+  추가로 만듭니다. 이 단계는 이미 확정된 independent findings를 절대 덮어쓰지 않습니다
+  (`server/lib/prompts.js`의 `buildPublishedComparisonPrompt`).
+
+실제 산출물 예시는 `Report/` 폴더에서 확인할 수 있습니다 — 공개 WDBESS1/AEMO 데이터로 만든
+`case_a_report.html`(+ 공개 결과 대조본), TU Darmstadt/MIT LFP 공개 데이터로 만든
+`case_b_report.html`, 그리고 진행 중 겪은 이슈와 해결 과정을 정리한 `case_b_findings.md`.
+
 ## 대용량 ZIP(중첩 zip 포함) 처리
 
 7일치 × 500MB급 CSV가 zip 안에 또 zip으로 들어있는 것과 같은 대형 아카이브를 열면:
@@ -157,3 +186,6 @@ npm start               # NODE_ENV=production node server/index.js — 단일 �
 - [초보자 가이드 (docs/GETTING_STARTED.md)](docs/GETTING_STARTED.md) — 설치부터 첫 분석까지, 전문
   지식 없이 따라 할 수 있는 단계별 안내
 - [DONE.md](DONE.md) — 구현/검증 이력
+- [Report/](Report/) — Case A/B 실제 실행 보고서·근거 데이터 예시
+- [design-mockups/](design-mockups/) — UI 개선 방향을 검토하기 위한 정적 목업(`index.html`에서 시작).
+  앱 코드와는 연결되어 있지 않습니다.
