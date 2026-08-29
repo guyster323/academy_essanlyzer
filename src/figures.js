@@ -113,7 +113,7 @@ function aemoFigures(seriesByEntity, focusHint) {
     const win = windowedNormalized(frozen, (cm.anchor?.t) || (anchor?.t) || 0, 15 * 60 * 1000, 'mw');
     return { name: id, color: CHART_PALETTE[i % CHART_PALETTE.length], t: win.map(p => p.t), y: win.map(p => p.y) };
   }).filter(s => s.t.length);
-  const af4Available = peerSeries.length >= 2 && cm.mode !== 'unknown';
+  const af4Available = (peerSeries.length >= 2 && cm.mode !== 'unknown') || (peerSeries.length >= 1 && cm.mode === 'unknown');
   figures.push({
     id: 'A-F4',
     claim: cm.mode === 'common-mode'
@@ -121,8 +121,8 @@ function aemoFigures(seriesByEntity, focusHint) {
       : (cm.mode === 'local'
         ? '포커스 설비만 급변한다 — Local fault branch가 상대적으로 강함'
         : '타 설비와 동시 반응 여부를 이 로그만으로 닫을 수 없다'),
-    available: af4Available || (peerSeries.length >= 1 && cm.mode === 'unknown'),
-    unavailableReason: peerSeries.length ? (af4Available ? null : cm.reason) : '비교할 타 설비 시계열이 없습니다',
+    available: af4Available,
+    unavailableReason: af4Available ? null : (peerSeries.length ? cm.reason : '비교할 타 설비 시계열이 없습니다'),
     evidenceTier: 'Derived',
     xLabel: '시간', yLabel: '정규화 ΔP',
     series: peerSeries,
@@ -208,14 +208,15 @@ function lfpFigures(seriesByEntity, resistanceEvents) {
 
   const vSignal = frozen && (frozen.signals || []).includes('vRange') ? 'vRange'
     : frozen && (frozen.signals || []).includes('vStd') ? 'vStd' : null;
+  const b3Available = Boolean(frozen && vSignal && frozen.bins.length >= 2);
   figures.push({
     id: 'B-F3',
     claim: 'Cell 전압 분산이 장기적으로 확대되는가 (전압 잔차 — 저항이 아님)',
-    available: Boolean(frozen && vSignal && frozen.bins.length >= 2),
-    unavailableReason: frozen && vSignal ? null : '전압 분산 시계열이 없습니다',
+    available: b3Available,
+    unavailableReason: b3Available ? null : '전압 분산 시계열이 없습니다',
     evidenceTier: 'Derived',
     xLabel: '시간', yLabel: vSignal || 'V',
-    series: frozen && vSignal ? [xySeries(frozen, vSignal, vSignal, CHART_PALETTE[2])] : [],
+    series: b3Available ? [xySeries(frozen, vSignal, vSignal, CHART_PALETTE[2])] : [],
     markers: [],
     summaryStats: { signal: vSignal, note: '전압 잔차 (저항 아님)' }
   });
