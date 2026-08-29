@@ -1,0 +1,79 @@
+{
+  "label": "csv-stride80-yield4",
+  "wall_ms": 9025,
+  "wall_s": 9,
+  "accounted_ms": 8966,
+  "accounted_pct": "99.3",
+  "bytes": 36113717,
+  "chunkCount": 138,
+  "lineCount": 240604,
+  "nonemptyLineCount": 240604,
+  "yieldCount": 138,
+  "mb_per_s": "3.82",
+  "phases": [
+    {
+      "phase": "inflateOrReadMs",
+      "ms": 42,
+      "pct": "0.5"
+    },
+    {
+      "phase": "zipReadMs",
+      "ms": 0,
+      "pct": "0.0"
+    },
+    {
+      "phase": "inflateMs",
+      "ms": 0,
+      "pct": "0.0"
+    },
+    {
+      "phase": "decodeMs",
+      "ms": 18,
+      "pct": "0.2"
+    },
+    {
+      "phase": "splitMs",
+      "ms": 27,
+      "pct": "0.3"
+    },
+    {
+      "phase": "feedLineMs",
+      "ms": 7386,
+      "pct": "81.8"
+    },
+    {
+      "phase": "progressMs",
+      "ms": 0,
+      "pct": "0.0"
+    },
+    {
+      "phase": "yieldWaitMs",
+      "ms": 1492,
+      "pct": "16.5"
+    },
+    {
+      "phase": "applyMs",
+      "ms": 1,
+      "pct": "0.0"
+    }
+  ],
+  "profile": {
+    "chunkCount": 138,
+    "lineCount": 240604,
+    "nonemptyLineCount": 240604,
+    "yieldCount": 138,
+    "inflateOrReadMs": 42.07929999999558,
+    "zipReadMs": 0,
+    "inflateMs": 0,
+    "decodeMs": 17.893099999998675,
+    "splitMs": 26.90519999999514,
+    "feedLineMs": 7385.6442999998335,
+    "progressMs": 0.11359999999882575,
+    "yieldWaitMs": 1491.683099999998,
+    "applyMs": 1.4888000000009924,
+    "bytes": 36113717
+  },
+  "rowCount": 240603,
+  "alarmCount": 9366,
+  "formatId": "lfp-cell-array"
+}

@@ -1,6 +1,6 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
-import { makeAccumulator, feedLine, applyAccumulatorToSource } from '../../src/log-engine.js';
+import { makeAccumulator, feedLine, applyAccumulatorToSource, streamIntoSource, LINES_PER_YIELD } from '../../src/log-engine.js';
 import { MAX_SERIES_POINTS, MAX_RESISTANCE_EVENTS } from '../../src/series-engine.js';
 import { detectFormat, GENERIC_FORMAT, AEMO_MMS_FORMAT } from '../../src/formats.js';
 
@@ -140,4 +140,52 @@ test('LFP stream past MAX_RESISTANCE_EVENTS keeps recent events and reports the 
   assert.equal(lastT, expectedLast);
   const firstT = events[0].t;
   assert.equal(firstT, t0 + 1 * 86400000); // first qualifying event is curr of row 1
+});
+
+test('streamIntoSource profile records per-phase timings without changing row counts', async () => {
+  const lines = ['timestamp,voltage_V,alarm_code'];
+  for (let i = 0; i < 5000; i++) {
+    lines.push(`2024-06-03T00:00:00.${String(i).padStart(3, '0')}Z,3.50,0`);
+  }
+  const bytes = new TextEncoder().encode(lines.join('\n') + '\n');
+  async function* chunks() {
+    const size = 2048;
+    for (let offset = 0; offset < bytes.byteLength; offset += size) {
+      yield bytes.subarray(offset, Math.min(bytes.byteLength, offset + size));
+    }
+  }
+  const src = { name: 'profile.csv', encoding: 'utf-8', format: GENERIC_FORMAT };
+  const profile = {};
+  await streamIntoSource(src, chunks(), () => {}, { profile });
+  assert.equal(src.rowCount, 5000);
+  assert.ok(profile.chunkCount > 1);
+  assert.ok(profile.yieldCount > 1);
+  assert.ok(profile.feedLineMs >= 0);
+  assert.ok(profile.decodeMs >= 0);
+  assert.ok(profile.splitMs >= 0);
+  assert.ok(profile.yieldWaitMs >= 0);
+  assert.ok(profile.inflateOrReadMs >= 0);
+  assert.equal(profile.nonemptyLineCount, 5001); // header + 5000 data rows
+});
+
+test('streamIntoSource yields every LINES_PER_YIELD lines, not once per byte chunk', async () => {
+  const dataRows = LINES_PER_YIELD * 2 + 100;
+  const lines = ['timestamp,voltage_V,alarm_code'];
+  for (let i = 0; i < dataRows; i++) {
+    lines.push(`2024-06-03T00:00:00.${String(i).padStart(3, '0')}Z,3.50,0`);
+  }
+  const bytes = new TextEncoder().encode(lines.join('\n') + '\n');
+  async function* tinyChunks() {
+    const size = 64;
+    for (let offset = 0; offset < bytes.byteLength; offset += size) {
+      yield bytes.subarray(offset, Math.min(bytes.byteLength, offset + size));
+    }
+  }
+  const src = { name: 'yield.csv', encoding: 'utf-8', format: GENERIC_FORMAT };
+  const profile = {};
+  await streamIntoSource(src, tinyChunks(), () => {}, { profile });
+  assert.equal(src.rowCount, dataRows);
+  assert.ok(profile.chunkCount > 50, `expected many chunks, got ${profile.chunkCount}`);
+  assert.equal(profile.yieldCount, 2);
+  assert.ok(profile.chunkCount > profile.yieldCount);
 });

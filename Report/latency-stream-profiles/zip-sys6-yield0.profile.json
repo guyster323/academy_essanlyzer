@@ -1,0 +1,80 @@
+{
+  "label": "zip-sys6-yield0",
+  "wall_ms": 1038664,
+  "wall_s": 1038.7,
+  "accounted_ms": 1034084,
+  "accounted_pct": "99.6",
+  "bytes": 2889184963,
+  "chunkCount": 44086,
+  "lineCount": 19248214,
+  "nonemptyLineCount": 19248214,
+  "yieldCount": 44086,
+  "mb_per_s": "2.65",
+  "phases": [
+    {
+      "phase": "inflateOrReadMs",
+      "ms": 11586,
+      "pct": "1.1"
+    },
+    {
+      "phase": "zipReadMs",
+      "ms": 501,
+      "pct": "0.0"
+    },
+    {
+      "phase": "inflateMs",
+      "ms": 10472,
+      "pct": "1.0"
+    },
+    {
+      "phase": "decodeMs",
+      "ms": 783,
+      "pct": "0.1"
+    },
+    {
+      "phase": "splitMs",
+      "ms": 1728,
+      "pct": "0.2"
+    },
+    {
+      "phase": "feedLineMs",
+      "ms": 716805,
+      "pct": "69.0"
+    },
+    {
+      "phase": "progressMs",
+      "ms": 13,
+      "pct": "0.0"
+    },
+    {
+      "phase": "yieldWaitMs",
+      "ms": 303165,
+      "pct": "29.2"
+    },
+    {
+      "phase": "applyMs",
+      "ms": 2,
+      "pct": "0.0"
+    }
+  ],
+  "profile": {
+    "chunkCount": 44086,
+    "lineCount": 19248214,
+    "nonemptyLineCount": 19248214,
+    "yieldCount": 44086,
+    "inflateOrReadMs": 11586.397999996194,
+    "zipReadMs": 500.9214999985508,
+    "inflateMs": 10471.549500002428,
+    "decodeMs": 783.0258000025525,
+    "splitMs": 1728.367299997022,
+    "feedLineMs": 716805.484100208,
+    "progressMs": 13.229899988225199,
+    "yieldWaitMs": 303165.4542999913,
+    "applyMs": 1.6867000000784174,
+    "bytes": 2889184963
+  },
+  "rowCount": 19248213,
+  "alarmCount": 751686,
+  "formatId": "lfp-cell-array",
+  "zipBytes": 1668409464
+}
