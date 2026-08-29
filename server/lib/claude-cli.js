@@ -93,6 +93,11 @@ export async function callStructuredViaCli({ system, prompt, tool }) {
     '--model', process.env.ANTHROPIC_MODEL || 'sonnet',
     '--allowedTools', '',
     '--disable-slash-commands',
+    // --effort is intentionally omitted. n=3 per low/medium/high on
+    // 2026-08-30 (Report/latency-findings.md): within-level wall-clock
+    // spread exceeded the between-level gap, and 7 of 9 runs returned
+    // empty anomalyWindows. Side-by-side outputs for a human to judge
+    // evidence-rigor fields are in Report/latency-effort-outputs/.
     // Skip user-global hooks/MCP/plugin sync and session persistence. Measured
     // on this machine: an equivalent structured call dropped from ~27s to ~6s
     // (cache-create of tens of thousands of tokens → cache-read). Do not use

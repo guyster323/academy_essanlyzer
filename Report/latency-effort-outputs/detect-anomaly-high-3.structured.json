@@ -1,0 +1,9 @@
+{
+  "issueStructured": {
+    "issueType": "Cell 8 전압편차 반복 관측 (사용자 진술) — 근거 데이터(로그/파생 통계 요약) 미제공으로 이상 구간 산출 불가",
+    "facility": "LFP 셀 어레이 (사이트·PCS·랙·모듈 식별자 미제공, 추가 확인 필요)",
+    "occurredAt": "2018-10-10 ~ 2018-11-28 (사용자 진술, 원본 로그 미확인)",
+    "priorHistory": "제공되지 않음 — 추가 확인 필요"
+  },
+  "anomalyWindows": []
+}

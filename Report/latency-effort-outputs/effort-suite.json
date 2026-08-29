@@ -1,0 +1,488 @@
+[
+  {
+    "label": "detect-anomaly-low-1",
+    "ok": true,
+    "summary": {
+      "wall_ms": 105432,
+      "wall_s": 105.4,
+      "duration_ms": 101243,
+      "duration_api_ms": 89921,
+      "is_error": false,
+      "subtype": "success",
+      "stop_reason": "tool_use",
+      "has_structured_output": true,
+      "structured_output_summary": {
+        "keys": [
+          "issueStructured",
+          "anomalyWindows"
+        ],
+        "anomalyWindows": 0,
+        "hasReport": false,
+        "hasEmail": false
+      },
+      "input_tokens": 6,
+      "output_tokens": 6469,
+      "cache_creation_input_tokens": 32928,
+      "cache_read_input_tokens": 41457,
+      "thinking_tokens": 4449,
+      "usage_keys": [
+        "input_tokens",
+        "cache_creation_input_tokens",
+        "cache_read_input_tokens",
+        "output_tokens",
+        "output_tokens_details",
+        "server_tool_use",
+        "service_tier",
+        "cache_creation",
+        "inference_geo",
+        "iterations",
+        "speed"
+      ],
+      "modelUsage_keys": [
+        "inputTokens",
+        "outputTokens",
+        "cacheReadInputTokens",
+        "cacheCreationInputTokens",
+        "webSearchRequests",
+        "costUSD",
+        "contextWindow",
+        "maxOutputTokens",
+        "canonicalModel",
+        "provider",
+        "costBasis"
+      ]
+    }
+  },
+  {
+    "label": "detect-anomaly-medium-1",
+    "ok": true,
+    "summary": {
+      "wall_ms": 148635,
+      "wall_s": 148.6,
+      "duration_ms": 145829,
+      "duration_api_ms": 126373,
+      "is_error": false,
+      "subtype": "success",
+      "stop_reason": "tool_use",
+      "has_structured_output": true,
+      "structured_output_summary": {
+        "keys": [
+          "issueStructured",
+          "anomalyWindows"
+        ],
+        "anomalyWindows": 0,
+        "hasReport": false,
+        "hasEmail": false
+      },
+      "input_tokens": 14,
+      "output_tokens": 8732,
+      "cache_creation_input_tokens": 36079,
+      "cache_read_input_tokens": 228301,
+      "thinking_tokens": 5098,
+      "usage_keys": [
+        "input_tokens",
+        "cache_creation_input_tokens",
+        "cache_read_input_tokens",
+        "output_tokens",
+        "output_tokens_details",
+        "server_tool_use",
+        "service_tier",
+        "cache_creation",
+        "inference_geo",
+        "iterations",
+        "speed"
+      ],
+      "modelUsage_keys": [
+        "inputTokens",
+        "outputTokens",
+        "cacheReadInputTokens",
+        "cacheCreationInputTokens",
+        "webSearchRequests",
+        "costUSD",
+        "contextWindow",
+        "maxOutputTokens",
+        "canonicalModel",
+        "provider",
+        "costBasis"
+      ]
+    }
+  },
+  {
+    "label": "detect-anomaly-high-1",
+    "ok": true,
+    "summary": {
+      "wall_ms": 441856,
+      "wall_s": 441.9,
+      "duration_ms": 437173,
+      "duration_api_ms": 420141,
+      "is_error": false,
+      "subtype": "success",
+      "stop_reason": "tool_use",
+      "has_structured_output": true,
+      "structured_output_summary": {
+        "keys": [
+          "issueStructured",
+          "anomalyWindows"
+        ],
+        "anomalyWindows": 16,
+        "hasReport": false,
+        "hasEmail": false
+      },
+      "input_tokens": 32,
+      "output_tokens": 35485,
+      "cache_creation_input_tokens": 86031,
+      "cache_read_input_tokens": 1152773,
+      "thinking_tokens": 20736,
+      "usage_keys": [
+        "input_tokens",
+        "cache_creation_input_tokens",
+        "cache_read_input_tokens",
+        "output_tokens",
+        "output_tokens_details",
+        "server_tool_use",
+        "service_tier",
+        "cache_creation",
+        "inference_geo",
+        "iterations",
+        "speed"
+      ],
+      "modelUsage_keys": [
+        "inputTokens",
+        "outputTokens",
+        "cacheReadInputTokens",
+        "cacheCreationInputTokens",
+        "webSearchRequests",
+        "costUSD",
+        "contextWindow",
+        "maxOutputTokens",
+        "canonicalModel",
+        "provider",
+        "costBasis"
+      ]
+    }
+  },
+  {
+    "label": "detect-anomaly-low-2",
+    "ok": true,
+    "summary": {
+      "wall_ms": 143439,
+      "wall_s": 143.4,
+      "duration_ms": 140048,
+      "duration_api_ms": 128018,
+      "is_error": false,
+      "subtype": "success",
+      "stop_reason": "tool_use",
+      "has_structured_output": true,
+      "structured_output_summary": {
+        "keys": [
+          "issueStructured",
+          "anomalyWindows"
+        ],
+        "anomalyWindows": 0,
+        "hasReport": false,
+        "hasEmail": false
+      },
+      "input_tokens": 18,
+      "output_tokens": 8838,
+      "cache_creation_input_tokens": 35204,
+      "cache_read_input_tokens": 307874,
+      "thinking_tokens": 5059,
+      "usage_keys": [
+        "input_tokens",
+        "cache_creation_input_tokens",
+        "cache_read_input_tokens",
+        "output_tokens",
+        "output_tokens_details",
+        "server_tool_use",
+        "service_tier",
+        "cache_creation",
+        "inference_geo",
+        "iterations",
+        "speed"
+      ],
+      "modelUsage_keys": [
+        "inputTokens",
+        "outputTokens",
+        "cacheReadInputTokens",
+        "cacheCreationInputTokens",
+        "webSearchRequests",
+        "costUSD",
+        "contextWindow",
+        "maxOutputTokens",
+        "canonicalModel",
+        "provider",
+        "costBasis"
+      ]
+    }
+  },
+  {
+    "label": "detect-anomaly-medium-2",
+    "ok": true,
+    "summary": {
+      "wall_ms": 114977,
+      "wall_s": 115,
+      "duration_ms": 110841,
+      "duration_api_ms": 100327,
+      "is_error": false,
+      "subtype": "success",
+      "stop_reason": "tool_use",
+      "has_structured_output": true,
+      "structured_output_summary": {
+        "keys": [
+          "issueStructured",
+          "anomalyWindows"
+        ],
+        "anomalyWindows": 0,
+        "hasReport": false,
+        "hasEmail": false
+      },
+      "input_tokens": 16,
+      "output_tokens": 7043,
+      "cache_creation_input_tokens": 25044,
+      "cache_read_input_tokens": 220396,
+      "thinking_tokens": 3990,
+      "usage_keys": [
+        "input_tokens",
+        "cache_creation_input_tokens",
+        "cache_read_input_tokens",
+        "output_tokens",
+        "output_tokens_details",
+        "server_tool_use",
+        "service_tier",
+        "cache_creation",
+        "inference_geo",
+        "iterations",
+        "speed"
+      ],
+      "modelUsage_keys": [
+        "inputTokens",
+        "outputTokens",
+        "cacheReadInputTokens",
+        "cacheCreationInputTokens",
+        "webSearchRequests",
+        "costUSD",
+        "contextWindow",
+        "maxOutputTokens",
+        "canonicalModel",
+        "provider",
+        "costBasis"
+      ]
+    }
+  },
+  {
+    "label": "detect-anomaly-high-2",
+    "ok": true,
+    "summary": {
+      "wall_ms": 120710,
+      "wall_s": 120.7,
+      "duration_ms": 117821,
+      "duration_api_ms": 112061,
+      "is_error": false,
+      "subtype": "success",
+      "stop_reason": "tool_use",
+      "has_structured_output": true,
+      "structured_output_summary": {
+        "keys": [
+          "issueStructured",
+          "anomalyWindows"
+        ],
+        "anomalyWindows": 0,
+        "hasReport": false,
+        "hasEmail": false
+      },
+      "input_tokens": 12,
+      "output_tokens": 7733,
+      "cache_creation_input_tokens": 21199,
+      "cache_read_input_tokens": 144396,
+      "thinking_tokens": 4484,
+      "usage_keys": [
+        "input_tokens",
+        "cache_creation_input_tokens",
+        "cache_read_input_tokens",
+        "output_tokens",
+        "output_tokens_details",
+        "server_tool_use",
+        "service_tier",
+        "cache_creation",
+        "inference_geo",
+        "iterations",
+        "speed"
+      ],
+      "modelUsage_keys": [
+        "inputTokens",
+        "outputTokens",
+        "cacheReadInputTokens",
+        "cacheCreationInputTokens",
+        "webSearchRequests",
+        "costUSD",
+        "contextWindow",
+        "maxOutputTokens",
+        "canonicalModel",
+        "provider",
+        "costBasis"
+      ]
+    }
+  },
+  {
+    "label": "detect-anomaly-low-3",
+    "ok": true,
+    "summary": {
+      "wall_ms": 172237,
+      "wall_s": 172.2,
+      "duration_ms": 169451,
+      "duration_api_ms": 159802,
+      "is_error": false,
+      "subtype": "success",
+      "stop_reason": "tool_use",
+      "has_structured_output": true,
+      "structured_output_summary": {
+        "keys": [
+          "issueStructured",
+          "anomalyWindows"
+        ],
+        "anomalyWindows": 0,
+        "hasReport": false,
+        "hasEmail": false
+      },
+      "input_tokens": 16,
+      "output_tokens": 11542,
+      "cache_creation_input_tokens": 49131,
+      "cache_read_input_tokens": 272617,
+      "thinking_tokens": 7775,
+      "usage_keys": [
+        "input_tokens",
+        "cache_creation_input_tokens",
+        "cache_read_input_tokens",
+        "output_tokens",
+        "output_tokens_details",
+        "server_tool_use",
+        "service_tier",
+        "cache_creation",
+        "inference_geo",
+        "iterations",
+        "speed"
+      ],
+      "modelUsage_keys": [
+        "inputTokens",
+        "outputTokens",
+        "cacheReadInputTokens",
+        "cacheCreationInputTokens",
+        "webSearchRequests",
+        "costUSD",
+        "contextWindow",
+        "maxOutputTokens",
+        "canonicalModel",
+        "provider",
+        "costBasis"
+      ]
+    }
+  },
+  {
+    "label": "detect-anomaly-medium-3",
+    "ok": true,
+    "summary": {
+      "wall_ms": 333200,
+      "wall_s": 333.2,
+      "duration_ms": 329688,
+      "duration_api_ms": 318923,
+      "is_error": false,
+      "subtype": "success",
+      "stop_reason": "tool_use",
+      "has_structured_output": true,
+      "structured_output_summary": {
+        "keys": [
+          "issueStructured",
+          "anomalyWindows"
+        ],
+        "anomalyWindows": 16,
+        "hasReport": false,
+        "hasEmail": false
+      },
+      "input_tokens": 18,
+      "output_tokens": 26722,
+      "cache_creation_input_tokens": 58535,
+      "cache_read_input_tokens": 392105,
+      "thinking_tokens": 15218,
+      "usage_keys": [
+        "input_tokens",
+        "cache_creation_input_tokens",
+        "cache_read_input_tokens",
+        "output_tokens",
+        "output_tokens_details",
+        "server_tool_use",
+        "service_tier",
+        "cache_creation",
+        "inference_geo",
+        "iterations",
+        "speed"
+      ],
+      "modelUsage_keys": [
+        "inputTokens",
+        "outputTokens",
+        "cacheReadInputTokens",
+        "cacheCreationInputTokens",
+        "webSearchRequests",
+        "costUSD",
+        "contextWindow",
+        "maxOutputTokens",
+        "canonicalModel",
+        "provider",
+        "costBasis"
+      ]
+    }
+  },
+  {
+    "label": "detect-anomaly-high-3",
+    "ok": true,
+    "summary": {
+      "wall_ms": 116832,
+      "wall_s": 116.8,
+      "duration_ms": 113880,
+      "duration_api_ms": 106374,
+      "is_error": false,
+      "subtype": "success",
+      "stop_reason": "tool_use",
+      "has_structured_output": true,
+      "structured_output_summary": {
+        "keys": [
+          "issueStructured",
+          "anomalyWindows"
+        ],
+        "anomalyWindows": 0,
+        "hasReport": false,
+        "hasEmail": false
+      },
+      "input_tokens": 12,
+      "output_tokens": 7948,
+      "cache_creation_input_tokens": 22904,
+      "cache_read_input_tokens": 164087,
+      "thinking_tokens": 5029,
+      "usage_keys": [
+        "input_tokens",
+        "cache_creation_input_tokens",
+        "cache_read_input_tokens",
+        "output_tokens",
+        "output_tokens_details",
+        "server_tool_use",
+        "service_tier",
+        "cache_creation",
+        "inference_geo",
+        "iterations",
+        "speed"
+      ],
+      "modelUsage_keys": [
+        "inputTokens",
+        "outputTokens",
+        "cacheReadInputTokens",
+        "cacheCreationInputTokens",
+        "webSearchRequests",
+        "costUSD",
+        "contextWindow",
+        "maxOutputTokens",
+        "canonicalModel",
+        "provider",
+        "costBasis"
+      ]
+    }
+  }
+]
