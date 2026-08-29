@@ -69,7 +69,7 @@ function makeSourceShell(name, path, sizeBytes, origin, ref) {
     encoding: 'utf-8', encodingAuto: true,
     format: GENERIC_FORMAT,
     delimiter: ',', columns: [],
-    rowCount: 0, alarmCount: 0, malformedRowCount: 0,
+    rowCount: 0, alarmCount: 0, malformedRowCount: 0, droppedResistanceEvents: 0,
     headSample: [], alarmSamples: [], groups: null,
     entityColumn: null, entityFilter: '', entityFilterAuto: true,
     timestampColumn: null,

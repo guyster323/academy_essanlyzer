@@ -78,8 +78,17 @@ test('no truncation occurs (and no truncation note is prefixed) for a small, wel
   assert.equal(truncation.excludedSources, 0);
   assert.equal(truncation.excludedGroups, 0);
   assert.equal(truncation.excludedAlarmContexts, 0);
+  assert.equal(truncation.droppedResistanceEvents, 0);
   assert.equal(truncation.textTruncatedChars, 0);
   assert.doesNotMatch(text, /데이터 규모 제한으로/);
+});
+
+test('dropped resistance events are reported in truncation, never silently', () => {
+  const block = makeFlatBlock('data_sys_6.csv', 2);
+  block.droppedResistanceEvents = 1234;
+  const { text, truncation } = blocksToPromptText([block]);
+  assert.equal(truncation.droppedResistanceEvents, 1234);
+  assert.match(text, new RegExp(`저항 이벤트 ${Number(1234).toLocaleString()}건 생략\\(초기 기준선\\+최근 창 유지\\)`));
 });
 
 test('when anything is truncated, a human-readable note is prefixed into the prompt text itself', () => {

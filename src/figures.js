@@ -4,7 +4,8 @@ import {
   classifyCommonMode, maxAbsDeltaAnchor, dpDtPercentile, qualityOverlap, eventStates, windowedNormalized
 } from './forensics/aemo.js';
 import {
-  resistanceSeriesByCell, binMatch, detectKnee, outlierCellByResistance, balancingBurden
+  resistanceSeriesByCell, binMatch, detectKnee, outlierCellByResistance, balancingBurden,
+  normalizeResistanceEvents, resistanceEventsDroppedCount
 } from './forensics/lfp.js';
 
 function xySeries(frozen, signal, name, color, which = 'mean', withBand = true) {
@@ -162,6 +163,8 @@ function aemoFigures(seriesByEntity, focusHint) {
 function lfpFigures(seriesByEntity, resistanceEvents) {
   const frozen = Object.values(seriesByEntity || {})[0];
   const events = resistanceEvents || [];
+  normalizeResistanceEvents(events);
+  const droppedEvents = resistanceEventsDroppedCount(events);
   const figures = [];
 
   const matched = binMatch(events);
@@ -184,7 +187,7 @@ function lfpFigures(seriesByEntity, resistanceEvents) {
     xLabel: '시간', yLabel: 'R (상대, V/A)',
     series: rSeries,
     markers: [],
-    summaryStats: { outlierCell: rOut.cell, deltaR: rOut.score, eventCount: events.length, matchedCount: matched.length }
+    summaryStats: { outlierCell: rOut.cell, deltaR: rOut.score, eventCount: events.length, matchedCount: matched.length, droppedEvents }
   });
 
   const matchedSeries = resistanceSeriesByCell(matched);
@@ -241,7 +244,10 @@ function lfpFigures(seriesByEntity, resistanceEvents) {
       kneeT: knee.t || null,
       piecewiseT: knee.piecewise?.t || null,
       kneedleT: knee.kneedle?.t || null,
-      available: knee.available
+      available: knee.available,
+      droppedEvents,
+      firstEventT: events[0]?.t ?? null,
+      lastEventT: events.length ? events[events.length - 1].t : null
     }
   });
 
@@ -275,6 +281,7 @@ function lfpFigures(seriesByEntity, resistanceEvents) {
 export function collectSeriesContext(blocks) {
   const seriesByEntity = {};
   const resistanceEvents = [];
+  let droppedResistanceEvents = 0;
   let formatId = 'generic';
   let focusHint = null;
   (blocks || []).forEach(block => {
@@ -283,12 +290,23 @@ export function collectSeriesContext(blocks) {
     Object.entries(block.seriesByEntity || {}).forEach(([id, frozen]) => {
       if (frozen?.bins?.length) seriesByEntity[id] = frozen;
     });
+    const scalar = Number(block.droppedResistanceEvents) || 0;
+    if (scalar) droppedResistanceEvents += scalar;
     const byEnt = block.resistanceEventsByEntity || {};
     Object.values(byEnt).forEach(list => {
-      if (Array.isArray(list)) resistanceEvents.push(...list);
+      if (Array.isArray(list)) {
+        normalizeResistanceEvents(list);
+        if (!scalar) droppedResistanceEvents += resistanceEventsDroppedCount(list);
+        resistanceEvents.push(...list);
+      }
     });
-    if (Array.isArray(block.resistanceEvents)) resistanceEvents.push(...block.resistanceEvents);
+    if (Array.isArray(block.resistanceEvents)) {
+      normalizeResistanceEvents(block.resistanceEvents);
+      if (!scalar) droppedResistanceEvents += resistanceEventsDroppedCount(block.resistanceEvents);
+      resistanceEvents.push(...block.resistanceEvents);
+    }
   });
+  resistanceEvents.droppedCount = droppedResistanceEvents;
   return { seriesByEntity, resistanceEvents, formatId, focusHint };
 }
 

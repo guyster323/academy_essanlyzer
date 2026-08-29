@@ -89,7 +89,15 @@ export async function callStructuredViaCli({ system, prompt, tool }) {
     '--json-schema', JSON.stringify(tool.input_schema),
     '--model', process.env.ANTHROPIC_MODEL || 'sonnet',
     '--allowedTools', '',
-    '--disable-slash-commands'
+    '--disable-slash-commands',
+    // Skip user-global hooks/MCP/plugin sync and session persistence. Measured
+    // on this machine: an equivalent structured call dropped from ~27s to ~6s
+    // (cache-create of tens of thousands of tokens → cache-read). Do not use
+    // --bare — it forces API-key-only auth and breaks the subscription/OAuth
+    // login this project depends on. --safe-mode keeps auth and model selection.
+    '--safe-mode',
+    '--strict-mcp-config',
+    '--no-session-persistence'
   ];
   if (system) args.push('--system-prompt', system);
 

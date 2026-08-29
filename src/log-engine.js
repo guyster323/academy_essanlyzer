@@ -11,6 +11,7 @@ import { zipEntryByteChunks, isJsZipUncompressedSizeMismatch } from './zip-strea
 import {
   MAX_SERIES_BUFFERS, MAX_SERIES_POINTS, createSeriesBuffer, pushSample, freezeSeries
 } from './series-engine.js';
+import { normalizeResistanceEvents, resistanceEventsDroppedCount } from './forensics/lfp.js';
 
 export const LOG_EXT_ALLOW = ['csv', 'txt', 'log', 'tsv', 'dat'];
 export const LOG_EXT_SKIP_NOTE = ['png', 'jpg', 'jpeg', 'gif', 'pdf', 'xlsx', 'xls', 'docx', 'pptx', 'exe', 'dll', 'bin', 'db'];
@@ -354,9 +355,11 @@ export async function streamIntoSource(src, byteChunkIterable, onProgress) {
 function freezeBucketEvidence(bucket, entityId) {
   const frozen = bucket?.series ? freezeSeries(bucket.series) : null;
   if (frozen) frozen.entityId = entityId;
+  const resistanceEvents = Array.isArray(bucket?.resistanceEvents) ? bucket.resistanceEvents : [];
+  normalizeResistanceEvents(resistanceEvents);
   return {
     series: frozen,
-    resistanceEvents: Array.isArray(bucket?.resistanceEvents) ? bucket.resistanceEvents : []
+    resistanceEvents
   };
 }
 
@@ -366,6 +369,7 @@ export function applyAccumulatorToSource(src, acc) {
   src.rowCount = acc.rowCount;
   src.alarmCount = acc.alarmCount;
   src.malformedRowCount = acc.malformedRowCount || 0;
+  src.droppedResistanceEvents = 0;
   src.entityColumn = acc.entityColumn;
   src.timestampColumn = acc.timestampColumn;
   src.groups = acc.groups; // null when the format has no groupable entity column
@@ -381,6 +385,7 @@ export function applyAccumulatorToSource(src, acc) {
       const ev = freezeBucketEvidence(bucket, id);
       if (ev.series) src.seriesByEntity[id] = ev.series;
       if (ev.resistanceEvents.length) src.resistanceEventsByEntity[id] = ev.resistanceEvents;
+      src.droppedResistanceEvents += resistanceEventsDroppedCount(ev.resistanceEvents);
     });
   } else {
     src.headSample = acc.headSample;
@@ -389,6 +394,7 @@ export function applyAccumulatorToSource(src, acc) {
     const ev = freezeBucketEvidence(acc, src.name || '_file');
     if (ev.series) src.seriesByEntity[ev.series.entityId] = ev.series;
     if (ev.resistanceEvents.length) src.resistanceEventsByEntity[ev.series?.entityId || '_file'] = ev.resistanceEvents;
+    src.droppedResistanceEvents += resistanceEventsDroppedCount(ev.resistanceEvents);
   }
   src.score = scoreSource(src.name, src.columns.join(src.delimiter));
   src.status = 'ready';
