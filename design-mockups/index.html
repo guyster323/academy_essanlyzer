@@ -1,0 +1,69 @@
+<!DOCTYPE html>
+<!-- 정적 디자인 목업 모음 — 실제 앱과 연결되어 있지 않습니다. -->
+<html lang="ko">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>ESS 분석 워크스테이션 — 디자인 목업</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link href="https://fonts.googleapis.com/css2?family=IBM+Plex+Mono:wght@400;500;600;700&family=IBM+Plex+Sans+KR:wght@400;500;600;700&display=swap" rel="stylesheet">
+<style>
+  :root{
+    --bg-base:#0F1420; --bg-panel:#161C2C; --bg-raised:#1E2740; --bg-inset:#0B0F19;
+    --border:#2A3348; --border-soft:#212A40;
+    --text-primary:#F1F3F8; --text-secondary:#9AA6BF; --text-muted:#5C6680;
+    --amber:#FFB648; --amber-dim:#3C2E12;
+    --font-mono:'IBM Plex Mono',monospace; --font-sans:'IBM Plex Sans KR','IBM Plex Sans',sans-serif;
+  }
+  *{box-sizing:border-box;}
+  html,body{margin:0;padding:0;background:var(--bg-base);color:var(--text-primary);font-family:var(--font-sans);min-height:100vh;}
+  body{
+    background-image:
+      radial-gradient(ellipse 900px 600px at 12% -8%, rgba(255,182,72,.11), transparent 60%),
+      radial-gradient(ellipse 800px 550px at 108% 6%, rgba(78,226,219,.09), transparent 60%),
+      linear-gradient(rgba(255,255,255,0.022) 1px, transparent 1px),
+      linear-gradient(90deg, rgba(255,255,255,0.022) 1px, transparent 1px);
+    background-size: auto, auto, 26px 26px, 26px 26px;
+  }
+  svg{display:block;}
+  .wrap{max-width:760px;margin:0 auto;padding:64px 28px;}
+  .brand{display:flex;align-items:center;gap:10px;margin-bottom:6px;}
+  .brand-mark{width:10px;height:10px;background:var(--amber);box-shadow:0 0 9px var(--amber);border-radius:2px;}
+  h1{font-size:20px;margin:0;}
+  .sub{font-size:12.5px;color:var(--text-secondary);margin:8px 0 34px;line-height:1.7;}
+  .list{display:flex;flex-direction:column;gap:10px;}
+  .item{display:flex;align-items:center;gap:14px;background:var(--bg-panel);border:1px solid var(--border);border-radius:12px;padding:16px 18px;text-decoration:none;color:var(--text-primary);}
+  .item:hover{border-color:var(--amber);}
+  .item-ic{width:38px;height:38px;border-radius:9px;background:var(--amber-dim);color:var(--amber);display:flex;align-items:center;justify-content:center;flex-shrink:0;}
+  .item-ic svg{width:19px;height:19px;}
+  .item-num{font-family:var(--font-mono);font-size:10px;color:var(--text-muted);letter-spacing:.06em;}
+  .item-title{font-size:13.5px;font-weight:700;margin-top:2px;}
+  .item-desc{font-size:11px;color:var(--text-secondary);margin-top:3px;}
+</style>
+</head>
+<body>
+<div class="wrap">
+  <div class="brand"><div class="brand-mark"></div><h1>ESS 분석 워크스테이션 — 디자인 목업</h1></div>
+  <div class="sub">정적 목업입니다. 버튼·입력은 동작하지 않으며, 아이콘에 마우스를 올리면 설명이 뜹니다. 아래에서 화면을 선택하세요.</div>
+
+  <div class="list">
+    <a class="item" href="./intake.html">
+      <div class="item-ic"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M12 15V4"/><path d="M7 9l5-5 5 5"/><path d="M4 15v3a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2v-3"/></svg></div>
+      <div><div class="item-num">STEP 1</div><div class="item-title">의뢰 입력</div><div class="item-desc">로그 업로드 · CS 의뢰 작성</div></div>
+    </a>
+    <a class="item" href="./anomaly.html">
+      <div class="item-ic"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><circle cx="10.5" cy="10.5" r="6.5"/><path d="M20 20l-4.7-4.7"/></svg></div>
+      <div><div class="item-num">STEP 2</div><div class="item-title">이상 탐지 결과</div><div class="item-desc">근거형 차트 · 이상 구간 목록</div></div>
+    </a>
+    <a class="item" href="./hypothesis.html">
+      <div class="item-ic"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><circle cx="6" cy="6" r="2"/><circle cx="6" cy="18" r="2"/><circle cx="18" cy="12" r="2"/><path d="M6 8v8"/><path d="M7.8 6.9l8.4 4.2"/></svg></div>
+      <div><div class="item-num">STEP 3–4</div><div class="item-title">가설 검토 및 심각도 확정</div><div class="item-desc">편차 게이지 · 근거 계층 색상 구분</div></div>
+    </a>
+    <a class="item" href="./report.html">
+      <div class="item-ic"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M7 3.5h7l4 4V20a1 1 0 0 1-1 1H7a1 1 0 0 1-1-1V4.5a1 1 0 0 1 1-1Z"/><path d="M14 3.5V8h4"/><path d="M9 13h6M9 16.5h6"/></svg></div>
+      <div><div class="item-num">STEP 5</div><div class="item-title">보고서 및 CS 회신 메일</div><div class="item-desc">3-box 근거 요약 · 메일 초안</div></div>
+    </a>
+  </div>
+</div>
+</body>
+</html>

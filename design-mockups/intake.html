@@ -1,0 +1,394 @@
+<!DOCTYPE html>
+<!-- 정적 디자인 목업 — 실제 앱과 연결되어 있지 않으며 버튼/입력은 동작하지 않습니다. -->
+<html lang="ko">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>ESS 분석 워크스테이션 — 의뢰 입력 (디자인 목업)</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link href="https://fonts.googleapis.com/css2?family=IBM+Plex+Mono:wght@400;500;600;700&family=IBM+Plex+Sans+KR:wght@400;500;600;700&display=swap" rel="stylesheet">
+<style>
+  :root{
+    --bg-base:#0F1420; --bg-panel:#161C2C; --bg-raised:#1E2740; --bg-inset:#0B0F19;
+    --border:#2A3348; --border-soft:#212A40;
+    --text-primary:#F1F3F8; --text-secondary:#9AA6BF; --text-muted:#5C6680;
+    --amber:#FFB648; --amber-dim:#3C2E12; --amber-soft:#241D0E;
+    --cyan:#4EE2DB; --cyan-dim:#123634;
+    --red:#FF6B70; --red-dim:#3E1920;
+    --green:#3EDB8E; --green-dim:#123625;
+    --font-mono:'IBM Plex Mono',monospace; --font-sans:'IBM Plex Sans KR','IBM Plex Sans',sans-serif;
+  }
+  *{box-sizing:border-box;}
+  html,body{margin:0;padding:0;background:var(--bg-base);color:var(--text-primary);font-family:var(--font-sans);}
+  body{
+    background-image:
+      radial-gradient(ellipse 900px 600px at 12% -8%, rgba(255,182,72,.11), transparent 60%),
+      radial-gradient(ellipse 800px 550px at 108% 6%, rgba(78,226,219,.09), transparent 60%),
+      linear-gradient(rgba(255,255,255,0.022) 1px, transparent 1px),
+      linear-gradient(90deg, rgba(255,255,255,0.022) 1px, transparent 1px);
+    background-size: auto, auto, 26px 26px, 26px 26px;
+  }
+  a{color:var(--cyan);} a:hover{color:#8FF0EA;}
+  svg{display:block;}
+  #app{display:grid;grid-template-columns:250px 1fr;min-height:100vh;}
+
+  /* ---- tooltip system ---- */
+  .tip{position:relative;}
+  .tip::after{
+    content:attr(data-tip); position:absolute; left:50%; bottom:calc(100% + 9px);
+    transform:translate(-50%,4px); background:#080B12; color:#F1F3F8; border:1px solid var(--border);
+    padding:6px 10px; border-radius:7px; font-size:11px; font-family:var(--font-sans); font-weight:500;
+    white-space:nowrap; opacity:0; pointer-events:none; transition:opacity .14s ease, transform .14s ease;
+    box-shadow:0 10px 24px rgba(0,0,0,.5); z-index:90;
+  }
+  .tip:hover::after,.tip:focus-visible::after{opacity:1; transform:translate(-50%,0);}
+  .tip-b::after{bottom:auto; top:calc(100% + 9px); transform:translate(-50%,-4px);}
+  .tip-b:hover::after{transform:translate(-50%,0);}
+  .tip-l::after{left:0; transform:translate(0,4px);} .tip-l:hover::after{transform:translate(0,0);}
+  .tip-wide::after{white-space:normal; width:230px; text-align:left; line-height:1.55;}
+
+  /* ---- icon helpers ---- */
+  .ic{width:16px;height:16px;flex-shrink:0;}
+  .ic-sm{width:13px;height:13px;}
+  .ic-lg{width:20px;height:20px;}
+
+  .sidebar{background:var(--bg-panel);border-right:1px solid var(--border);padding:22px 15px;display:flex;flex-direction:column;}
+  .brand{display:flex;align-items:center;gap:9px;margin-bottom:16px;}
+  .brand-mark{width:9px;height:9px;background:var(--amber);box-shadow:0 0 9px var(--amber);border-radius:2px;flex-shrink:0;}
+  .brand-title{font-size:12.5px;font-weight:700;line-height:1.3;}
+
+  .btn-new{display:flex;align-items:center;justify-content:center;gap:8px;width:100%;background:var(--amber);border:1px solid var(--amber);color:#1A1204;padding:10px;border-radius:9px;font-size:12px;font-weight:700;cursor:pointer;box-shadow:0 4px 16px rgba(255,182,72,.25);}
+  .btn-new .ic{width:15px;height:15px;}
+
+  .side-label{display:flex;align-items:center;gap:6px;font-size:9.5px;color:var(--text-muted);font-family:var(--font-mono);letter-spacing:0.08em;text-transform:uppercase;margin:22px 0 9px 2px;}
+  .case-list{flex:1;display:flex;flex-direction:column;gap:7px;}
+  .case-item{border:1px solid var(--border-soft);background:var(--bg-inset);border-radius:9px;padding:10px 11px;}
+  .case-item.active{border-color:var(--amber);background:var(--amber-soft);}
+  .case-item-title{font-size:11px;font-weight:600;margin-bottom:7px;line-height:1.4;}
+  .case-item-meta{display:flex;align-items:center;gap:8px;}
+  .sev-icon{width:14px;height:14px;border-radius:50%;display:flex;align-items:center;justify-content:center;}
+  .sev-상{background:var(--red-dim);color:var(--red);} .sev-중{background:var(--amber-dim);color:var(--amber);}
+  .sev-하{background:var(--green-dim);color:var(--green);} .sev-pending{background:var(--bg-raised);color:var(--text-muted);}
+  .sev-icon svg{width:8px;height:8px;}
+  .meta-date{display:flex;align-items:center;gap:4px;font-size:9.5px;color:var(--text-muted);font-family:var(--font-mono);}
+  .meta-date .ic{width:11px;height:11px;}
+  .mini-steps{display:flex;gap:3px;margin-top:8px;}
+  .mini-dot{width:11px;height:3px;border-radius:2px;background:var(--border);}
+  .mini-dot.on{background:var(--amber);}
+
+  .sidebar-footer{margin-top:14px;padding-top:13px;border-top:1px solid var(--border-soft);display:flex;align-items:center;gap:7px;color:var(--text-muted);}
+  .sidebar-footer .ic{width:14px;height:14px;}
+  .sidebar-footer b{font-size:10px;color:var(--text-secondary);font-weight:700;letter-spacing:.02em;}
+
+  .main{padding:26px 34px 56px;max-width:1120px;}
+  .page-header{display:flex;align-items:flex-start;justify-content:space-between;gap:14px;margin-bottom:20px;}
+  .page-title{font-size:19px;font-weight:700;letter-spacing:-0.01em;}
+  .page-title-sub{display:flex;align-items:center;gap:7px;margin-top:5px;}
+  .page-title-sub span{font-size:11.5px;color:var(--text-secondary);}
+  .info-dot{width:16px;height:16px;border-radius:50%;border:1px solid var(--border);color:var(--text-muted);display:flex;align-items:center;justify-content:center;cursor:default;flex-shrink:0;}
+  .info-dot svg{width:9px;height:9px;}
+
+  /* ---- breathing stepper ---- */
+  .stepper{display:flex;align-items:flex-start;margin-bottom:30px;}
+  .step-node{display:flex;flex-direction:column;align-items:center;flex:1;position:relative;}
+  .step-trace{position:absolute;top:16px;left:50%;width:100%;height:2px;background:var(--border);overflow:hidden;}
+  .step-node:first-child .step-trace{display:none;}
+  .step-trace.flow{background:linear-gradient(90deg, var(--green) 0%, var(--green) 40%, rgba(255,182,72,.9) 65%, rgba(255,182,72,.25) 100%); background-size:220% 100%; animation:flowmove 3.2s ease-in-out infinite;}
+  @keyframes flowmove{0%{background-position:0% 0;}50%{background-position:100% 0;}100%{background-position:0% 0;}}
+  .step-circle{width:33px;height:33px;border-radius:50%;border:2px solid var(--border);background:var(--bg-panel);display:flex;align-items:center;justify-content:center;color:var(--text-muted);z-index:1;}
+  .step-circle .ic{width:15px;height:15px;}
+  .step-node.done .step-circle{border-color:var(--green);color:var(--green);background:var(--green-dim);}
+  .step-node.active .step-circle{border-color:var(--amber);color:var(--amber);background:var(--amber-dim);
+    animation:breathe 2.6s ease-in-out infinite;}
+  @keyframes breathe{
+    0%,100%{box-shadow:0 0 0 0 rgba(255,182,72,0), 0 0 12px rgba(255,182,72,.5); transform:scale(1);}
+    50%{box-shadow:0 0 0 7px rgba(255,182,72,.10), 0 0 20px rgba(255,182,72,.7); transform:scale(1.07);}
+  }
+  .step-active-label{margin-top:9px;font-size:10px;font-weight:700;color:var(--amber);letter-spacing:.02em;}
+
+  .panel{background:var(--bg-panel);border:1px solid var(--border);border-radius:12px;padding:20px 22px;margin-bottom:16px;}
+  .panel-head{display:flex;align-items:center;gap:9px;margin-bottom:14px;}
+  .panel-icon{width:26px;height:26px;border-radius:7px;background:var(--amber-dim);color:var(--amber);display:flex;align-items:center;justify-content:center;flex-shrink:0;}
+  .panel-icon .ic{width:14px;height:14px;}
+  .panel-title{font-size:12.5px;font-weight:700;}
+
+  label.field-label{display:flex;align-items:center;gap:6px;font-size:11px;font-weight:600;color:var(--text-secondary);margin-bottom:8px;}
+  label.field-label .req{color:var(--red);}
+  textarea,input[type=text],select{width:100%;background:var(--bg-inset);border:1px solid var(--border);color:var(--text-primary);font-family:var(--font-mono);font-size:11.5px;padding:10px 12px;border-radius:8px;line-height:1.6;}
+  textarea:focus,input:focus,select:focus{outline:none;border-color:var(--amber);}
+  textarea::placeholder,input::placeholder{color:var(--text-muted);font-family:var(--font-sans);}
+  .field-group{margin-bottom:16px;}
+
+  .icon-btn-lbl{display:inline-flex;align-items:center;gap:7px;border:1px solid var(--border);background:var(--bg-raised);color:var(--text-primary);padding:8px 13px;border-radius:9px;font-size:11.5px;font-weight:600;cursor:pointer;}
+  .icon-btn-lbl .ic{color:var(--cyan);}
+  .file-row{display:flex;gap:9px;align-items:center;margin-bottom:10px;flex-wrap:wrap;}
+
+  .zip-summary-bar{display:flex;align-items:center;gap:16px;margin-top:10px;padding:9px 13px;background:var(--bg-inset);border:1px solid var(--border-soft);border-radius:9px;}
+  .zip-stat{display:flex;align-items:center;gap:6px;font-size:11px;color:var(--text-secondary);}
+  .zip-stat b{color:var(--text-primary);font-family:var(--font-mono);}
+  .zip-stat .ic{color:var(--text-muted);}
+
+  .source-list{margin-top:9px;display:flex;flex-direction:column;gap:7px;}
+  .source-item{display:flex;align-items:flex-start;gap:10px;background:var(--bg-inset);border:1px solid var(--border-soft);border-radius:10px;padding:10px 12px;}
+  .source-item input[type=checkbox]{margin-top:2px;accent-color:var(--amber);width:14px;height:14px;flex-shrink:0;}
+  .source-main{flex:1;min-width:0;}
+  .source-path{font-family:var(--font-mono);font-size:10.5px;display:flex;align-items:center;gap:6px;}
+  .source-path .ic{color:var(--text-muted);}
+  .source-path .folder-part{color:var(--text-muted);}
+  .source-badges{display:flex;align-items:center;gap:6px;margin-top:6px;}
+  .badge-ic{width:19px;height:19px;border-radius:5px;display:flex;align-items:center;justify-content:center;}
+  .badge-ic svg{width:11px;height:11px;}
+  .badge-ic.rec{background:var(--green-dim);color:var(--green);}
+  .badge-ic.fmt{background:var(--bg-raised);color:var(--text-secondary);}
+  .badge-ic.cat{background:var(--cyan-dim);color:var(--cyan);}
+  .stat-strip-sm{display:flex;align-items:center;gap:11px;margin-top:7px;flex-wrap:wrap;}
+  .stat-sm{display:flex;align-items:center;gap:4px;font-size:10px;color:var(--text-secondary);font-family:var(--font-mono);}
+  .stat-sm .ic{width:11px;height:11px;color:var(--text-muted);}
+  .stat-sm.warn{color:var(--amber);} .stat-sm.warn .ic{color:var(--amber);}
+  .progress-track{width:170px;height:4px;background:var(--bg-panel);border-radius:2px;overflow:hidden;margin-top:7px;}
+  .progress-fill{height:100%;background:var(--amber);}
+  .icon-link-btn{display:inline-flex;align-items:center;gap:5px;background:none;border:none;color:var(--cyan);font-size:10px;cursor:pointer;padding:0;margin-top:8px;}
+
+  .tmpl-row{display:flex;flex-wrap:wrap;gap:8px;}
+  .tmpl-chip{width:36px;height:36px;border-radius:10px;background:var(--bg-inset);border:1px solid var(--border);color:var(--text-secondary);display:flex;align-items:center;justify-content:center;cursor:pointer;}
+  .tmpl-chip:hover{border-color:var(--amber);color:var(--amber);}
+  .tmpl-chip .ic{width:16px;height:16px;}
+
+  .issue-detect-box{border:1px solid var(--cyan);background:var(--cyan-dim);border-radius:12px;padding:14px 16px;margin:14px 0 16px;}
+  .issue-detect-label{display:flex;align-items:center;gap:6px;font-size:10.5px;font-weight:700;color:var(--cyan);margin-bottom:11px;}
+  .issue-card-list{display:flex;flex-direction:column;gap:8px;}
+  .issue-card{display:flex;align-items:center;gap:10px;background:var(--bg-inset);border:1px solid var(--border);border-radius:9px;padding:10px 13px;cursor:pointer;}
+  .issue-card.selected{border-color:var(--amber);box-shadow:0 0 0 1px var(--amber) inset;background:var(--amber-soft);}
+  .lv-ic{width:24px;height:24px;border-radius:7px;display:flex;align-items:center;justify-content:center;flex-shrink:0;}
+  .lv-ic svg{width:13px;height:13px;}
+  .lv-고{background:var(--red-dim);color:var(--red);} .lv-중{background:var(--amber-dim);color:var(--amber);} .lv-저{background:var(--cyan-dim);color:var(--cyan);}
+  .issue-card-title{font-size:12px;font-weight:700;flex:1;}
+  .issue-card-time{display:flex;align-items:center;gap:5px;font-size:9.5px;color:var(--text-muted);font-family:var(--font-mono);}
+
+  .check-row{display:flex;align-items:flex-start;gap:9px;font-size:11.5px;color:var(--text-secondary);}
+  .check-row input{margin-top:2px;accent-color:var(--amber);width:14px;height:14px;flex-shrink:0;}
+  .form-actions{display:flex;justify-content:space-between;align-items:center;margin-top:6px;}
+  .sample-link{display:inline-flex;align-items:center;gap:6px;font-size:10.5px;color:var(--cyan);background:none;border:none;cursor:pointer;padding:0;}
+  .btn-primary{display:inline-flex;align-items:center;gap:8px;background:var(--amber);border:1px solid var(--amber);color:#1A1204;padding:10px 16px;font-size:12px;font-weight:700;border-radius:10px;cursor:pointer;box-shadow:0 4px 16px rgba(255,182,72,.22);}
+
+  .nav-back{position:fixed;top:16px;right:18px;display:flex;align-items:center;gap:6px;background:var(--bg-raised);border:1px solid var(--border);color:var(--text-secondary);padding:7px 12px;border-radius:8px;font-size:10.5px;text-decoration:none;z-index:99;}
+  .nav-back:hover{color:var(--amber);border-color:var(--amber);}
+</style>
+</head>
+<body>
+
+<a class="nav-back" href="./index.html">← 목업 목록</a>
+
+<div id="app">
+  <aside class="sidebar">
+    <div class="brand"><div class="brand-mark"></div><div class="brand-title">ESS 분석<br>워크스테이션</div></div>
+
+    <button class="btn-new">
+      <svg class="ic" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round"><line x1="12" y1="5" x2="12" y2="19"/><line x1="5" y1="12" x2="19" y2="12"/></svg>
+      신규 분석
+    </button>
+
+    <div class="side-label">케이스 히스토리</div>
+    <div class="case-list">
+      <div class="case-item active">
+        <div class="case-item-title">과전압 경보 — Rack #3</div>
+        <div class="case-item-meta">
+          <span class="sev-icon sev-pending tip" data-tip="검토중 — 심각도 미확정"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.6" stroke-linecap="round"><circle cx="12" cy="12" r="1"/></svg></span>
+          <span class="meta-date tip" data-tip="2026-08-27 생성"><svg class="ic" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="8.5"/><path d="M12 7.5V12l3 2"/></svg>08-27</span>
+        </div>
+        <div class="mini-steps"><div class="mini-dot on"></div><div class="mini-dot on"></div><div class="mini-dot on"></div><div class="mini-dot"></div><div class="mini-dot"></div></div>
+      </div>
+      <div class="case-item">
+        <div class="case-item-title">SOC 드리프트 — BESS Unit 2</div>
+        <div class="case-item-meta">
+          <span class="sev-icon sev-중 tip" data-tip="심각도: 중"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.6" stroke-linecap="round"><circle cx="12" cy="12" r="1"/></svg></span>
+          <span class="meta-date tip" data-tip="2026-08-22 생성"><svg class="ic" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="8.5"/><path d="M12 7.5V12l3 2"/></svg>08-22</span>
+        </div>
+        <div class="mini-steps"><div class="mini-dot on"></div><div class="mini-dot on"></div><div class="mini-dot on"></div><div class="mini-dot on"></div><div class="mini-dot on"></div></div>
+      </div>
+      <div class="case-item">
+        <div class="case-item-title">통신 두절 — PCS #1</div>
+        <div class="case-item-meta">
+          <span class="sev-icon sev-하 tip" data-tip="심각도: 하"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.6" stroke-linecap="round"><circle cx="12" cy="12" r="1"/></svg></span>
+          <span class="meta-date tip" data-tip="2026-08-19 생성"><svg class="ic" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="8.5"/><path d="M12 7.5V12l3 2"/></svg>08-19</span>
+        </div>
+        <div class="mini-steps"><div class="mini-dot on"></div><div class="mini-dot on"></div><div class="mini-dot on"></div><div class="mini-dot on"></div><div class="mini-dot on"></div></div>
+      </div>
+    </div>
+
+    <div class="sidebar-footer tip tip-wide" data-tip="브라우저 세션 종료 시 초기화됩니다. 실 고객 데이터는 입력하지 마세요 — 샘플/가상 데이터만 사용합니다.">
+      <svg class="ic" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><rect x="5" y="10.5" width="14" height="9" rx="1.6"/><path d="M8 10.5V7.5a4 4 0 0 1 8 0v3"/></svg>
+      <b>세션 전용 · 샘플 데이터만</b>
+    </div>
+  </aside>
+
+  <main class="main">
+    <div class="page-header">
+      <div>
+        <div class="page-title">신규 이슈 분석</div>
+        <div class="page-title-sub">
+          <span>로그를 올리면 이슈를 자동 감지해 의뢰 내용을 채웁니다</span>
+          <span class="info-dot tip tip-wide" data-tip="CSV/TXT/LOG 또는 ZIP을 업로드하면 스트리밍 분석 후 이상 후보가 감지되고, 클릭 시 아래 CS 의뢰란이 자동으로 채워집니다. 실제 고객 데이터가 아닌 샘플/가상 데이터를 사용하세요.">
+            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="8.5"/><line x1="12" y1="11" x2="12" y2="16.5"/><line x1="12" y1="7.5" x2="12" y2="7.6"/></svg>
+          </span>
+        </div>
+      </div>
+    </div>
+
+    <div class="stepper">
+      <div class="step-node active">
+        <div class="step-trace"></div>
+        <div class="step-circle tip" data-tip="Step 1 · 의뢰 입력"><svg class="ic" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M12 15V4"/><path d="M7 9l5-5 5 5"/><path d="M4 15v3a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2v-3"/></svg></div>
+      </div>
+      <div class="step-node">
+        <div class="step-trace"></div>
+        <div class="step-circle tip" data-tip="Step 2 · 이상 탐지"><svg class="ic" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><circle cx="10.5" cy="10.5" r="6.5"/><path d="M20 20l-4.7-4.7"/></svg></div>
+      </div>
+      <div class="step-node">
+        <div class="step-trace"></div>
+        <div class="step-circle tip" data-tip="Step 3 · 가설 생성"><svg class="ic" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><circle cx="6" cy="6" r="2"/><circle cx="6" cy="18" r="2"/><circle cx="18" cy="12" r="2"/><path d="M6 8v8"/><path d="M7.8 6.9l8.4 4.2"/></svg></div>
+      </div>
+      <div class="step-node">
+        <div class="step-trace"></div>
+        <div class="step-circle tip" data-tip="Step 4 · 검토·확정"><svg class="ic" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M2.5 12S6 5.5 12 5.5 21.5 12 21.5 12 18 18.5 12 18.5 2.5 12 2.5 12Z"/><circle cx="12" cy="12" r="2.4"/></svg></div>
+      </div>
+      <div class="step-node">
+        <div class="step-trace"></div>
+        <div class="step-circle tip" data-tip="Step 5 · 보고서"><svg class="ic" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M7 3.5h7l4 4V20a1 1 0 0 1-1 1H7a1 1 0 0 1-1-1V4.5a1 1 0 0 1 1-1Z"/><path d="M14 3.5V8h4"/><path d="M9 13h6M9 16.5h6"/></svg></div>
+      </div>
+    </div>
+
+    <div class="panel">
+      <div class="panel-head">
+        <div class="panel-icon"><svg class="ic" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M12 15V4"/><path d="M7 9l5-5 5 5"/><path d="M4 15v3a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2v-3"/></svg></div>
+        <div class="panel-title">로그 업로드</div>
+        <span class="info-dot tip tip-wide" data-tip="ZIP은 중첩된 zip까지 목록으로 카탈로그됩니다. 20MB 이하는 즉시 스트리밍 집계되고, 그보다 큰 항목은 선택해야 처리됩니다. 구분자·인코딩·포맷은 자동 감지됩니다.">
+          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="8.5"/><line x1="12" y1="11" x2="12" y2="16.5"/><line x1="12" y1="7.5" x2="12" y2="7.6"/></svg>
+        </span>
+      </div>
+
+      <div class="field-group">
+        <div class="file-row">
+          <button class="icon-btn-lbl">
+            <svg class="ic" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M12 15V4"/><path d="M7 9l5-5 5 5"/><path d="M4 15v3a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2v-3"/></svg>
+            로그 추가
+          </button>
+          <button class="icon-btn-lbl">
+            <svg class="ic" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><rect x="3.5" y="4" width="17" height="5" rx="1.2"/><path d="M5.5 9v8a2 2 0 0 0 2 2h9a2 2 0 0 0 2-2V9"/><path d="M10.5 13h3"/></svg>
+            ZIP 추가
+          </button>
+        </div>
+
+        <div class="zip-summary-bar">
+          <span class="zip-stat tip" data-tip="인식된 파일"><svg class="ic" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M7 3.5h7l4 4V20a1 1 0 0 1-1 1H7a1 1 0 0 1-1-1V4.5a1 1 0 0 1 1-1Z"/></svg><b>3</b></span>
+          <span class="zip-stat tip" data-tip="분석에 포함 선택됨"><svg class="ic" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round"><polyline points="20 6 9 17 4 12"/></svg><b>2</b></span>
+          <span class="zip-stat tip" data-tip="카탈로그됨 · 아직 미처리" style="color:var(--cyan);"><svg class="ic" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M12 3 3 8l9 5 9-5-9-5Z"/><path d="M3 13l9 5 9-5"/></svg><b style="color:var(--cyan);">1</b></span>
+        </div>
+
+        <div class="source-list">
+          <div class="source-item">
+            <input type="checkbox" checked>
+            <div class="source-main">
+              <div class="source-path"><svg class="ic" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M7 3.5h7l4 4V20a1 1 0 0 1-1 1H7a1 1 0 0 1-1-1V4.5a1 1 0 0 1 1-1Z"/></svg><span class="folder-part">rack3/</span>rack3_bms_log.csv</div>
+              <div class="source-badges">
+                <span class="badge-ic rec tip" data-tip="BMS 로그 후보"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.6" stroke-linecap="round"><polyline points="20 6 9 17 4 12"/></svg></span>
+                <span class="badge-ic fmt tip" data-tip="CSV 일반형식">CSV</span>
+              </div>
+              <div class="stat-strip-sm">
+                <span class="stat-sm tip" data-tip="파일 크기"><svg class="ic" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M7 3.5h7l4 4V20a1 1 0 0 1-1 1H7a1 1 0 0 1-1-1V4.5a1 1 0 0 1 1-1Z"/></svg>48.2MB</span>
+                <span class="stat-sm tip" data-tip="행 수"><svg class="ic" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><line x1="4" y1="7" x2="20" y2="7"/><line x1="4" y1="12" x2="20" y2="12"/><line x1="4" y1="17" x2="14" y2="17"/></svg>812,400</span>
+                <span class="stat-sm warn tip" data-tip="알람 발생 건수"><svg class="ic" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M6 9a6 6 0 0 1 12 0c0 4 1.4 5.2 2 6H4c.6-.8 2-2 2-6Z"/></svg>12</span>
+                <span class="stat-sm tip" data-tip="파생 이상 (스트리밍 계산)"><svg class="ic" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M12 3 3 8l9 5 9-5-9-5Z"/><path d="M3 13l9 5 9-5"/></svg>34</span>
+              </div>
+            </div>
+          </div>
+          <div class="source-item">
+            <input type="checkbox" disabled>
+            <div class="source-main">
+              <div class="source-path"><svg class="ic" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M7 3.5h7l4 4V20a1 1 0 0 1-1 1H7a1 1 0 0 1-1-1V4.5a1 1 0 0 1 1-1Z"/></svg><span class="folder-part">aemo/</span>wdbess1_aemo_20260819.csv</div>
+              <div class="source-badges">
+                <span class="badge-ic cat tip" data-tip="카탈로그됨 · 미처리"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M12 3 3 8l9 5 9-5-9-5Z"/><path d="M3 13l9 5 9-5"/></svg></span>
+                <span class="badge-ic fmt tip" data-tip="AEMO MMS 리포트 포맷">MMS</span>
+              </div>
+              <div class="stat-strip-sm">
+                <span class="stat-sm tip" data-tip="파일 크기"><svg class="ic" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M7 3.5h7l4 4V20a1 1 0 0 1-1 1H7a1 1 0 0 1-1-1V4.5a1 1 0 0 1 1-1Z"/></svg>210.4MB</span>
+              </div>
+              <button class="icon-link-btn"><svg class="ic-sm" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round"><line x1="12" y1="5" x2="12" y2="19"/><line x1="5" y1="12" x2="19" y2="12"/></svg>분석 포함하기</button>
+            </div>
+          </div>
+          <div class="source-item">
+            <input type="checkbox" checked>
+            <div class="source-main">
+              <div class="source-path"><svg class="ic" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M7 3.5h7l4 4V20a1 1 0 0 1-1 1H7a1 1 0 0 1-1-1V4.5a1 1 0 0 1 1-1Z"/></svg><span class="folder-part">field_data/</span>data_sys_12.csv</div>
+              <div class="progress-track"><div class="progress-fill" style="width:63%"></div></div>
+              <div class="stat-strip-sm"><span class="stat-sm tip" data-tip="스캔 진행률">63% · 37.9MB</span></div>
+            </div>
+          </div>
+        </div>
+      </div>
+
+      <div class="issue-detect-box">
+        <div class="issue-detect-label">
+          <svg class="ic" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><circle cx="10.5" cy="10.5" r="6.5"/><path d="M20 20l-4.7-4.7"/></svg>
+          자동 감지된 이슈 2건 — 클릭하면 아래 의뢰란이 채워집니다
+        </div>
+        <div class="issue-card-list">
+          <div class="issue-card selected">
+            <span class="lv-ic lv-고 tip" data-tip="심각도: 고"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M13 3 5 13.5h5.2L11 21l8-11h-5.2z"/></svg></span>
+            <span class="issue-card-title">과전압 경보 (OV001)</span>
+            <span class="issue-card-time tip" data-tip="2026-08-26 14:32 · rack3_bms_log.csv"><svg class="ic-sm" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="8.5"/><path d="M12 7.5V12l3 2"/></svg>14:32</span>
+          </div>
+          <div class="issue-card">
+            <span class="lv-ic lv-중 tip" data-tip="심각도: 중"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><rect x="3" y="7" width="16" height="10" rx="1.6"/><path d="M19 10.5h2v3h-2"/></svg></span>
+            <span class="issue-card-title">SOC 급락 구간</span>
+            <span class="issue-card-time tip" data-tip="2026-08-26 09:10 · rack3_bms_log.csv"><svg class="ic-sm" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="8.5"/><path d="M12 7.5V12l3 2"/></svg>09:10</span>
+          </div>
+        </div>
+      </div>
+
+      <div class="field-group">
+        <label class="field-label">
+          <svg class="ic" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M4 5.5h16M4 12h16M4 18.5h10"/></svg>
+          CS 의뢰 내용 <span class="req">*</span>
+        </label>
+        <div class="tmpl-row" style="margin-bottom:10px;">
+          <span class="tmpl-chip tip" data-tip="과전압"><svg class="ic" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M13 3 5 13.5h5.2L11 21l8-11h-5.2z"/></svg></span>
+          <span class="tmpl-chip tip" data-tip="저전압"><svg class="ic" style="transform:scaleY(-1)" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M13 3 5 13.5h5.2L11 21l8-11h-5.2z"/></svg></span>
+          <span class="tmpl-chip tip" data-tip="셀 온도 편차/과열"><svg class="ic" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M12 14.5V5a2 2 0 1 0-4 0v9.5a4 4 0 1 0 4 0Z"/></svg></span>
+          <span class="tmpl-chip tip" data-tip="SOC 급락/추정오차"><svg class="ic" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><rect x="3" y="7" width="16" height="10" rx="1.6"/><path d="M19 10.5h2v3h-2"/></svg></span>
+          <span class="tmpl-chip tip" data-tip="컨택터/CB 트립"><svg class="ic" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M9 3v5M15 3v5"/><path d="M6.5 8h11v4a5.5 5.5 0 0 1-11 0Z"/></svg></span>
+          <span class="tmpl-chip tip" data-tip="통신 두절/PCS Fault"><svg class="ic" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M4 8.5a15 15 0 0 1 16 0"/><path d="M7.8 12.3a9.5 9.5 0 0 1 8.4 0"/><line x1="3" y1="3" x2="21" y2="21"/></svg></span>
+        </div>
+        <textarea rows="4">2026년 8월 26일 오후 2시 32분경 Rack #3에서 과전압 경보(OV001) 발생. BMS 알람 후 자동 차단됨. 최근 2주간 동일 셀(Cell 5)에서 유사 경향 관측.</textarea>
+      </div>
+
+      <div class="field-group">
+        <label class="field-label">
+          <svg class="ic" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="8.5"/><path d="M12 7.5V12l3 2"/></svg>
+          과거 유사 케이스
+          <span class="info-dot tip tip-wide" data-tip="과거 유사 사례 보고서(HTML/PPTX)를 첨부하면 가설 생성 단계에서 참고자료로 활용됩니다. 고객명·사이트명을 제거한 파일만 첨부하세요.">
+            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="8.5"/><line x1="12" y1="11" x2="12" y2="16.5"/><line x1="12" y1="7.5" x2="12" y2="7.6"/></svg>
+          </span>
+        </label>
+        <input type="text" value="2026년 3월 동일 모델 Rack #1 과전압, 원인은 셀 밸런싱 로직 오작동으로 판정.">
+      </div>
+
+      <div class="field-group">
+        <label class="check-row"><input type="checkbox" checked><span>고객명·사이트 위치·실 설비 식별자·개인정보를 제거했음을 확인합니다. <span class="req" style="color:var(--red);">*</span></span></label>
+      </div>
+
+      <div class="form-actions">
+        <button class="sample-link">
+          <svg class="ic-sm" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M13 3 5 13.5h5.2L11 21l8-11h-5.2z"/></svg>
+          샘플 케이스 불러오기
+        </button>
+        <button class="btn-primary">
+          이상 구간 탐지 시작
+          <svg class="ic-sm" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="3" stroke-linecap="round" stroke-linejoin="round"><polyline points="9 18 15 12 9 6"></polyline></svg>
+        </button>
+      </div>
+    </div>
+  </main>
+</div>
+</body>
+</html>
