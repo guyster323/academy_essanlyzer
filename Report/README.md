@@ -15,5 +15,9 @@
 | `rank4-sys6-progress.png` | sys_6 stream at 99% (progress bar advancing, no tab hang). |
 | `rank4-sys6-stream-done.png` | sys_6 ready: 19,248,213 rows, 575,026 resistance events omitted (non-silent). |
 | `pipeline-latency-plan.md` | 2026-08-30: plan (not yet implemented) to cut actual model think-time — missing `maxItems` on `anomalyWindows` (only unbounded array in `schemas.js`), `--effort` tuning, streaming UX; caching downgraded after checking that later stages don't resend raw log text. |
+| `latency-root-cause-and-plan.md` | 2026-08-30: measured 700s as extended thinking (not ZIP/prompt size); tasks 6-1–6-4. |
+| `latency-findings.md` | 2026-08-30: 6-1 timeout 20min; 6-2 cli still ignores maxTokens (thinking 4k–21k); 6-3 --effort not adopted (n=3, spread > gap); 6-4 per-chunk yield removed (yieldWait 29%→8% on System 6). |
+| `latency-effort-outputs/` | Raw `--effort` structured outputs + COMPARISON.md for human quality judgment. |
+| `latency-stream-profiles/` | Node phase profiles for stride80 CSV and System 6 ZIP, before/after yield change. |
 
 PR: https://github.com/guyster323/academy_essanlyzer/pull/2

@@ -16,7 +16,15 @@ import { normalizeResistanceEvents, resistanceEventsDroppedCount } from './foren
 export const LOG_EXT_ALLOW = ['csv', 'txt', 'log', 'tsv', 'dat'];
 export const LOG_EXT_SKIP_NOTE = ['png', 'jpg', 'jpeg', 'gif', 'pdf', 'xlsx', 'xls', 'docx', 'pptx', 'exe', 'dll', 'bin', 'db'];
 export const CHUNK_BYTES = 256 * 1024;           // small enough that a 3MB CSV paints progress
-const LINES_PER_YIELD = 2000;                     // keep the UI thread responsive while feeding
+export const LINES_PER_YIELD = 2000;              // keep the UI thread responsive while feeding
+// Per-chunk yield used to run in addition to LINES_PER_YIELD. On the System 6
+// ZIP path inflate emits ~64KB chunks (~436 lines), so the per-chunk yield
+// fired 44,086 times and LINES_PER_YIELD never did. Node profile of that
+// stream: yieldWait 303s / 29% of 1039s (tmp/latency-runs/zip-sys6-yield0).
+// Browser nested setTimeout(0) would clamp those 44,086 waits to ~4ms ≈ 176s
+// (~21% of the Rank 4 850s). Dropping the per-chunk yield lets
+// LINES_PER_YIELD actually fire (~9,624 times, ~75ms of LFP work each),
+// which is still well inside the 180ms progress-bar render throttle.
 export const HEAD_SAMPLE_CAP = 15;                // rows kept from file/group start
 export const ALARM_SAMPLE_CAP = 40;               // alarm/anomaly context windows kept per file/group
 export const CONTEXT_WINDOW = 5;                  // rows of lookback kept per alarm window
@@ -320,36 +328,111 @@ export function feedLine(acc, line) {
   }
 }
 
-export async function streamIntoSource(src, byteChunkIterable, onProgress) {
+function emptyStreamProfile() {
+  return {
+    chunkCount: 0,
+    lineCount: 0,
+    nonemptyLineCount: 0,
+    yieldCount: 0,
+    inflateOrReadMs: 0,
+    zipReadMs: 0,
+    inflateMs: 0,
+    decodeMs: 0,
+    splitMs: 0,
+    feedLineMs: 0,
+    progressMs: 0,
+    yieldWaitMs: 0,
+    applyMs: 0,
+    bytes: 0
+  };
+}
+
+/**
+ * Optional 4th argument `{ profile }` accumulates per-phase wall time in
+ * milliseconds (inflate/read, TextDecoder, split, feedLine, yield wait,
+ * applyAccumulator). Callers that omit it keep the original path; the
+ * profiler is for the 6-4 ZIP-stream investigation in
+ * Report/latency-root-cause-and-plan.md and must not change default
+ * scheduling. `yieldDelayMs` overrides the setTimeout delay (default 0).
+ */
+export async function streamIntoSource(src, byteChunkIterable, onProgress, options) {
+  const profile = options && options.profile ? options.profile : null;
+  const yieldDelayMs = options && Number.isFinite(options.yieldDelayMs) ? options.yieldDelayMs : 0;
+  if (profile) Object.assign(profile, { ...emptyStreamProfile(), ...profile });
   const decoder = new TextDecoder(src.encoding === 'euc-kr' ? 'euc-kr' : 'utf-8', { fatal: false });
   const acc = makeAccumulator(src.format, src.entityFilter);
   let leftover = '';
   let processed = 0;
   let sinceYield = 0;
   const yieldToUi = async () => {
+    const tProgress = profile ? performance.now() : 0;
     src.processedBytes = processed;
     onProgress && onProgress();
-    await new Promise(resolve => setTimeout(resolve, 0));
+    if (profile) profile.progressMs += performance.now() - tProgress;
+    const tWait = profile ? performance.now() : 0;
+    await new Promise(resolve => setTimeout(resolve, yieldDelayMs));
+    if (profile) {
+      profile.yieldWaitMs += performance.now() - tWait;
+      profile.yieldCount += 1;
+    }
     sinceYield = 0;
   };
 
+  let tRead = profile ? performance.now() : 0;
   for await (const chunk of byteChunkIterable) {
+    if (profile) {
+      profile.inflateOrReadMs += performance.now() - tRead;
+      profile.chunkCount += 1;
+    }
     processed += chunk.byteLength || chunk.length || 0;
+    src.processedBytes = processed;
+    if (profile) profile.bytes = processed;
+    const tDecode = profile ? performance.now() : 0;
     const text = decoder.decode(chunk, { stream: true });
+    if (profile) profile.decodeMs += performance.now() - tDecode;
+    const tSplit = profile ? performance.now() : 0;
     const combined = leftover + text;
     const lines = combined.split(/\r?\n/);
     leftover = lines.pop();
+    if (profile) {
+      profile.splitMs += performance.now() - tSplit;
+      profile.lineCount += lines.length;
+    }
     for (const line of lines) {
-      if (line.trim()) feedLine(acc, line);
+      if (line.trim()) {
+        if (profile) {
+          profile.nonemptyLineCount += 1;
+          const tFeed = performance.now();
+          feedLine(acc, line);
+          profile.feedLineMs += performance.now() - tFeed;
+        } else {
+          feedLine(acc, line);
+        }
+      }
       if (++sinceYield >= LINES_PER_YIELD) await yieldToUi();
     }
-    await yieldToUi();
+    if (profile) tRead = performance.now();
   }
+  const tDecodeTail = profile ? performance.now() : 0;
   const tail = decoder.decode();
+  if (profile) profile.decodeMs += performance.now() - tDecodeTail;
   const finalCombined = leftover + tail;
-  if (finalCombined.trim()) feedLine(acc, finalCombined);
+  if (finalCombined.trim()) {
+    if (profile) {
+      const tFeed = performance.now();
+      feedLine(acc, finalCombined);
+      profile.feedLineMs += performance.now() - tFeed;
+      profile.nonemptyLineCount += 1;
+    } else {
+      feedLine(acc, finalCombined);
+    }
+  }
 
+  src.processedBytes = processed;
+  onProgress && onProgress();
+  const tApply = profile ? performance.now() : 0;
   applyAccumulatorToSource(src, acc);
+  if (profile) profile.applyMs += performance.now() - tApply;
 }
 
 function freezeBucketEvidence(bucket, entityId) {

@@ -451,10 +451,13 @@ async function readEntryLayout(entry, archiveBlob) {
   return { fileName: metadata.fileName, flags, compressionMethod, dataOffset, compressedSize, expectedUncompressedSize };
 }
 
-async function* readCompressedRanges(archiveBlob, start, length) {
+async function* readCompressedRanges(archiveBlob, start, length, profile) {
   for (let offset = 0; offset < length; offset += FALLBACK_INPUT_CHUNK_BYTES) {
     const end = Math.min(length, offset + FALLBACK_INPUT_CHUNK_BYTES);
-    yield await readArchiveRange(archiveBlob, start + offset, start + end, 'compressed entry');
+    const tRead = profile ? performance.now() : 0;
+    const chunk = await readArchiveRange(archiveBlob, start + offset, start + end, 'compressed entry');
+    if (profile) profile.zipReadMs = (profile.zipReadMs || 0) + (performance.now() - tRead);
+    yield chunk;
   }
 }
 
@@ -469,11 +472,11 @@ function validateOutputLength(fileName, actual, expected) {
   }
 }
 
-async function* directZipEntryByteChunks(entry, archiveBlob) {
+async function* directZipEntryByteChunks(entry, archiveBlob, profile) {
   const layout = await readEntryLayout(entry, archiveBlob);
   if (layout.compressionMethod === 0) {
     let outputBytes = 0;
-    for await (const chunk of readCompressedRanges(archiveBlob, layout.dataOffset, layout.compressedSize)) {
+    for await (const chunk of readCompressedRanges(archiveBlob, layout.dataOffset, layout.compressedSize, profile)) {
       outputBytes += chunk.byteLength;
       yield chunk;
     }
@@ -500,13 +503,15 @@ async function* directZipEntryByteChunks(entry, archiveBlob) {
     pendingBytes += output.byteLength;
   };
 
-  for await (const chunk of readCompressedRanges(archiveBlob, layout.dataOffset, layout.compressedSize)) {
+  for await (const chunk of readCompressedRanges(archiveBlob, layout.dataOffset, layout.compressedSize, profile)) {
     // pako drains an entire push synchronously. Feed small subchunks so a
     // legal high-ratio DEFLATE stream cannot create an unbounded callback
     // queue before this async generator gets a chance to yield.
     for (let offset = 0; offset < chunk.byteLength; offset += INFLATE_INPUT_CHUNK_BYTES) {
       const input = chunk.subarray(offset, Math.min(chunk.byteLength, offset + INFLATE_INPUT_CHUNK_BYTES));
+      const tInflate = profile ? performance.now() : 0;
       if (!inflater.push(input, false)) throw inflateError(inflater, layout.fileName);
+      if (profile) profile.inflateMs = (profile.inflateMs || 0) + (performance.now() - tInflate);
       if (pendingError) throw pendingError;
       while (pending.length) {
         const output = pending.shift();
@@ -516,9 +521,11 @@ async function* directZipEntryByteChunks(entry, archiveBlob) {
       }
     }
   }
+  const tFlush = profile ? performance.now() : 0;
   if (!inflater.ended && !inflater.push(new Uint8Array(0), true)) {
     throw inflateError(inflater, layout.fileName);
   }
+  if (profile) profile.inflateMs = (profile.inflateMs || 0) + (performance.now() - tFlush);
   if (pendingError) throw pendingError;
   while (pending.length) {
     const output = pending.shift();
@@ -589,7 +596,7 @@ export function zipEntryByteChunks(entry, archiveBlob, options = {}) {
   const reportedSize = Number(entry?._data?.uncompressedSize);
   const signedSizeBug = Number.isFinite(reportedSize) && reportedSize < 0;
   if (archiveBlob && (forceDirect || signedSizeBug)) {
-    return directZipEntryByteChunks(entry, archiveBlob);
+    return directZipEntryByteChunks(entry, archiveBlob, options.profile || null);
   }
   return jsZipEntryByteChunks(entry);
 }
