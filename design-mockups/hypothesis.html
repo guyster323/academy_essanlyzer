@@ -1,0 +1,295 @@
+<!DOCTYPE html>
+<!-- 정적 디자인 목업 — 실제 앱과 연결되어 있지 않으며 버튼/입력은 동작하지 않습니다. -->
+<html lang="ko">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>ESS 분석 워크스테이션 — 가설 검토 (디자인 목업)</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link href="https://fonts.googleapis.com/css2?family=IBM+Plex+Mono:wght@400;500;600;700&family=IBM+Plex+Sans+KR:wght@400;500;600;700&display=swap" rel="stylesheet">
+<style>
+  :root{
+    --bg-base:#0F1420; --bg-panel:#161C2C; --bg-raised:#1E2740; --bg-inset:#0B0F19;
+    --border:#2A3348; --border-soft:#212A40;
+    --text-primary:#F1F3F8; --text-secondary:#9AA6BF; --text-muted:#5C6680;
+    --amber:#FFB648; --amber-dim:#3C2E12; --amber-soft:#241D0E;
+    --cyan:#4EE2DB; --cyan-dim:#123634;
+    --red:#FF6B70; --red-dim:#3E1920;
+    --green:#3EDB8E; --green-dim:#123625;
+    --font-mono:'IBM Plex Mono',monospace; --font-sans:'IBM Plex Sans KR','IBM Plex Sans',sans-serif;
+  }
+  *{box-sizing:border-box;}
+  html,body{margin:0;padding:0;background:var(--bg-base);color:var(--text-primary);font-family:var(--font-sans);}
+  body{
+    background-image:
+      radial-gradient(ellipse 900px 600px at 12% -8%, rgba(255,182,72,.11), transparent 60%),
+      radial-gradient(ellipse 800px 550px at 108% 6%, rgba(78,226,219,.09), transparent 60%),
+      linear-gradient(rgba(255,255,255,0.022) 1px, transparent 1px),
+      linear-gradient(90deg, rgba(255,255,255,0.022) 1px, transparent 1px);
+    background-size: auto, auto, 26px 26px, 26px 26px;
+  }
+  a{color:var(--cyan);} a:hover{color:#8FF0EA;}
+  svg{display:block;}
+  #app{display:grid;grid-template-columns:250px 1fr;min-height:100vh;}
+
+  .tip{position:relative;}
+  .tip::after{
+    content:attr(data-tip); position:absolute; left:50%; bottom:calc(100% + 9px);
+    transform:translate(-50%,4px); background:#080B12; color:#F1F3F8; border:1px solid var(--border);
+    padding:6px 10px; border-radius:7px; font-size:11px; font-family:var(--font-sans); font-weight:500;
+    white-space:nowrap; opacity:0; pointer-events:none; transition:opacity .14s ease, transform .14s ease;
+    box-shadow:0 10px 24px rgba(0,0,0,.5); z-index:90;
+  }
+  .tip:hover::after,.tip:focus-visible::after{opacity:1; transform:translate(-50%,0);}
+  .tip-wide::after{white-space:normal; width:230px; text-align:left; line-height:1.55;}
+  .ic{width:16px;height:16px;flex-shrink:0;} .ic-sm{width:13px;height:13px;} .ic-lg{width:20px;height:20px;}
+
+  .sidebar{background:var(--bg-panel);border-right:1px solid var(--border);padding:22px 15px;display:flex;flex-direction:column;}
+  .brand{display:flex;align-items:center;gap:9px;margin-bottom:16px;}
+  .brand-mark{width:9px;height:9px;background:var(--amber);box-shadow:0 0 9px var(--amber);border-radius:2px;}
+  .brand-title{font-size:12.5px;font-weight:700;line-height:1.3;}
+  .btn-new{display:flex;align-items:center;justify-content:center;gap:8px;width:100%;background:var(--amber);border:1px solid var(--amber);color:#1A1204;padding:10px;border-radius:9px;font-size:12px;font-weight:700;}
+  .side-label{font-size:9.5px;color:var(--text-muted);font-family:var(--font-mono);letter-spacing:0.08em;text-transform:uppercase;margin:22px 0 9px 2px;}
+  .case-list{flex:1;display:flex;flex-direction:column;gap:7px;}
+  .case-item{border:1px solid var(--border-soft);background:var(--bg-inset);border-radius:9px;padding:10px 11px;}
+  .case-item.active{border-color:var(--amber);background:var(--amber-soft);}
+  .case-item-title{font-size:11px;font-weight:600;margin-bottom:7px;}
+  .case-item-meta{display:flex;align-items:center;gap:8px;}
+  .sev-icon{width:14px;height:14px;border-radius:50%;display:flex;align-items:center;justify-content:center;}
+  .sev-중{background:var(--amber-dim);color:var(--amber);} .sev-하{background:var(--green-dim);color:var(--green);}
+  .sev-pending{background:var(--bg-raised);color:var(--text-muted);} .sev-icon svg{width:8px;height:8px;}
+  .meta-date{font-size:9.5px;color:var(--text-muted);font-family:var(--font-mono);}
+  .mini-steps{display:flex;gap:3px;margin-top:8px;} .mini-dot{width:11px;height:3px;border-radius:2px;background:var(--border);} .mini-dot.on{background:var(--amber);}
+  .sidebar-footer{margin-top:14px;padding-top:13px;border-top:1px solid var(--border-soft);display:flex;align-items:center;gap:7px;color:var(--text-muted);}
+  .sidebar-footer b{font-size:10px;color:var(--text-secondary);font-weight:700;}
+
+  .main{padding:26px 34px 56px;max-width:1120px;}
+  .page-header{margin-bottom:20px;}
+  .page-title{font-size:19px;font-weight:700;}
+  .page-title-sub{display:flex;align-items:center;gap:7px;margin-top:5px;}
+  .page-title-sub span{font-size:11.5px;color:var(--text-secondary);}
+  .info-dot{width:16px;height:16px;border-radius:50%;border:1px solid var(--border);color:var(--text-muted);display:flex;align-items:center;justify-content:center;flex-shrink:0;}
+  .info-dot svg{width:9px;height:9px;}
+
+  .stepper{display:flex;align-items:flex-start;margin-bottom:30px;}
+  .step-node{display:flex;flex-direction:column;align-items:center;flex:1;position:relative;}
+  .step-trace{position:absolute;top:16px;left:50%;width:100%;height:2px;background:var(--border);overflow:hidden;}
+  .step-node:first-child .step-trace{display:none;}
+  .step-node.done .step-trace{background:var(--green);}
+  .step-trace.flow{background:linear-gradient(90deg, var(--green) 0%, var(--green) 40%, rgba(255,182,72,.9) 65%, rgba(255,182,72,.25) 100%); background-size:220% 100%; animation:flowmove 3.2s ease-in-out infinite;}
+  @keyframes flowmove{0%{background-position:0% 0;}50%{background-position:100% 0;}100%{background-position:0% 0;}}
+  .step-circle{width:33px;height:33px;border-radius:50%;border:2px solid var(--border);background:var(--bg-panel);display:flex;align-items:center;justify-content:center;color:var(--text-muted);z-index:1;}
+  .step-circle .ic{width:15px;height:15px;}
+  .step-node.done .step-circle{border-color:var(--green);color:var(--green);background:var(--green-dim);}
+  .step-node.active .step-circle{border-color:var(--amber);color:var(--amber);background:var(--amber-dim);animation:breathe 2.6s ease-in-out infinite;}
+  @keyframes breathe{0%,100%{box-shadow:0 0 0 0 rgba(255,182,72,0), 0 0 12px rgba(255,182,72,.5); transform:scale(1);}50%{box-shadow:0 0 0 7px rgba(255,182,72,.10), 0 0 20px rgba(255,182,72,.7); transform:scale(1.07);}}
+
+  .checkpoint-banner{display:flex;align-items:center;gap:12px;background:var(--amber-dim);border:1.5px solid var(--amber);border-radius:12px;padding:13px 16px;margin-bottom:18px;}
+  .checkpoint-banner .cp-icon{color:var(--amber);flex-shrink:0;}
+  .checkpoint-banner b{font-size:12px;color:#FFE1AD;}
+
+  .hyp-card{border:1px solid var(--border);border-radius:13px;background:var(--bg-panel);padding:18px 20px;margin-bottom:14px;}
+  .hyp-card.selected{border-color:var(--amber);box-shadow:0 0 0 1px var(--amber) inset, 0 0 24px rgba(255,182,72,.08);}
+  .hyp-top{display:flex;align-items:center;gap:10px;margin-bottom:14px;flex-wrap:wrap;}
+  .hyp-radio{accent-color:var(--amber);width:16px;height:16px;flex-shrink:0;}
+  .hyp-ic{width:28px;height:28px;border-radius:8px;background:var(--amber-dim);color:var(--amber);display:flex;align-items:center;justify-content:center;flex-shrink:0;}
+  .hyp-ic svg{width:15px;height:15px;}
+  .hyp-name{font-size:13.5px;font-weight:700;flex:1;}
+  .icon-badge{width:24px;height:24px;border-radius:7px;background:var(--bg-raised);color:var(--text-secondary);display:flex;align-items:center;justify-content:center;}
+  .icon-badge svg{width:13px;height:13px;}
+  .icon-badge.conf-High{background:var(--green-dim);color:var(--green);}
+  .icon-badge.conf-Medium{background:var(--amber-dim);color:var(--amber);}
+
+  .dev-gauge-wrap{background:var(--bg-inset);border:1px solid var(--border-soft);border-radius:10px;padding:12px 14px 8px;margin-bottom:12px;}
+  .dev-gauge-label{display:flex;align-items:center;gap:6px;font-family:var(--font-mono);font-size:9.5px;color:var(--text-muted);text-transform:uppercase;letter-spacing:.06em;margin-bottom:6px;}
+
+  .ev-row{display:flex;align-items:flex-start;gap:10px;border-radius:9px;padding:10px 12px;margin-bottom:8px;}
+  .ev-ic{width:24px;height:24px;border-radius:7px;display:flex;align-items:center;justify-content:center;flex-shrink:0;margin-top:1px;}
+  .ev-ic svg{width:13px;height:13px;}
+  .ev-text{font-size:11.5px;color:var(--text-secondary);line-height:1.6;padding-top:3px;}
+  .ev-row.support{background:var(--green-dim);} .ev-row.support .ev-ic{background:rgba(62,219,142,.18);color:var(--green);} .ev-row.support .ev-text{color:#BFEED4;}
+  .ev-row.disconfirm{background:var(--red-dim);} .ev-row.disconfirm .ev-ic{background:rgba(255,107,112,.18);color:var(--red);} .ev-row.disconfirm .ev-text{color:#FBCED0;}
+  .ev-row.missing{background:transparent;border:1px dashed var(--border);} .ev-row.missing .ev-ic{background:var(--bg-raised);color:var(--text-muted);}
+  .ev-row.limit{background:var(--amber-soft);} .ev-row.limit .ev-ic{background:rgba(255,182,72,.18);color:var(--amber);} .ev-row.limit .ev-text{color:#F0DDB4;}
+  .ev-pair{display:grid;grid-template-columns:1fr 1fr;gap:8px;}
+
+  .sev-draft-row{display:flex;align-items:center;gap:10px;margin-top:8px;padding-top:12px;border-top:1px solid var(--border-soft);}
+  .lv-ic{width:22px;height:22px;border-radius:6px;display:flex;align-items:center;justify-content:center;}
+  .lv-ic svg{width:12px;height:12px;}
+  .lv-중{background:var(--amber-dim);color:var(--amber);}
+
+  .confirm-panel{border:1px solid var(--amber);border-radius:13px;background:var(--bg-panel);padding:20px 22px;margin-top:20px;}
+  .panel-head{display:flex;align-items:center;gap:9px;margin-bottom:14px;}
+  .panel-icon{width:26px;height:26px;border-radius:7px;background:var(--amber-dim);color:var(--amber);display:flex;align-items:center;justify-content:center;flex-shrink:0;}
+  .panel-icon .ic{width:14px;height:14px;}
+  .panel-title{font-size:12.5px;font-weight:700;}
+  .subsection{margin-top:4px;padding-top:16px;border-top:1px solid var(--border-soft);}
+  .subsection:first-of-type{border-top:none;padding-top:0;}
+  .subsection-head{display:flex;align-items:center;gap:8px;margin-bottom:12px;}
+  .sub-num{width:20px;height:20px;border-radius:6px;background:var(--cyan-dim);color:var(--cyan);font-family:var(--font-mono);font-size:10px;font-weight:700;display:flex;align-items:center;justify-content:center;}
+
+  label.field-label{display:flex;align-items:center;gap:6px;font-size:11px;font-weight:600;color:var(--text-secondary);margin-bottom:8px;}
+  label.field-label .req{color:var(--red);}
+  textarea,input[type=text],select{width:100%;background:var(--bg-inset);border:1px solid var(--border);color:var(--text-primary);font-family:var(--font-mono);font-size:11.5px;padding:10px 12px;border-radius:8px;line-height:1.6;}
+  textarea:focus,input:focus,select:focus{outline:none;border-color:var(--amber);}
+  .field-group{margin-bottom:14px;}
+  .grid2{display:grid;grid-template-columns:1fr 1fr;gap:12px;}
+
+  .sev-final-row{display:flex;align-items:center;gap:11px;margin-top:6px;flex-wrap:wrap;}
+  .sev-select{width:auto;padding:6px 9px;font-size:11px;}
+  .sev-reason-input{flex:1;min-width:220px;font-size:11px;padding:7px 10px;}
+  .btn-row{display:flex;gap:9px;margin-top:18px;justify-content:space-between;}
+  .btn-ghost{display:inline-flex;align-items:center;gap:7px;background:transparent;border:1px solid var(--border);color:var(--text-secondary);padding:9px 14px;border-radius:9px;font-size:11.5px;font-weight:600;}
+  .btn-primary{display:inline-flex;align-items:center;gap:8px;background:var(--amber);border:1px solid var(--amber);color:#1A1204;padding:10px 16px;font-size:12px;font-weight:700;border-radius:10px;box-shadow:0 4px 16px rgba(255,182,72,.22);}
+
+  .nav-back{position:fixed;top:16px;right:18px;display:flex;align-items:center;gap:6px;background:var(--bg-raised);border:1px solid var(--border);color:var(--text-secondary);padding:7px 12px;border-radius:8px;font-size:10.5px;text-decoration:none;z-index:99;}
+  .nav-back:hover{color:var(--amber);border-color:var(--amber);}
+</style>
+</head>
+<body>
+
+<a class="nav-back" href="./index.html">← 목업 목록</a>
+
+<div id="app">
+  <aside class="sidebar">
+    <div class="brand"><div class="brand-mark"></div><div class="brand-title">ESS 분석<br>워크스테이션</div></div>
+    <button class="btn-new"><svg class="ic" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round"><line x1="12" y1="5" x2="12" y2="19"/><line x1="5" y1="12" x2="19" y2="12"/></svg>신규 분석</button>
+    <div class="side-label">케이스 히스토리</div>
+    <div class="case-list">
+      <div class="case-item active">
+        <div class="case-item-title">과전압 경보 — Rack #3</div>
+        <div class="case-item-meta"><span class="sev-icon sev-pending tip" data-tip="검토중"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.6" stroke-linecap="round"><circle cx="12" cy="12" r="1"/></svg></span><span class="meta-date tip" data-tip="2026-08-27 생성"><svg class="ic" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="8.5"/><path d="M12 7.5V12l3 2"/></svg>08-27</span></div>
+        <div class="mini-steps"><div class="mini-dot on"></div><div class="mini-dot on"></div><div class="mini-dot on"></div><div class="mini-dot on"></div><div class="mini-dot"></div></div>
+      </div>
+      <div class="case-item">
+        <div class="case-item-title">SOC 드리프트 — BESS Unit 2</div>
+        <div class="case-item-meta"><span class="sev-icon sev-중 tip" data-tip="심각도: 중"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.6" stroke-linecap="round"><circle cx="12" cy="12" r="1"/></svg></span><span class="meta-date tip" data-tip="2026-08-22 생성"><svg class="ic" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="8.5"/><path d="M12 7.5V12l3 2"/></svg>08-22</span></div>
+        <div class="mini-steps"><div class="mini-dot on"></div><div class="mini-dot on"></div><div class="mini-dot on"></div><div class="mini-dot on"></div><div class="mini-dot on"></div></div>
+      </div>
+      <div class="case-item">
+        <div class="case-item-title">통신 두절 — PCS #1</div>
+        <div class="case-item-meta"><span class="sev-icon sev-하 tip" data-tip="심각도: 하"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.6" stroke-linecap="round"><circle cx="12" cy="12" r="1"/></svg></span><span class="meta-date tip" data-tip="2026-08-19 생성"><svg class="ic" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="8.5"/><path d="M12 7.5V12l3 2"/></svg>08-19</span></div>
+        <div class="mini-steps"><div class="mini-dot on"></div><div class="mini-dot on"></div><div class="mini-dot on"></div><div class="mini-dot on"></div><div class="mini-dot on"></div></div>
+      </div>
+    </div>
+    <div class="sidebar-footer tip tip-wide" data-tip="브라우저 세션 종료 시 초기화됩니다. 실 고객 데이터는 입력하지 마세요 — 샘플/가상 데이터만 사용합니다.">
+      <svg class="ic" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><rect x="5" y="10.5" width="14" height="9" rx="1.6"/><path d="M8 10.5V7.5a4 4 0 0 1 8 0v3"/></svg>
+      <b>세션 전용 · 샘플 데이터만</b>
+    </div>
+  </aside>
+
+  <main class="main">
+    <div class="page-header">
+      <div class="page-title">원인 가설 검토 및 심각도 확정</div>
+      <div class="page-title-sub"><span>이 단계는 반드시 엔지니어가 직접 판단합니다</span></div>
+    </div>
+
+    <div class="stepper">
+      <div class="step-node done"><div class="step-trace"></div><div class="step-circle tip" data-tip="Step 1 · 의뢰 입력"><svg class="ic" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="3.2" stroke-linecap="round" stroke-linejoin="round"><polyline points="20 6 9 17 4 12"/></svg></div></div>
+      <div class="step-node done"><div class="step-trace"></div><div class="step-circle tip" data-tip="Step 2 · 이상 탐지"><svg class="ic" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="3.2" stroke-linecap="round" stroke-linejoin="round"><polyline points="20 6 9 17 4 12"/></svg></div></div>
+      <div class="step-node done"><div class="step-trace"></div><div class="step-circle tip" data-tip="Step 3 · 가설 생성"><svg class="ic" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="3.2" stroke-linecap="round" stroke-linejoin="round"><polyline points="20 6 9 17 4 12"/></svg></div></div>
+      <div class="step-node active"><div class="step-trace flow"></div><div class="step-circle tip" data-tip="Step 4 · 검토·확정"><svg class="ic" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M2.5 12S6 5.5 12 5.5 21.5 12 21.5 12 18 18.5 12 18.5 2.5 12 2.5 12Z"/><circle cx="12" cy="12" r="2.4"/></svg></div></div>
+      <div class="step-node"><div class="step-trace"></div><div class="step-circle tip" data-tip="Step 5 · 보고서"><svg class="ic" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M7 3.5h7l4 4V20a1 1 0 0 1-1 1H7a1 1 0 0 1-1-1V4.5a1 1 0 0 1 1-1Z"/><path d="M14 3.5V8h4"/><path d="M9 13h6M9 16.5h6"/></svg></div></div>
+    </div>
+
+    <div class="checkpoint-banner">
+      <svg class="ic-lg cp-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><path d="M12 2 22 12 12 22 2 12 Z"/><line x1="12" y1="8" x2="12" y2="13"/><circle cx="12" cy="16.3" r="0.6" fill="currentColor" stroke="none"/></svg>
+      <b>사람 검토 체크포인트 — 가설을 선택하고 심각도를 확정해야 다음으로 진행됩니다.</b>
+    </div>
+
+    <div class="hyp-card selected">
+      <div class="hyp-top">
+        <input type="radio" name="hyp" class="hyp-radio" checked>
+        <div class="hyp-ic"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><rect x="3" y="7" width="16" height="10" rx="1.6"/><path d="M19 10.5h2v3h-2"/></svg></div>
+        <div class="hyp-name">Cell 5 경로 유효 직렬저항 증가</div>
+        <span class="icon-badge tip" data-tip="Domain: Cell/Pack"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M12 3 3 8l9 5 9-5-9-5Z"/><path d="M3 13l9 5 9-5"/></svg></span>
+        <span class="icon-badge conf-High tip" data-tip="신뢰도 High"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="m12 2.5 2.9 6 6.6.9-4.8 4.6 1.1 6.5L12 17.5l-5.8 3 1.1-6.5-4.8-4.6 6.6-.9z"/></svg></span>
+      </div>
+
+      <div class="dev-gauge-wrap">
+        <div class="dev-gauge-label tip tip-wide" data-tip="Expected Signature: 정상 셀은 peer 대비 Vdev ±10mV 이내로 수렴 · Actual Observation: Cell 5가 peer median 대비 +170mV 이탈, robust z-score 4.8">
+          <svg class="ic-sm" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="8.5"/><line x1="12" y1="11" x2="12" y2="16.5"/><line x1="12" y1="7.5" x2="12" y2="7.6"/></svg>
+          예상 대비 편차 (Vdev)
+        </div>
+        <svg viewBox="0 0 320 62" width="100%" height="62">
+          <line x1="14" y1="40" x2="306" y2="40" stroke="#2A3348" stroke-width="2"/>
+          <rect x="60.7" y="30" width="23.4" height="20" rx="4" fill="#3EDB8E" opacity="0.22"/>
+          <line x1="72.4" y1="24" x2="72.4" y2="56" stroke="#5C6680" stroke-width="1"/>
+          <text x="72.4" y="20" fill="#9AA6BF" font-family="IBM Plex Mono" font-size="9.5" text-anchor="middle">정상 ±10mV</text>
+          <line x1="84.1" y1="40" x2="271" y2="40" stroke="#FF6B70" stroke-width="1.6" stroke-dasharray="4,3"/>
+          <circle cx="271" cy="40" r="6.5" fill="#FF6B70" stroke="#161C2C" stroke-width="2"/>
+          <text x="271" y="58" fill="#FF9498" font-family="IBM Plex Mono" font-size="11" font-weight="700" text-anchor="middle">+170mV</text>
+        </svg>
+      </div>
+
+      <div class="ev-row support">
+        <span class="ev-ic tip" data-tip="Evidence — 지지 근거"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M12 3.5 5 6v6c0 4.4 3 7.4 7 8.5 4-1.1 7-4.1 7-8.5V6z"/><path d="M9 12l2 2 4-4.5"/></svg></span>
+        <div class="ev-text">3개 독립 시점에서 동일 Cell 5 이탈 패턴 재현, 전류 급증 구간과 시간적으로 일치</div>
+      </div>
+      <div class="ev-pair">
+        <div class="ev-row disconfirm" style="margin-bottom:0;">
+          <span class="ev-ic tip" data-tip="Disconfirming Evidence — 반증 가능 증거"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M12 3.5 5 6v6c0 4.4 3 7.4 7 8.5 4-1.1 7-4.1 7-8.5V6z"/><path d="M9.8 9.8l4.4 4.4M14.2 9.8l-4.4 4.4"/></svg></span>
+          <div class="ev-text">인접 Cell 4/6도 온도 소폭 상승 — 국소 저항만으로 완전히 설명되지 않음</div>
+        </div>
+        <div class="ev-row missing" style="margin-bottom:0;">
+          <span class="ev-ic tip" data-tip="Missing Signals — 누락된 신호"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="8.5" stroke-width="1.8" stroke-dasharray="2.8 3.2"/><path d="M9.6 9.4a2.4 2.4 0 1 1 3.4 2.2c-.7.4-1 .8-1 1.6" stroke-width="1.8"/><circle cx="12" cy="16.6" r=".2" fill="currentColor" stroke-width="1.8"/></svg></span>
+          <div class="ev-text">커넥터 접촉저항 실측값, Cell 5 개별 impedance 데이터 없음</div>
+        </div>
+      </div>
+      <div class="ev-row limit">
+        <span class="ev-ic tip" data-tip="Claim Limit — 주장 한계"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M12 3v18"/><path d="M4 7h16"/><path d="M4 7 2 12a2.5 2.5 0 0 0 5 0z"/><path d="M20 7l-2 5a2.5 2.5 0 0 0 5 0z"/></svg></span>
+        <div class="ev-text">전기화학적 열화·부식 등 물리적 원인은 확정 불가 — "유효 직렬저항 증가 후보"까지만 주장 가능</div>
+      </div>
+
+      <div class="sev-draft-row">
+        <span class="lv-ic lv-중 tip" data-tip="AI 심각도 초안: 중"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><rect x="3" y="7" width="16" height="10" rx="1.6"/><path d="M19 10.5h2v3h-2"/></svg></span>
+        <span style="font-size:10.5px;color:var(--text-muted);">반복 재현되나 즉각적 열폭주 징후는 없음</span>
+      </div>
+    </div>
+
+    <div class="hyp-card">
+      <div class="hyp-top">
+        <input type="radio" name="hyp" class="hyp-radio">
+        <div class="hyp-ic" style="background:var(--bg-raised);color:var(--text-secondary);"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><circle cx="6" cy="6" r="2"/><circle cx="6" cy="18" r="2"/><circle cx="18" cy="12" r="2"/><path d="M6 8v8"/><path d="M7.8 6.9l8.4 4.2"/></svg></div>
+        <div class="hyp-name">BMS 밸런싱 로직 오작동</div>
+        <span class="icon-badge tip" data-tip="Domain: Battery/BMS"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><rect x="3" y="7" width="16" height="10" rx="1.6"/><path d="M19 10.5h2v3h-2"/></svg></span>
+        <span class="icon-badge conf-Medium tip" data-tip="신뢰도 Medium"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="m12 2.5 2.9 6 6.6.9-4.8 4.6 1.1 6.5L12 17.5l-5.8 3 1.1-6.5-4.8-4.6 6.6-.9z"/></svg></span>
+      </div>
+      <div class="ev-row disconfirm">
+        <span class="ev-ic tip" data-tip="Disconfirming Evidence — 반증 가능 증거"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M12 3.5 5 6v6c0 4.4 3 7.4 7 8.5 4-1.1 7-4.1 7-8.5V6z"/><path d="M9.8 9.8l4.4 4.4M14.2 9.8l-4.4 4.4"/></svg></span>
+        <div class="ev-text">밸런싱 오작동이면 다수 셀에 동시 영향이 있어야 하나 단일 셀에만 국한됨 — 신뢰도가 낮게 산정된 이유</div>
+      </div>
+    </div>
+
+    <div class="confirm-panel">
+      <div class="panel-head"><div class="panel-icon"><svg class="ic" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M2.5 12S6 5.5 12 5.5 21.5 12 21.5 12 18 18.5 12 18.5 2.5 12 2.5 12Z"/><circle cx="12" cy="12" r="2.4"/></svg></div><div class="panel-title">확정 가설 · 심각도 최종 판정</div></div>
+
+      <div class="subsection">
+        <div class="subsection-head"><span class="sub-num">1</span><span style="font-size:11px;color:var(--text-secondary);font-weight:600;">가설 정의</span></div>
+        <div class="field-group"><label class="field-label">가설명 <span class="req">*</span></label><input type="text" value="Cell 5 경로 유효 직렬저항 증가"></div>
+        <div class="field-group"><label class="field-label">Domain</label><select><option>Cell/Pack</option></select></div>
+      </div>
+
+      <div class="subsection">
+        <div class="subsection-head"><span class="sub-num">2</span><span style="font-size:11px;color:var(--text-secondary);font-weight:600;">근거·한계</span></div>
+        <div class="field-group"><label class="field-label">Evidence</label><textarea rows="2">3개 독립 시점 재현, 전류 급증 구간과 시간적 일치</textarea></div>
+        <div class="field-group"><label class="field-label">주장 한계</label><textarea rows="2">전기화학적 열화·부식 등 물리적 원인은 확정 불가</textarea></div>
+      </div>
+
+      <div class="subsection">
+        <div class="subsection-head"><span class="sub-num">3</span><span style="font-size:11px;color:var(--text-secondary);font-weight:600;">최종 판정</span></div>
+        <div class="sev-final-row">
+          <select class="sev-select"><option>중</option></select>
+          <input type="text" class="sev-reason-input" value="반복 재현 패턴 확인, 물리적 근본원인 미확정으로 즉시 교체보다 모니터링 강화 우선">
+        </div>
+      </div>
+
+      <div class="btn-row">
+        <button class="btn-ghost"><svg class="ic-sm" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M3 12a9 9 0 1 0 3-6.7"/><path d="M3 4v5h5"/></svg>가설 다시 생성</button>
+        <button class="btn-primary">확정 → 보고서 생성<svg class="ic-sm" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="3" stroke-linecap="round" stroke-linejoin="round"><polyline points="9 18 15 12 9 6"></polyline></svg></button>
+      </div>
+    </div>
+  </main>
+</div>
+</body>
+</html>
