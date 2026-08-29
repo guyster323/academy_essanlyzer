@@ -4,7 +4,8 @@ import { readFileSync } from 'node:fs';
 import { fileURLToPath } from 'node:url';
 import path from 'node:path';
 import {
-  considerResistanceEvent, detectKnee, outlierCellByResistance, eventResistance
+  considerResistanceEvent, detectKnee, outlierCellByResistance, eventResistance,
+  normalizeResistanceEvents, RESISTANCE_BASELINE_KEEP
 } from '../../src/forensics/lfp.js';
 import { MAX_RESISTANCE_EVENTS } from '../../src/series-engine.js';
 
@@ -82,4 +83,32 @@ test('resistance event list stays within the cap', () => {
     );
   }
   assert.ok(events.length <= MAX_RESISTANCE_EVENTS);
+});
+
+test('overflow past 4000 keeps the early baseline and the most recent events, and counts drops', () => {
+  const events = [];
+  const cells = Array(8).fill(3.3);
+  const extra = 250;
+  const total = MAX_RESISTANCE_EVENTS + extra;
+  for (let i = 0; i < total; i++) {
+    considerResistanceEvent(
+      { t: i * 1000, i: -4, cells, soc: 50, tMean: 20, bal: null },
+      { t: i * 1000 + 10, i: -20, cells, soc: 50, tMean: 20, bal: null },
+      events
+    );
+  }
+  normalizeResistanceEvents(events);
+  assert.equal(events.length, MAX_RESISTANCE_EVENTS);
+  assert.equal(events.droppedCount, extra);
+  // Early baseline (first half) is preserved.
+  assert.equal(events[0].t, 10);
+  assert.equal(events[RESISTANCE_BASELINE_KEEP - 1].t, (RESISTANCE_BASELINE_KEEP - 1) * 1000 + 10);
+  // Most recent events survive — this is the late-stage knee window.
+  const last = events[events.length - 1];
+  assert.equal(last.t, (total - 1) * 1000 + 10);
+  const times = new Set(events.map(e => e.t));
+  assert.equal(times.has((total - 1) * 1000 + 10), true);
+  assert.equal(times.has((total - extra) * 1000 + 10), true);
+  // The first overflow victim (oldest of the original recent half) is gone.
+  assert.equal(times.has(RESISTANCE_BASELINE_KEEP * 1000 + 10), false);
 });

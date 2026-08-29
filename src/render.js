@@ -291,7 +291,7 @@ function renderSourceItem(s) {
     const previewRows = s.headSample.length
       ? s.headSample.slice(0, 5).map(r => s.columns.map(c => r[c]).join(' | ')).join('\n')
       : (s.groups ? Object.entries(s.groups).slice(0, 3).map(([k, g]) => `[${k}] ` + (g.headSample[0] ? s.columns.map(c => g.headSample[0][c]).join(' | ') : '')).join('\n') : '');
-    statusLine = `<span class="source-sub">${esc(s.sizeLabel)} · ${s.rowCount.toLocaleString()}행 · 알람 ${s.alarmCount}건 · 파생 이상 ${derivedAlarmCount}건${s.malformedRowCount ? ` · <span style="color:var(--amber)">손상 행 ${s.malformedRowCount}건(파싱 제외)</span>` : ''} · 구분자 '${dispDelim}'</span>
+    statusLine = `<span class="source-sub">${esc(s.sizeLabel)} · ${s.rowCount.toLocaleString()}행 · 알람 ${s.alarmCount}건 · 파생 이상 ${derivedAlarmCount}건${s.malformedRowCount ? ` · <span style="color:var(--amber)">손상 행 ${s.malformedRowCount}건(파싱 제외)</span>` : ''}${s.droppedResistanceEvents ? ` · <span style="color:var(--amber)">저항 이벤트 ${s.droppedResistanceEvents.toLocaleString()}건 생략(초기 기준선+최근 창 유지)</span>` : ''} · 구분자 '${dispDelim}'</span>
       <select class="enc-select" onchange="setSourceEncoding('${s.id}', this.value)">
         <option value="utf-8" ${s.encoding === 'utf-8' ? 'selected' : ''}>UTF-8</option>
         <option value="euc-kr" ${s.encoding === 'euc-kr' ? 'selected' : ''}>EUC-KR</option>
@@ -357,11 +357,12 @@ function renderAnomalyView() {
   if (state.error && state.error.stage === 'anomaly') out += renderError();
 
   const t = state.lastTruncation;
-  if (t && (t.excludedSources || t.excludedGroups || t.excludedAlarmContexts || t.textTruncatedChars)) {
+  if (t && (t.excludedSources || t.excludedGroups || t.excludedAlarmContexts || t.droppedResistanceEvents || t.textTruncatedChars)) {
     const parts = [];
     if (t.excludedSources) parts.push(`출처 파일 ${t.excludedSources}개 미포함`);
     if (t.excludedGroups) parts.push(`엔티티 그룹 ${t.excludedGroups}개 상세 생략`);
     if (t.excludedAlarmContexts) parts.push(`알람 컨텍스트 ${t.excludedAlarmContexts}건 생략`);
+    if (t.droppedResistanceEvents) parts.push(`저항 이벤트 ${t.droppedResistanceEvents.toLocaleString()}건 생략(초기 기준선+최근 창 유지)`);
     if (t.textTruncatedChars) parts.push(`텍스트 ${t.textTruncatedChars.toLocaleString()}자 절단`);
     out += `<div class="skipped-note" style="color:var(--amber);margin-bottom:12px;">⚠ 프롬프트 규모 제한으로 일부가 생략된 상태로 분석되었습니다: ${parts.join(', ')}.</div>`;
   }

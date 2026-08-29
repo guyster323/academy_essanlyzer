@@ -39,9 +39,57 @@ export function eventResistance(cellsBefore, cellsAfter, dI) {
   });
 }
 
+/** First half of the cap is a frozen early baseline; the rest is a recent window. */
+export const RESISTANCE_BASELINE_KEEP = Math.floor(MAX_RESISTANCE_EVENTS / 2);
+
+export function resistanceEventsDroppedCount(events) {
+  return Number(events?.droppedCount) || 0;
+}
+
+/**
+ * Reorder the recent half in place after circular overwrites so callers see
+ * chronological [baseline..., recent...]. Idempotent when not dirty.
+ */
+export function normalizeResistanceEvents(events) {
+  if (!Array.isArray(events) || !events._recentDirty) return events;
+  const cap = MAX_RESISTANCE_EVENTS;
+  const baselineKeep = RESISTANCE_BASELINE_KEEP;
+  const head = events._recentHead;
+  if (!Number.isInteger(head) || events.length !== cap) {
+    events._recentDirty = false;
+    return events;
+  }
+  const recent = events.slice(head, cap).concat(events.slice(baselineKeep, head));
+  for (let i = 0; i < recent.length; i++) events[baselineKeep + i] = recent[i];
+  events._recentHead = baselineKeep;
+  events._recentDirty = false;
+  return events;
+}
+
+function appendCappedResistanceEvent(events, event) {
+  if (typeof events.droppedCount !== 'number') events.droppedCount = 0;
+  if (events.length < MAX_RESISTANCE_EVENTS) {
+    events.push(event);
+    return;
+  }
+  // Keep [0, BASELINE) as the early baseline. The second half is a circular
+  // buffer of the most recent events so a late-stage knee cannot vanish
+  // silently. The previous `(events.length + 1) % 2 === 0` branch was
+  // unreachable once length froze at 4000 (even): (4000+1)%2 is always 1,
+  // so every event past the cap was dropped in arrival order — always the
+  // newest ones.
+  if (!Number.isInteger(events._recentHead)) events._recentHead = RESISTANCE_BASELINE_KEEP;
+  events[events._recentHead] = event;
+  events._recentHead += 1;
+  if (events._recentHead >= MAX_RESISTANCE_EVENTS) events._recentHead = RESISTANCE_BASELINE_KEEP;
+  events._recentDirty = true;
+  events.droppedCount += 1;
+}
+
 /**
  * prev/curr: { t, i, cells[8], soc, tMean, bal[8]|null }
  * Mutates `events` (capped). Never drops |I|>1000 A samples — flags them.
+ * Overflow is counted on `events.droppedCount` (never silent).
  */
 export function considerResistanceEvent(prev, curr, events) {
   if (!prev || !curr) return null;
@@ -62,13 +110,7 @@ export function considerResistanceEvent(prev, curr, events) {
     bal: curr.bal || null,
     highCurrent: Math.abs(curr.i) > 1000 || Math.abs(prev.i) > 1000
   };
-  if (Array.isArray(events)) {
-    if (events.length < MAX_RESISTANCE_EVENTS) events.push(event);
-    else if ((events.length + 1) % 2 === 0) {
-      // Uniform-ish keep: overwrite a strided slot rather than silently drop the tail.
-      events[events.length - 1] = event;
-    }
-  }
+  if (Array.isArray(events)) appendCappedResistanceEvent(events, event);
   return event;
 }
 

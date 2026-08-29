@@ -1,7 +1,7 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
 import { makeAccumulator, feedLine, applyAccumulatorToSource } from '../../src/log-engine.js';
-import { MAX_SERIES_POINTS } from '../../src/series-engine.js';
+import { MAX_SERIES_POINTS, MAX_RESISTANCE_EVENTS } from '../../src/series-engine.js';
 import { detectFormat, GENERIC_FORMAT, AEMO_MMS_FORMAT } from '../../src/formats.js';
 
 const AEMO_HEADER = 'I,FPP,UNIT_MW,1,INTERVAL_DATETIME,MEASUREMENT_DATETIME,FPP_UNITID,VERSIONNO,MEASURED_MW,MW_QUALITY_FLAG,SCHEDULED_MW,DEVIATION_MW,PARTICIPANTID';
@@ -116,4 +116,28 @@ test('AEMO grouped stream freezes per-entity MW series', () => {
   assert.ok(src.seriesByEntity.WDBESS1);
   assert.ok(src.seriesByEntity.WDBESS1.bins.length >= 2);
   assert.ok(src.seriesByEntity.WDBESS1.signals.includes('mw'));
+});
+
+test('LFP stream past MAX_RESISTANCE_EVENTS keeps recent events and reports the drop count', () => {
+  const extra = 80;
+  const rows = MAX_RESISTANCE_EVENTS + extra + 1;
+  const lines = [LFP_HEADER];
+  const t0 = Date.UTC(2017, 0, 1);
+  for (let i = 0; i < rows; i++) {
+    const amp = i % 2 === 0 ? -4 : -20;
+    const ts = new Date(t0 + i * 86400000).toISOString();
+    lines.push(`${ts},26.4,${amp},50,3.30,3.30,3.30,3.30,3.30,3.30,3.30,3.30`);
+  }
+  const acc = accumulate(lines.join('\n'));
+  const src = { name: 'data_sys_6.csv', encoding: 'utf-8', format: acc.format };
+  applyAccumulatorToSource(src, acc);
+  const events = Object.values(src.resistanceEventsByEntity)[0];
+  assert.ok(events);
+  assert.equal(events.length, MAX_RESISTANCE_EVENTS);
+  assert.equal(src.droppedResistanceEvents, extra);
+  const lastT = events[events.length - 1].t;
+  const expectedLast = t0 + (rows - 1) * 86400000;
+  assert.equal(lastT, expectedLast);
+  const firstT = events[0].t;
+  assert.equal(firstT, t0 + 1 * 86400000); // first qualifying event is curr of row 1
 });

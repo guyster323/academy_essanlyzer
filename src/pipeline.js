@@ -7,6 +7,7 @@ import {
 } from './log-engine.js';
 import { detectFormat, detectDelimiter } from './formats.js';
 import { freezeSeries } from './series-engine.js';
+import { normalizeResistanceEvents, resistanceEventsDroppedCount } from './forensics/lfp.js';
 import { buildFigures, figureCatalog } from './figures.js';
 import { buildEvidenceLedger, catalogEvidence } from './evidence-ledger.js';
 import JSZip from 'jszip';
@@ -32,15 +33,24 @@ export function collectActiveLogBlocks() {
     pastedText.split(/\r?\n/).forEach(line => { if (line.trim()) feedLine(acc, line); });
     const seriesByEntity = {};
     const resistanceEventsByEntity = {};
+    let droppedResistanceEvents = 0;
     if (acc.groups) {
       Object.entries(acc.groups).forEach(([id, bucket]) => {
         if (bucket.series) seriesByEntity[id] = freezeSeries(bucket.series);
-        if (bucket.resistanceEvents?.length) resistanceEventsByEntity[id] = bucket.resistanceEvents;
+        if (bucket.resistanceEvents?.length) {
+          normalizeResistanceEvents(bucket.resistanceEvents);
+          resistanceEventsByEntity[id] = bucket.resistanceEvents;
+          droppedResistanceEvents += resistanceEventsDroppedCount(bucket.resistanceEvents);
+        }
       });
     } else if (acc.series) {
       const frozen = freezeSeries(acc.series);
       if (frozen) seriesByEntity[frozen.entityId || '_file'] = frozen;
-      if (acc.resistanceEvents?.length) resistanceEventsByEntity[frozen?.entityId || '_file'] = acc.resistanceEvents;
+      if (acc.resistanceEvents?.length) {
+        normalizeResistanceEvents(acc.resistanceEvents);
+        resistanceEventsByEntity[frozen?.entityId || '_file'] = acc.resistanceEvents;
+        droppedResistanceEvents += resistanceEventsDroppedCount(acc.resistanceEvents);
+      }
     }
     pastedSummary = {
       label: '직접 붙여넣은 텍스트', columns: acc.columns || [], delimiter: acc.delimiter || ',',
@@ -48,7 +58,8 @@ export function collectActiveLogBlocks() {
       alarmSamples: acc.alarmSamples, alarmAnnotations: acc.alarmAnnotations,
       stats: acc.stats, groups: acc.groups, formatId: pasteFormat.id,
       formatLabel: pasteFormat.label, entityColumn: acc.entityColumn || null, derived: acc.derived,
-      seriesByEntity, resistanceEventsByEntity, entityFilter: null
+      seriesByEntity, resistanceEventsByEntity, entityFilter: null,
+      droppedResistanceEvents
     };
   }
 
@@ -61,7 +72,8 @@ export function collectActiveLogBlocks() {
     derived: s.derived,
     seriesByEntity: s.seriesByEntity || {},
     resistanceEventsByEntity: s.resistanceEventsByEntity || {},
-    entityFilter: s.entityFilter || null
+    entityFilter: s.entityFilter || null,
+    droppedResistanceEvents: s.droppedResistanceEvents || 0
   })).concat(pastedSummary ? [pastedSummary] : []);
 }
 
@@ -112,6 +124,7 @@ function buildTruncationNote(truncation) {
   if (truncation.excludedSources) parts.push(`출처 파일 ${truncation.excludedSources}개 미포함`);
   if (truncation.excludedGroups) parts.push(`엔티티 그룹 ${truncation.excludedGroups}개 상세 생략`);
   if (truncation.excludedAlarmContexts) parts.push(`알람 컨텍스트 ${truncation.excludedAlarmContexts}건 생략`);
+  if (truncation.droppedResistanceEvents) parts.push(`저항 이벤트 ${truncation.droppedResistanceEvents.toLocaleString()}건 생략(초기 기준선+최근 창 유지)`);
   if (truncation.textTruncatedChars) parts.push(`텍스트 ${truncation.textTruncatedChars.toLocaleString()}자 절단`);
   return `[참고: 데이터 규모 제한으로 일부가 생략된 상태입니다 — ${parts.join(', ')}. 생략된 부분에 대한 판단은 "추가 확인 필요"로 명시하십시오.]`;
 }
@@ -195,6 +208,7 @@ export function blocksToPromptText(allBlocks) {
     excludedSources: Math.max(0, allBlocks.length - MAX_SELECTED_SOURCES),
     excludedGroups: 0,
     excludedAlarmContexts: 0,
+    droppedResistanceEvents: 0,
     textTruncatedChars: 0
   };
 
@@ -234,10 +248,21 @@ export function blocksToPromptText(allBlocks) {
     return r.text;
   });
   truncation.excludedAlarmContexts = Math.max(0, alarmAvailableTotal - alarmUsedTotal);
+  truncation.droppedResistanceEvents = includedBlocks.reduce((sum, block) => {
+    const scalar = Number(block.droppedResistanceEvents) || 0;
+    if (scalar) return sum + scalar;
+    let n = 0;
+    Object.values(block.resistanceEventsByEntity || {}).forEach(list => {
+      n += resistanceEventsDroppedCount(list);
+    });
+    n += resistanceEventsDroppedCount(block.resistanceEvents);
+    return sum + n;
+  }, 0);
 
   const rawText = blockTexts.length ? blockTexts.join('\n\n') : '(입력된 로그 데이터 없음)';
   const hasStructuralTruncation = Boolean(
-    truncation.excludedSources || truncation.excludedGroups || truncation.excludedAlarmContexts
+    truncation.excludedSources || truncation.excludedGroups
+      || truncation.excludedAlarmContexts || truncation.droppedResistanceEvents
   );
   let text = rawText;
 
