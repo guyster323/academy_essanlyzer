@@ -17,17 +17,15 @@ import os from 'node:os';
  */
 
 const CLI_BIN = process.env.CLAUDE_CLI_PATH || 'claude';
-// CLI invocation carries more overhead than a raw API call. Measured live
-// against the format-aware anomaly/hypothesis prompts (which ask the model
-// to cross-reference derived per-cell/per-asset statistics and, for
-// generate-hypotheses, produce 2-3 hypotheses each with an evidence tier,
-// disconfirming evidence, missing signals, and a claim-limit statement — not
-// just scan text): a real detect-anomaly call took ~102s and a real
-// generate-hypotheses call exceeded 180s, both against a real LFP source.
-// Raised with headroom rather than to the observed minimum.
-// Gold Case A (29k-row FPPMW window + 5k alarms) exceeded 240s on 2026-08-27
-// (`/api/detect-anomaly` 504). Default 10 min, overridable for CI/demo.
-const CLI_TIMEOUT_MS = Number(process.env.CLAUDE_CLI_TIMEOUT_MS) || 600_000;
+// Safety ceiling, not a performance target. Gold Case B detect-anomaly
+// (stride80, production CLI flags) measured 700.9s wall-clock — see
+// Report/rank-3-4-findings.md — which exceeds the previous 600_000 ms
+// (10 min) default. A fresh clone without a gitignored .env override is
+// therefore guaranteed a 504 on that gold case. Extended thinking dominates
+// (Report/latency-root-cause-and-plan.md) and there is no proven lever to
+// cut it, so the default is 20 min of headroom above the measured 700.9s.
+// Overridable via CLAUDE_CLI_TIMEOUT_MS for CI/demo.
+const CLI_TIMEOUT_MS = Number(process.env.CLAUDE_CLI_TIMEOUT_MS) || 1_200_000;
 const MAX_OUTPUT_BYTES = 20 * 1024 * 1024;
 
 function runClaudeCli(args, stdinText) {
