@@ -25,7 +25,9 @@ const CLI_BIN = process.env.CLAUDE_CLI_PATH || 'claude';
 // just scan text): a real detect-anomaly call took ~102s and a real
 // generate-hypotheses call exceeded 180s, both against a real LFP source.
 // Raised with headroom rather than to the observed minimum.
-const CLI_TIMEOUT_MS = 240_000;
+// Gold Case A (29k-row FPPMW window + 5k alarms) exceeded 240s on 2026-08-27
+// (`/api/detect-anomaly` 504). Default 10 min, overridable for CI/demo.
+const CLI_TIMEOUT_MS = Number(process.env.CLAUDE_CLI_TIMEOUT_MS) || 600_000;
 const MAX_OUTPUT_BYTES = 20 * 1024 * 1024;
 
 function runClaudeCli(args, stdinText) {

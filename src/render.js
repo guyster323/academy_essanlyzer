@@ -1,5 +1,6 @@
 import { state, session, STEPS, CS_TEMPLATES, HYPOTHESIS_DOMAINS, isHumanReviewComplete, describeLoadingProgress } from './state.js';
 import { formatBytes, MAX_SELECTED_SOURCES } from './log-engine.js';
+import { paintFigureCanvases } from './charts.js';
 
 export function esc(s) {
   if (s === undefined || s === null) return '';
@@ -128,7 +129,7 @@ function renderIntake() {
 
     <div class="field-group">
       <label style="display:flex;align-items:flex-start;gap:8px;font-size:11.5px;color:var(--text-secondary);cursor:pointer;">
-        <input type="checkbox" id="sensitiveConfirm" style="margin-top:2px;accent-color:var(--amber);width:14px;height:14px;flex-shrink:0;">
+        <input type="checkbox" id="sensitiveConfirm" ${state.sensitiveDataConfirmed ? 'checked' : ''} style="margin-top:2px;accent-color:var(--amber);width:14px;height:14px;flex-shrink:0;" onchange="state.sensitiveDataConfirmed=this.checked">
         <span>고객명·사이트 위치·실 설비 식별자·개인정보를 제거했음을 확인합니다. <span class="req">*</span></span>
       </label>
       <div class="field-warn" id="warnSensitiveConfirm">위 확인란에 체크해야 분석을 시작할 수 있습니다.</div>
@@ -331,6 +332,22 @@ function renderError() {
   </div>`;
 }
 
+function renderFigurePanel(fig) {
+  const cap = fig.available
+    ? `<figcaption class="figure-claim">${esc(fig.claim)}</figcaption>
+       <canvas data-figure-id="${esc(fig.id)}" width="1200" height="480"></canvas>`
+    : `<div class="figure-claim">${esc(fig.claim)}</div>
+       <div class="figure-missing">${esc(fig.unavailableReason || '시계열 부족 — 추가 확인 필요')}</div>`;
+  return `<figure class="analysis-figure ${fig.available ? '' : 'unavailable'}" id="figure-${esc(fig.id)}" data-figure-id="${esc(fig.id)}">
+    <div class="figure-id">${esc(fig.id)}</div>
+    ${cap}
+  </figure>`;
+}
+
+function currentFigures() {
+  return Array.isArray(state.figureSpecs) ? state.figureSpecs : [];
+}
+
 function renderAnomalyView() {
   document.getElementById('pageTitle').textContent = '이상 구간 탐지 결과';
   document.getElementById('pageDesc').textContent = 'AI가 로그를 스캔해 이상 구간을 자동 식별했습니다. 필요 시 원인 가설 생성 단계로 진행하십시오.';
@@ -358,6 +375,14 @@ function renderAnomalyView() {
     </div>
     <div class="report-section-body" style="color:var(--text-secondary);font-size:11.5px;">${esc(s.priorHistory || '이력 정보 없음')}</div>
   </div>`;
+
+  const figs = currentFigures();
+  if (figs.length) {
+    out += `<div class="panel">
+      <div class="panel-head"><div class="panel-tag"></div><div class="panel-title">근거 그래프</div></div>
+      <div class="figure-grid">${figs.map(renderFigurePanel).join('')}</div>
+    </div>`;
+  }
 
   out += `<div class="panel">
     <div class="panel-head"><div class="panel-tag"></div><div class="panel-title">이상 구간 목록 (${state.anomalyWindows.length}건)</div></div>`;
@@ -396,6 +421,12 @@ function renderHypothesisView() {
 
   let out = '';
   if (state.error && state.error.stage === 'hypothesis') out += renderError();
+
+  const keyFigs = currentFigures().filter(f => f.id === 'A-F4' || f.id === 'B-F1' || f.id === 'B-F2' || f.id === 'F-generic-1');
+  if (keyFigs.length) {
+    out += `<div class="panel"><div class="panel-head"><div class="panel-tag"></div><div class="panel-title">반증·지지 그래프</div></div>
+      <div class="figure-grid">${keyFigs.map(renderFigurePanel).join('')}</div></div>`;
+  }
 
   out += `<div class="checkpoint-banner">
     <span>◈</span>
@@ -536,10 +567,44 @@ function renderReportView() {
     </div>
     <div class="report-section"><div class="report-section-label">심각도</div><div class="report-section-body"><span class="lv-badge lv-${esc(state.finalSeverity)}">${esc(state.finalSeverity)}</span> &nbsp;${esc(state.finalSeverityReason)}</div></div>
     ${renderReportSection('조치 권고', 'reportActionRecommendation', 'actionRecommendation', r.actionRecommendation, ro)}
+    ${currentFigures().length ? `<div class="report-section"><div class="report-section-label">근거 그래프</div>
+      <div class="figure-grid">${currentFigures().map(renderFigurePanel).join('')}</div>
+      <div class="human-note">시계열·PNG는 이 세션에서만 재생성됩니다. 히스토리 재열람 시 그림은 비어 있을 수 있습니다.</div>
+    </div>` : ''}
+    <div class="three-box-grid">
+      <div class="three-box proven"><h3>데이터가 입증하는 것</h3>${ro ? `<p>${esc(r.provenBox || '—')}</p>` : `<textarea rows="4" oninput="updateReportField('provenBox', this.value)">${esc(r.provenBox || '')}</textarea>`}</div>
+      <div class="three-box suggested"><h3>데이터가 시사하는 것</h3>${ro ? `<p>${esc(r.suggestedBox || '—')}</p>` : `<textarea rows="4" oninput="updateReportField('suggestedBox', this.value)">${esc(r.suggestedBox || '')}</textarea>`}</div>
+      <div class="three-box unknown"><h3>데이터가 판단할 수 없는 것</h3>${ro ? `<p>${esc(r.unknownBox || '—')}</p>` : `<textarea rows="4" oninput="updateReportField('unknownBox', this.value)">${esc(r.unknownBox || '')}</textarea>`}</div>
+    </div>
+    ${(r.independentFindings || []).length ? `<div class="report-section"><div class="report-section-label">Independent Findings</div>
+      <ol>${(r.independentFindings || []).map(f => `<li>${esc(f)}</li>`).join('')}</ol></div>` : ''}
+    ${(r.ftaLeaves || []).length ? `<div class="report-section"><div class="report-section-label">FTA</div>
+      ${(r.ftaLeaves || []).map(l => `<div class="fta-leaf"><span>${esc(l.branch)}</span><span class="fta-disp">${esc(l.disposition)}</span></div>`).join('')}</div>` : ''}
+    ${(r.managementImplications || []).length ? `<div class="report-section"><div class="report-section-label">Management</div>
+      <ul>${(r.managementImplications || []).map(f => `<li>${esc(f)}</li>`).join('')}</ul></div>` : ''}
     <div class="btn-row">
       <button class="btn btn-sm copy-btn" onclick="copyReportText()">보고서 전체 복사</button>
+      <button class="btn btn-sm" onclick="downloadReportHtml()">HTML로 저장</button>
     </div>
   </div>`;
+
+  if (!ro) {
+    out += `<div class="panel">
+      <div class="panel-head"><div class="panel-tag"></div><div class="panel-title">공개 결과와 대조 (선택)</div></div>
+      <div class="panel-desc" style="margin-left:0;">독립 분석이 끝난 뒤에만 실행합니다. AEMO/논문 결론을 먼저 읽고 끼워 맞추지 않습니다.</div>
+      <textarea id="publishedExcerpt" rows="6" placeholder="공개 보고서 또는 논문에서 대조할 발췌를 붙여넣으세요."></textarea>
+      <div class="btn-row"><button class="btn btn-ghost" onclick="runPublishedComparison()">공개 결과와 대조</button></div>
+      ${Array.isArray(state.publishedComparison) ? `<table class="comparison-table"><thead><tr><th>항목</th><th>독립분석</th><th>공개결과</th><th>일치</th><th>RAW</th><th>비고</th></tr></thead><tbody>
+        ${state.publishedComparison.map(row => `<tr>
+          <td>${esc(row.item)}</td><td>${esc(row.independentFinding)}</td><td>${esc(row.publishedFinding)}</td>
+          <td>${esc(row.agree)}</td><td>${row.rawSufficient ? '충분' : '불가'}</td><td>${esc(row.notes)}</td>
+        </tr>`).join('')}
+      </tbody></table>` : ''}
+    </div>`;
+  } else if (Array.isArray(state.publishedComparison)) {
+    out += `<div class="panel"><div class="panel-head"><div class="panel-tag"></div><div class="panel-title">공개 결과 대조</div></div>
+      <table class="comparison-table"><tbody>${state.publishedComparison.map(row => `<tr><td>${esc(row.item)}</td><td>${esc(row.agree)}</td></tr>`).join('')}</tbody></table></div>`;
+  }
 
   const e = state.emailEdits || state.email || {};
   out += `<div class="panel">
@@ -561,7 +626,7 @@ function renderReportView() {
     out += `<div class="panel">
       <label style="display:flex;align-items:flex-start;gap:8px;font-size:11.5px;color:var(--text-secondary);cursor:pointer;">
         <input type="checkbox" id="finalReviewConfirm" style="margin-top:2px;accent-color:var(--amber);width:14px;height:14px;flex-shrink:0;" onchange="onFinalReviewCheckboxChange(this.checked)">
-        <span>본 보고서·메일의 <b>기술적 정확성</b>·<b>민감정보 미포함 여부</b>·<b>심각도 최종 판정</b>을 모두 검토·확정했습니다. <span class="req">*</span></span>
+        <span>본 보고서·메일의 <b>기술적 정확성</b>·<b>그림·3-box 근거</b>·<b>민감정보 미포함 여부</b>·<b>심각도 최종 판정</b>을 모두 검토·확정했습니다. <span class="req">*</span></span>
       </label>
     </div>
     <div class="btn-row"><button id="completeBtn" class="btn btn-primary" onclick="completeCase()" ${!state.finalReviewConfirmed ? 'disabled' : ''}>완료 · 신규 케이스 시작</button></div>`;
@@ -596,4 +661,5 @@ export function render() {
     html = renderReportView();
   }
   document.getElementById('viewRoot').innerHTML = html;
+  paintFigureCanvases(currentFigures());
 }

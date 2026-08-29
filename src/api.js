@@ -19,3 +19,4 @@ export const detectIssuesApi = (payload) => postJson('/api/detect-issues', paylo
 export const detectAnomalyApi = (payload) => postJson('/api/detect-anomaly', payload);
 export const generateHypothesesApi = (payload) => postJson('/api/generate-hypotheses', payload);
 export const draftReportApi = (payload) => postJson('/api/draft-report', payload);
+export const comparePublishedApi = (payload) => postJson('/api/compare-published', payload);

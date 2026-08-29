@@ -5,7 +5,8 @@ import { scheduleAutoDetect } from './pipeline.js';
 import {
   LOG_EXT_ALLOW, LOG_EXT_SKIP_NOTE, LARGE_FILE_WARN_BYTES,
   formatBytes, detectEncodingFromBytes, zipEntryByteChunks, fileByteChunks,
-  streamIntoSource, makeAccumulator, feedLine, isJsZipUncompressedSizeMismatch
+  streamIntoSource, makeAccumulator, feedLine, isJsZipUncompressedSizeMismatch,
+  attachPersistedFileBytes, getPersistedFileBytes
 } from './log-engine.js';
 import { detectFormat, GENERIC_FORMAT } from './formats.js';
 
@@ -64,7 +65,7 @@ function makeSourceShell(name, path, sizeBytes, origin, ref) {
     id: 'SRC-' + (++sourceIdCounter),
     name, path: path || name, origin,
     sizeBytes: sizeBytes || 0, sizeLabel: formatBytes(sizeBytes || 0),
-    status: 'processing', errorMsg: '',
+    status: 'cataloged', errorMsg: '',
     encoding: 'utf-8', encodingAuto: true,
     format: GENERIC_FORMAT,
     delimiter: ',', columns: [],
@@ -116,8 +117,13 @@ export async function probeSource(ref) {
   let headBytes;
   try {
     if (ref.type === 'file') {
-      const buf = await ref.file.slice(0, PROBE_BYTES).arrayBuffer();
-      headBytes = new Uint8Array(buf);
+      const persisted = getPersistedFileBytes(ref.file);
+      if (persisted) {
+        headBytes = persisted.subarray(0, Math.min(PROBE_BYTES, persisted.byteLength));
+      } else {
+        const buf = await ref.file.slice(0, PROBE_BYTES).arrayBuffer();
+        headBytes = new Uint8Array(buf);
+      }
     } else if (ref.type === 'zipEntry') {
       headBytes = await collectZipPrefix(ref);
     }
@@ -265,6 +271,7 @@ export async function streamZipEntryIntoSource(src, ref, onProgress) {
 
 export async function startSourceProcessing(id) {
   const src = state.logSources.find(s => s.id === id);
+  // Shells start as 'cataloged'. 'processing' means a stream is already in flight.
   if (!src || src.status === 'processing' || src.status === 'ready') return;
   await processSource(src);
   autoSelectTopCandidates();
@@ -294,8 +301,28 @@ export function autoSelectTopCandidates() {
   }
 }
 
+// <input type=file> File objects can hang on slice()/arrayBuffer() after
+// render() replaces the input (reproduced: Case A CSV stuck at 0% / 3.10MB
+// in Chrome, Orca, and Playwright). Detach a Blob copy before any re-render.
+export async function persistBrowserFile(file) {
+  if (!file) return null;
+  const buf = await file.arrayBuffer();
+  const bytes = new Uint8Array(buf);
+  const owned = new File([bytes], file.name, {
+    type: file.type || 'application/octet-stream',
+    lastModified: file.lastModified || Date.now()
+  });
+  attachPersistedFileBytes(owned, bytes);
+  return owned;
+}
+
 export async function handleCsvFileUpload(evt) {
-  const files = Array.from(evt.target.files || []);
+  const raw = Array.from(evt.target.files || []);
+  const files = [];
+  for (const file of raw) {
+    const owned = await persistBrowserFile(file);
+    if (owned) files.push(owned);
+  }
   evt.target.value = '';
   for (const file of files) {
     if (file.size > LARGE_FILE_WARN_BYTES) {
@@ -307,7 +334,7 @@ export async function handleCsvFileUpload(evt) {
 }
 
 export async function handleZipUpload(evt) {
-  const file = evt.target.files[0];
+  const file = await persistBrowserFile(evt.target.files[0]);
   evt.target.value = '';
   if (!file) return;
 

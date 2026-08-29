@@ -1,11 +1,14 @@
 import { state, session, resetState, isHumanReviewComplete, CS_TEMPLATES, SAMPLE_CS, SAMPLE_CSV, SAMPLE_PRIOR } from './state.js';
 import { render, showToast, copyText, refreshConfirmButtonState, refreshCompleteButtonState } from './render.js';
-import { detectIssuesApi, detectAnomalyApi, generateHypothesesApi, draftReportApi } from './api.js';
+import { detectIssuesApi, detectAnomalyApi, generateHypothesesApi, draftReportApi, comparePublishedApi } from './api.js';
 import {
   CONTEXT_WINDOW, avgOf, makeAccumulator, feedLine,
   MAX_SELECTED_SOURCES, MAX_GROUPS_PER_SOURCE_IN_PROMPT, MAX_TOTAL_ALARM_CONTEXTS, MAX_LOG_TEXT_CHARS
 } from './log-engine.js';
-import { GENERIC_FORMAT, detectDelimiter } from './formats.js';
+import { detectFormat, detectDelimiter } from './formats.js';
+import { freezeSeries } from './series-engine.js';
+import { buildFigures, figureCatalog } from './figures.js';
+import { buildEvidenceLedger, catalogEvidence } from './evidence-ledger.js';
 import JSZip from 'jszip';
 import { extractHtmlText, extractPptxText, capDocText, buildReferenceDocsBlock } from './reference-docs.js';
 
@@ -23,14 +26,29 @@ export function collectActiveLogBlocks() {
   const activeSources = state.logSources.filter(s => s.selected && s.status === 'ready');
   let pastedSummary = null;
   if (pastedText) {
-    const acc = makeAccumulator(GENERIC_FORMAT);
+    const firstLines = pastedText.split(/\r?\n/).filter(l => l.trim()).slice(0, 4);
+    const pasteFormat = detectFormat(firstLines);
+    const acc = makeAccumulator(pasteFormat);
     pastedText.split(/\r?\n/).forEach(line => { if (line.trim()) feedLine(acc, line); });
+    const seriesByEntity = {};
+    const resistanceEventsByEntity = {};
+    if (acc.groups) {
+      Object.entries(acc.groups).forEach(([id, bucket]) => {
+        if (bucket.series) seriesByEntity[id] = freezeSeries(bucket.series);
+        if (bucket.resistanceEvents?.length) resistanceEventsByEntity[id] = bucket.resistanceEvents;
+      });
+    } else if (acc.series) {
+      const frozen = freezeSeries(acc.series);
+      if (frozen) seriesByEntity[frozen.entityId || '_file'] = frozen;
+      if (acc.resistanceEvents?.length) resistanceEventsByEntity[frozen?.entityId || '_file'] = acc.resistanceEvents;
+    }
     pastedSummary = {
       label: '직접 붙여넣은 텍스트', columns: acc.columns || [], delimiter: acc.delimiter || ',',
       rowCount: acc.rowCount, alarmCount: acc.alarmCount, headSample: acc.headSample,
       alarmSamples: acc.alarmSamples, alarmAnnotations: acc.alarmAnnotations,
-      stats: acc.stats, groups: null, formatId: GENERIC_FORMAT.id,
-      formatLabel: GENERIC_FORMAT.label, entityColumn: null, derived: acc.derived
+      stats: acc.stats, groups: acc.groups, formatId: pasteFormat.id,
+      formatLabel: pasteFormat.label, entityColumn: acc.entityColumn || null, derived: acc.derived,
+      seriesByEntity, resistanceEventsByEntity, entityFilter: null
     };
   }
 
@@ -40,9 +58,14 @@ export function collectActiveLogBlocks() {
     alarmSamples: s.alarmSamples, alarmAnnotations: s.alarmAnnotations,
     stats: s.stats, groups: s.groups, formatId: s.format?.id || 'generic',
     formatLabel: s.format?.label || '일반 CSV/TSV', entityColumn: s.entityColumn || null,
-    derived: s.derived
+    derived: s.derived,
+    seriesByEntity: s.seriesByEntity || {},
+    resistanceEventsByEntity: s.resistanceEventsByEntity || {},
+    entityFilter: s.entityFilter || null
   })).concat(pastedSummary ? [pastedSummary] : []);
 }
+
+
 
 function formatDerivedDetails(derived) {
   if (!derived || !derived.label) return '';
@@ -339,6 +362,12 @@ export async function runAnomalyDetection() {
   const { text: combinedLogText, totalRows, count, truncation, sourceProfiles } = blocksToPromptText(allBlocks);
   state.lastTruncation = truncation;
   state.sourceProfiles = sourceProfiles;
+  try {
+    state.figureSpecs = buildFigures(allBlocks);
+  } catch (e) {
+    console.warn('figure build failed', e);
+    state.figureSpecs = [];
+  }
 
   try {
     const json = await detectAnomalyApi({
@@ -347,6 +376,13 @@ export async function runAnomalyDetection() {
     });
     state.issueStructured = json.issueStructured || {};
     state.anomalyWindows = json.anomalyWindows || [];
+    const af4 = (state.figureSpecs || []).find(f => f.id === 'A-F4');
+    state.evidenceLedger = buildEvidenceLedger({
+      blocks: allBlocks,
+      figures: state.figureSpecs,
+      anomalyWindows: state.anomalyWindows,
+      commonMode: af4 ? af4.summaryStats : null
+    });
     state.step = 1;
     state.phase = 'result-anomaly';
   } catch (e) {
@@ -395,13 +431,24 @@ export async function runHypothesisGeneration() {
   render();
 }
 
+function stripBucketHeavy(bucket) {
+  if (!bucket || typeof bucket !== 'object') return bucket;
+  const { series, resistanceEvents, recentWindow, _lfpPrev, _seriesPrevMw, ...rest } = bucket;
+  return rest;
+}
+
 function snapshotState(s) {
   // Drop non-serializable / heavy fields (File handles, JSZip entries, format
-  // adapter functions) before the JSON round-trip so history snapshots never
-  // throw on circular structures.
+  // adapter functions, downsampled series, PNG specs) before the JSON round-trip.
   const clone = {
     ...s,
-    logSources: s.logSources.map(({ _ref, format, ...rest }) => ({ ...rest }))
+    figureSpecs: undefined,
+    logSources: s.logSources.map(({ _ref, format, seriesByEntity, resistanceEventsByEntity, groups, ...rest }) => ({
+      ...rest,
+      groups: groups
+        ? Object.fromEntries(Object.entries(groups).map(([id, bucket]) => [id, stripBucketHeavy(bucket)]))
+        : groups
+    }))
   };
   return JSON.parse(JSON.stringify(clone));
 }
@@ -427,7 +474,9 @@ export async function runReportGeneration() {
       confirmedHyp: state.confirmedHypothesis,
       finalSeverity: state.finalSeverity,
       finalSeverityReason: state.finalSeverityReason,
-      sourceProfiles: state.sourceProfiles || []
+      sourceProfiles: state.sourceProfiles || [],
+      figureCatalog: figureCatalog(state.figureSpecs || []),
+      evidenceLedger: catalogEvidence(state.evidenceLedger || [])
     });
     state.report = json.report || {};
     state.email = json.email || {};
@@ -468,8 +517,64 @@ export function updateEmailField(field, value) {
 
 export function copyReportText() {
   const r = state.reportEdits || {};
-  const text = `[헤드라인] ${r.headline || ''}\n\n[발생 개요]\n${r.occurrence || ''}\n\n[이상 구간 요약]\n${r.anomalySummary || ''}\n\n[확정 원인]\n${r.rootCause || ''}\n\n[심각도] ${state.finalSeverity} — ${state.finalSeverityReason}\n\n[조치 권고]\n${r.actionRecommendation || ''}`;
+  const figs = (state.figureSpecs || []).filter(f => f.available).map(f => f.id).join(', ') || '(없음)';
+  const text = `[헤드라인] ${r.headline || ''}\n\n[발생 개요]\n${r.occurrence || ''}\n\n[이상 구간 요약]\n${r.anomalySummary || ''}\n\n[확정 원인]\n${r.rootCause || ''}\n\n[데이터가 입증하는 것]\n${r.provenBox || ''}\n\n[데이터가 시사하는 것]\n${r.suggestedBox || ''}\n\n[데이터가 판단할 수 없는 것]\n${r.unknownBox || ''}\n\n[심각도] ${state.finalSeverity} — ${state.finalSeverityReason}\n\n[조치 권고]\n${r.actionRecommendation || ''}\n\n[Figure] ${figs}`;
   copyText(text, '보고서');
+}
+
+export function downloadReportHtml() {
+  import('./report-export.js').then(({ buildReportHtml }) => {
+    const html = buildReportHtml({
+      report: state.reportEdits || state.report || {},
+      figures: state.figureSpecs || [],
+      comparison: state.publishedComparison,
+      severity: state.finalSeverity,
+      severityReason: state.finalSeverityReason,
+      hypothesis: state.confirmedHypothesis,
+      createdAt: state.createdAt
+    });
+    const blob = new Blob([html], { type: 'text/html;charset=utf-8' });
+    const a = document.createElement('a');
+    a.href = URL.createObjectURL(blob);
+    a.download = `ESS_분석보고서_${state.id}.html`;
+    a.click();
+    URL.revokeObjectURL(a.href);
+    showToast('HTML 보고서를 저장했습니다');
+  }).catch(e => showToast(e.message || '내보내기 실패'));
+}
+
+export async function runPublishedComparison() {
+  const excerptEl = document.getElementById('publishedExcerpt');
+  const excerpt = (excerptEl ? excerptEl.value : '').trim();
+  if (!excerpt || excerpt.length < 40) {
+    showToast('공개 보고서/논문 발췌를 40자 이상 붙여넣으세요');
+    return;
+  }
+  const findings = (state.reportEdits?.independentFindings || state.report?.independentFindings || []).filter(Boolean);
+  if (!findings.length) {
+    showToast('독립 findings가 없어 대조할 수 없습니다 — 보고서를 먼저 생성하세요');
+    return;
+  }
+  state.phase = 'loading-report';
+  state.loadingLabel = '공개 결과와 대조 중 (독립 findings는 동결)';
+  beginLoadingTick();
+  render();
+  try {
+    const json = await comparePublishedApi({
+      independentFindings: findings,
+      figureCatalog: figureCatalog(state.figureSpecs || []).map(({ id, claim, available }) => ({ id, claim, available })),
+      publishedExcerpt: excerpt.slice(0, 60000),
+      sourceProfiles: state.sourceProfiles || []
+    });
+    state.publishedComparison = json.rows || [];
+    state.phase = 'result-report';
+    state.step = 5;
+  } catch (e) {
+    state.error = { stage: 'report', message: e.message || String(e) };
+    state.phase = 'result-report';
+  }
+  endLoadingTick();
+  render();
 }
 
 export function copyEmailText() {

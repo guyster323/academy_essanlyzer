@@ -8,10 +8,14 @@
 ========================================================= */
 
 import { zipEntryByteChunks, isJsZipUncompressedSizeMismatch } from './zip-stream.js';
+import {
+  MAX_SERIES_BUFFERS, MAX_SERIES_POINTS, createSeriesBuffer, pushSample, freezeSeries
+} from './series-engine.js';
 
 export const LOG_EXT_ALLOW = ['csv', 'txt', 'log', 'tsv', 'dat'];
 export const LOG_EXT_SKIP_NOTE = ['png', 'jpg', 'jpeg', 'gif', 'pdf', 'xlsx', 'xls', 'docx', 'pptx', 'exe', 'dll', 'bin', 'db'];
-export const CHUNK_BYTES = 4 * 1024 * 1024;      // 4MB read chunks
+export const CHUNK_BYTES = 256 * 1024;           // small enough that a 3MB CSV paints progress
+const LINES_PER_YIELD = 2000;                     // keep the UI thread responsive while feeding
 export const HEAD_SAMPLE_CAP = 15;                // rows kept from file/group start
 export const ALARM_SAMPLE_CAP = 40;               // alarm/anomaly context windows kept per file/group
 export const CONTEXT_WINDOW = 5;                  // rows of lookback kept per alarm window
@@ -52,8 +56,25 @@ export function scoreSource(name, headerLine) {
   return score;
 }
 
+const persistedFileBytes = new WeakMap();
+
+export function attachPersistedFileBytes(file, bytes) {
+  if (file && bytes) persistedFileBytes.set(file, bytes);
+}
+
+export function getPersistedFileBytes(file) {
+  return file ? persistedFileBytes.get(file) : undefined;
+}
+
 /* ---- Byte-chunk sources: plain File/Blob and JSZip entries ---- */
 export async function* fileByteChunks(file) {
+  const persisted = persistedFileBytes.get(file);
+  if (persisted) {
+    for (let offset = 0; offset < persisted.byteLength; offset += CHUNK_BYTES) {
+      yield persisted.subarray(offset, Math.min(persisted.byteLength, offset + CHUNK_BYTES));
+    }
+    return;
+  }
   let offset = 0;
   while (offset < file.size) {
     const slice = file.slice(offset, offset + CHUNK_BYTES);
@@ -92,7 +113,8 @@ function makeBucket() {
       metricStats: {},
       reasonCounts: {},
       categoryCounts: {}
-    }
+    },
+    resistanceEvents: []
   };
   // Adapter rolling state is intentionally non-enumerable so it cannot leak
   // into prompt blocks or history snapshots. Each bucket still owns only a
@@ -114,8 +136,29 @@ export function makeAccumulator(format, entityFilter = '') {
     timestampColumn: null,
     entityFilter: (entityFilter || '').trim(),
     groups: null, // becomes {entityValue: bucket} once an entity column is recognized
-    malformedRowCount: 0
+    malformedRowCount: 0,
+    _seriesAttached: 0
   });
+}
+
+function attachSeries(acc, bucket, entityKey) {
+  if (bucket.series) return bucket.series;
+  const fmt = acc.format;
+  if (typeof fmt.extractSeriesSample !== 'function') return null;
+  acc._seriesAttached = acc._seriesAttached || 0;
+  if (acc._seriesAttached >= MAX_SERIES_BUFFERS) {
+    // Prefer BESS-like names and buckets that already have derived alarms.
+    if (!/bess|battery/i.test(entityKey || '') && !(bucket.derived && bucket.derived.alarmCount)) {
+      return null;
+    }
+  }
+  bucket.series = createSeriesBuffer({
+    signals: fmt.seriesSignals || ['value'],
+    maxPoints: MAX_SERIES_POINTS,
+    binMode: fmt.seriesBinMode || 'adaptive'
+  });
+  acc._seriesAttached++;
+  return bucket.series;
 }
 
 function updateNumericStats(stats, key, value) {
@@ -178,6 +221,14 @@ function feedRowIntoBucket(acc, bucket, cells) {
     ? fmt.computeDerivedAlarm(rowObj, acc, bucket)
     : null;
   recordDerivedResult(bucket, fmt, derivedResult);
+
+  const entityKey = acc.entityColumn ? (rowObj[acc.entityColumn] || '_entity') : (acc.entityFilter || '_file');
+  const seriesBuf = attachSeries(acc, bucket, entityKey);
+  if (seriesBuf && typeof fmt.extractSeriesSample === 'function') {
+    const sample = fmt.extractSeriesSample(rowObj, acc, bucket);
+    if (sample && Number.isFinite(sample.t)) pushSample(seriesBuf, entityKey, sample.t, sample.values);
+  }
+  if (typeof fmt.collectForensics === 'function') fmt.collectForensics(rowObj, bucket);
   // Keep a file-level derived summary as well as the per-entity summary. The
   // hook is invoked only once for the target bucket, so grouped streams do
   // not accidentally share rolling baselines across physical entities.
@@ -273,6 +324,13 @@ export async function streamIntoSource(src, byteChunkIterable, onProgress) {
   const acc = makeAccumulator(src.format, src.entityFilter);
   let leftover = '';
   let processed = 0;
+  let sinceYield = 0;
+  const yieldToUi = async () => {
+    src.processedBytes = processed;
+    onProgress && onProgress();
+    await new Promise(resolve => setTimeout(resolve, 0));
+    sinceYield = 0;
+  };
 
   for await (const chunk of byteChunkIterable) {
     processed += chunk.byteLength || chunk.length || 0;
@@ -280,15 +338,26 @@ export async function streamIntoSource(src, byteChunkIterable, onProgress) {
     const combined = leftover + text;
     const lines = combined.split(/\r?\n/);
     leftover = lines.pop();
-    for (const line of lines) { if (line.trim()) feedLine(acc, line); }
-    src.processedBytes = processed;
-    onProgress && onProgress();
+    for (const line of lines) {
+      if (line.trim()) feedLine(acc, line);
+      if (++sinceYield >= LINES_PER_YIELD) await yieldToUi();
+    }
+    await yieldToUi();
   }
   const tail = decoder.decode();
   const finalCombined = leftover + tail;
   if (finalCombined.trim()) feedLine(acc, finalCombined);
 
   applyAccumulatorToSource(src, acc);
+}
+
+function freezeBucketEvidence(bucket, entityId) {
+  const frozen = bucket?.series ? freezeSeries(bucket.series) : null;
+  if (frozen) frozen.entityId = entityId;
+  return {
+    series: frozen,
+    resistanceEvents: Array.isArray(bucket?.resistanceEvents) ? bucket.resistanceEvents : []
+  };
 }
 
 export function applyAccumulatorToSource(src, acc) {
@@ -302,14 +371,24 @@ export function applyAccumulatorToSource(src, acc) {
   src.groups = acc.groups; // null when the format has no groupable entity column
   src.derived = acc.derived;
   src.alarmAnnotations = acc.alarmAnnotations;
+  src.seriesByEntity = {};
+  src.resistanceEventsByEntity = {};
   if (acc.groups) {
     src.headSample = [];
     src.alarmSamples = [];
     src.stats = {};
+    Object.entries(acc.groups).forEach(([id, bucket]) => {
+      const ev = freezeBucketEvidence(bucket, id);
+      if (ev.series) src.seriesByEntity[id] = ev.series;
+      if (ev.resistanceEvents.length) src.resistanceEventsByEntity[id] = ev.resistanceEvents;
+    });
   } else {
     src.headSample = acc.headSample;
     src.alarmSamples = acc.alarmSamples;
     src.stats = acc.stats;
+    const ev = freezeBucketEvidence(acc, src.name || '_file');
+    if (ev.series) src.seriesByEntity[ev.series.entityId] = ev.series;
+    if (ev.resistanceEvents.length) src.resistanceEventsByEntity[ev.series?.entityId || '_file'] = ev.resistanceEvents;
   }
   src.score = scoreSource(src.name, src.columns.join(src.delimiter));
   src.status = 'ready';

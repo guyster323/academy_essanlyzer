@@ -7,6 +7,9 @@
    timestamp, and what counts as an "alarm" row.
 ========================================================= */
 
+import { parseTimestampMs } from './series-engine.js';
+import { considerResistanceEvent, snapshotFromRow } from './forensics/lfp.js';
+
 export function detectDelimiter(sampleLine) {
   const candidates = [',', '\t', ';', '|'];
   let best = ',', bestCount = -1;
@@ -140,6 +143,17 @@ export const GENERIC_FORMAT = {
     // Dedicated alarm/fault code column: any non-zero/non-OK/NORMAL value is
     // itself an alarm code (e.g. "OV001"), so keep the strict rule.
     return s !== '0' && s.toUpperCase() !== 'OK' && s.toUpperCase() !== 'NORMAL';
+  },
+  seriesBinMode: 'adaptive',
+  seriesSignals: ['value'],
+  extractSeriesSample(rowObj, acc) {
+    const tsCol = acc.timestampColumn || (acc.columns || []).find(c => /^(timestamp|time|date)/i.test(c));
+    const t = parseTimestampMs(tsCol ? rowObj[tsCol] : null);
+    if (t == null) return null;
+    const skip = new Set([tsCol, acc.alarmColumn].filter(Boolean));
+    const col = (acc.columns || []).find(c => !skip.has(c) && finiteNumber(rowObj[c]) != null);
+    if (!col) return null;
+    return { t, values: { value: finiteNumber(rowObj[col]) } };
   }
 };
 
@@ -248,6 +262,18 @@ export const AEMO_MMS_FORMAT = {
         evidenceTier: 'Derived'
       }
     };
+  },
+  seriesBinMode: 'adaptive',
+  seriesSignals: ['mw', 'quality', 'deltaMw'],
+  extractSeriesSample(rowObj, acc, bucket) {
+    const t = parseTimestampMs(rowObj.MEASUREMENT_DATETIME || rowObj.INTERVAL_DATETIME);
+    const mw = finiteNumber(rowObj.MEASURED_MW);
+    if (t == null || mw == null) return null;
+    const quality = finiteNumber(rowObj.MW_QUALITY_FLAG);
+    const prev = bucket && bucket._seriesPrevMw;
+    const deltaMw = prev === undefined ? 0 : mw - prev;
+    if (bucket) bucket._seriesPrevMw = mw;
+    return { t, values: { mw, quality: quality == null ? 1 : quality, deltaMw } };
   }
 };
 
@@ -340,6 +366,49 @@ export const LFP_CELL_ARRAY_FORMAT = {
         evidenceTier: 'Derived'
       }
     };
+  },
+  seriesBinMode: 'day',
+  seriesSignals: ['vRange', 'vStd', 'i', 'soc', 'tMean', 'vdevMax'],
+  extractSeriesSample(rowObj) {
+    const t = parseTimestampMs(rowObj.Timestamp);
+    const cells = LFP_CELL_COLUMNS.map(column => finiteNumber(rowObj[column]));
+    if (t == null || cells.some(v => v == null)) return null;
+    const meanV = cells.reduce((s, v) => s + v, 0) / cells.length;
+    const vStd = Math.sqrt(cells.reduce((s, v) => s + (v - meanV) ** 2, 0) / cells.length);
+    const vRange = Math.max(...cells) - Math.min(...cells);
+    const vdev = cells.map((value, index) => {
+      const peers = cells.filter((_, peerIndex) => peerIndex !== index);
+      return Math.abs(value - median(peers));
+    });
+    const i = finiteNumber(rowObj.I_Battery);
+    const soc = finiteNumber(rowObj.SOC_Battery);
+    let tSum = 0;
+    let tN = 0;
+    for (let k = 1; k <= 4; k++) {
+      const tv = finiteNumber(rowObj[`T_${k}`] ?? rowObj[`Temp_${k}`]);
+      if (tv != null) { tSum += tv; tN++; }
+    }
+    return {
+      t,
+      values: {
+        vRange,
+        vStd,
+        i: i == null ? 0 : i,
+        soc: soc == null ? 0 : soc,
+        tMean: tN ? tSum / tN : 0,
+        vdevMax: Math.max(...vdev)
+      }
+    };
+  },
+  collectForensics(rowObj, bucket) {
+    const t = parseTimestampMs(rowObj.Timestamp);
+    const snap = snapshotFromRow(rowObj);
+    if (t == null || !snap) return;
+    const curr = { t, ...snap };
+    const prev = bucket._lfpPrev;
+    if (!bucket.resistanceEvents) bucket.resistanceEvents = [];
+    considerResistanceEvent(prev, curr, bucket.resistanceEvents);
+    bucket._lfpPrev = curr;
   }
 };
 

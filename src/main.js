@@ -8,7 +8,7 @@ import {
   confirmAndGenerateReport, retryStage, loadCaseFromHistory,
   handleReferenceDocUpload, removeReferenceDoc,
   updateReportField, updateEmailField, copyReportText, copyEmailText,
-  onFinalReviewCheckboxChange, completeCase
+  onFinalReviewCheckboxChange, completeCase, downloadReportHtml, runPublishedComparison
 } from './pipeline.js';
 import {
   handleCsvFileUpload, handleZipUpload,
@@ -29,7 +29,7 @@ Object.assign(window, {
   confirmAndGenerateReport, retryStage, loadCaseFromHistory,
   handleReferenceDocUpload, removeReferenceDoc,
   updateReportField, updateEmailField, copyReportText, copyEmailText,
-  onFinalReviewCheckboxChange, completeCase,
+  onFinalReviewCheckboxChange, completeCase, downloadReportHtml, runPublishedComparison,
   handleCsvFileUpload, handleZipUpload,
   toggleSourceSelected, toggleSourcePreview, removeSource,
   setSourceEncoding, setSourceEntityFilter, startSourceProcessing,

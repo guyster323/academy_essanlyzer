@@ -155,8 +155,61 @@ test('valid requests and responses pass through unchanged', () => {
   assert.equal(req.totalRows, 5);
 
   const res = parseStructuredResult('draft-report', {
-    report: { headline: 'h', occurrence: 'o', anomalySummary: 'a', rootCause: 'r', actionRecommendation: 'ar' },
+    report: fullReport({ headline: 'h' }),
     email: { to: 'CS', subject: 's', body: 'b' }
   });
   assert.equal(res.report.headline, 'h');
+});
+
+function fullReport(overrides = {}) {
+  return {
+    headline: '셀 과전압이 관측됨',
+    occurrence: '발생 개요 문장입니다',
+    anomalySummary: '이상 구간 요약입니다',
+    rootCause: '확정 원인 문장입니다',
+    actionRecommendation: '조치 권고 문장입니다',
+    provenBox: '로그에서 직접 본 사실만',
+    suggestedBox: '복수 근거로 시사되는 해석',
+    unknownBox: '이 데이터로 판단할 수 없는 항목',
+    independentFindings: ['독립 finding 하나'],
+    ftaLeaves: [{ branch: 'Battery/BMS', disposition: 'Possible', evidenceIds: ['E001'] }],
+    evidenceCitations: [{ field: 'headline', evidenceIds: ['E001'], figureIds: ['F-generic-1'] }],
+    managementImplications: ['로깅 보존 강화'],
+    ...overrides
+  };
+}
+
+test('draft-report response with available figures is rejected without figure citations', () => {
+  assert.throws(() => parseStructuredResult('draft-report', {
+    report: fullReport({ evidenceCitations: [{ field: 'headline', evidenceIds: ['E001'], figureIds: [] }] }),
+    email: { to: 'CS', subject: '제목입니다', body: '본문입니다' }
+  }, { figureCatalog: [{ id: 'F-generic-1', claim: '주신호', available: true }] }));
+});
+
+test('draft-report response citing an available figure passes', () => {
+  const res = parseStructuredResult('draft-report', {
+    report: fullReport(),
+    email: { to: 'CS', subject: '제목입니다', body: '본문입니다' }
+  }, { figureCatalog: [{ id: 'F-generic-1', claim: '주신호', available: true }] });
+  assert.equal(res.report.evidenceCitations[0].figureIds[0], 'F-generic-1');
+});
+
+test('compare-published rejects a response that drops frozen independent findings', () => {
+  assert.throws(() => parseStructuredResult('compare-published', {
+    rows: [{
+      item: '이상 셀', independentFinding: '전혀 다른 문장입니다', publishedFinding: 'Cell 8',
+      agree: 'no', rawSufficient: true, notes: 'note'
+    }]
+  }, { independentFindings: ['Cell 경로 저항 발산이 Cell 8에서 관측됨'] }));
+});
+
+test('compare-published keeps frozen independent findings', () => {
+  const finding = 'Cell 경로 저항 발산이 Cell 8에서 관측됨';
+  const res = parseStructuredResult('compare-published', {
+    rows: [{
+      item: '이상 셀', independentFinding: finding, publishedFinding: 'Cell 8',
+      agree: 'yes', rawSufficient: true, notes: '저항 기준'
+    }]
+  }, { independentFindings: [finding] });
+  assert.equal(res.rows[0].agree, 'yes');
 });

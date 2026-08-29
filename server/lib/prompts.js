@@ -29,7 +29,8 @@ function formatGuidance(sourceProfiles, sourceFormats) {
 - Case A는 하루 전체 MEASURED_MW의 독립적인 rolling mean/std·MAD robust z-score·ramp 결과를 우선 신호로 사용하라.
 - MW_QUALITY_FLAG는 telemetry 품질/보조 신호일 뿐이며, 그 값이나 알려진 12:15–12:20 시각을 이상 탐지의 시작점·근거로 삼지 마라.
 - 가능한 가설 domain은 Battery/BMS, PCS, PPC, EMS, Telemetry/SCADA, Dispatch, Forecast, Grid, Normal Response다.
-- 타 설비 동시성·명령/응답 불일치가 관측되지 않으면 Local/공통 원인을 확정하지 말고 필요한 누락 신호를 적어라.`);
+- 타 설비 동시성·명령/응답 불일치가 관측되지 않으면 Local/공통 원인을 확정하지 말고 필요한 누락 신호를 적어라.
+- A-F4가 다수 설비 동조를 보이면 Battery/BMS·PCS 가설의 disconfirmingEvidence에 그 동조를 인용하라. 교차설비가 생략됐으면 missingSignals에 적어라.`);
   }
 
   if (ids.has('lfp-cell-array')) {
@@ -38,7 +39,8 @@ function formatGuidance(sourceProfiles, sourceFormats) {
 - outlier Cell 번호는 데이터에서 계산된 결과만 사용하고 Cell 8을 사전 가정하거나 하드코딩하지 마라.
 - resistance/voltage pattern만으로 전기화학적 열화, 커넥터 저항, 부식, 정확한 반품 원인을 확정하지 마라.
 - 허용되는 최대 결론은 “Cell N 경로의 유효 직렬저항 증가” 후보이며, 그보다 구체적인 물리 원인은 Inferred 후보·반증·추가 검사 필요로 남겨라.
-- 관련 가설 domain은 Cell/Pack, Electrical Path, Operating Condition, Balancing/BMS, Thermal/Sensor, Battery/BMS다.`);
+- 관련 가설 domain은 Cell/Pack, Electrical Path, Operating Condition, Balancing/BMS, Thermal/Sensor, Battery/BMS다.
+- Vdev(전압 잔차, B-F3)와 이벤트 저항(B-F1)이 다른 Cell을 가리키면 둘 다 사실로 적고 하나로 합치지 마라.`);
   }
 
   if (!sections.length) {
@@ -135,10 +137,18 @@ ${priorCase || '없음'}${referenceSection}
 cell-array 포맷이면 claimLimit에 반드시 “Cell N 경로의 유효 직렬저항 증가” 수준까지만 입증 가능하고 전기화학적 열화·커넥터·부식·정확한 반품 원인은 확정할 수 없다는 제한을 명시하라. 그 물리 원인을 확정하는 문장을 name/actualObservation/evidence에 쓰지 마라. 반증·누락 신호를 생략하지 마라.`;
 }
 
-export function buildDraftReportPrompt({ issueStructured, anomalyWindows, confirmedHyp, finalSeverity, finalSeverityReason, sourceProfiles, sourceFormats }) {
-  const cellArray = normalizeProfiles(sourceProfiles, sourceFormats).some(profile => profile.formatId === 'lfp-cell-array');
+export function buildDraftReportPrompt({
+  issueStructured, anomalyWindows, confirmedHyp, finalSeverity, finalSeverityReason,
+  sourceProfiles, sourceFormats, figureCatalog, evidenceLedger
+}) {
+  const profiles = normalizeProfiles(sourceProfiles, sourceFormats);
+  const cellArray = profiles.some(profile => profile.formatId === 'lfp-cell-array');
+  const aemo = profiles.some(profile => profile.formatId === 'aemo-mms');
   const limitation = cellArray
-    ? '\n- cell-array 출처에서는 최종 원인을 “Cell N 경로의 유효 직렬저항 증가” 수준으로만 표현하고, 전기화학적 열화·커넥터·부식 등은 확정 원인이 아닌 미확인 대안으로 유지하라.'
+    ? '\n- cell-array 출처에서는 최종 원인을 “Cell N 경로의 유효 직렬저항 증가” 수준으로만 표현하고, 전기화학적 열화·커넥터·부식 등은 확정 원인이 아닌 미확인 대안으로 유지하라. unknownBox에 그 한계를 적어라. Vdev(전압 잔차)와 이벤트 저항을 같은 원인으로 합치지 마라.'
+    : '';
+  const aemoLimit = aemo
+    ? '\n- aemo-mms에서 A-F4가 common-mode이면 Local PCS/BMS를 확정하지 마라. provider 소프트웨어·내부 dispatch는 unknownBox. A-F6가 unavailable이면 Actual vs Target 선후는 판단 불가로 남겨라.'
     : '';
   return `[감지된 출처 포맷]
 ${sourceProfileText(sourceProfiles, sourceFormats)}
@@ -146,10 +156,38 @@ ${sourceProfileText(sourceProfiles, sourceFormats)}
 [이상 구간] ${JSON.stringify(anomalyWindows)}
 [엔지니어 확정 원인 가설] ${JSON.stringify(confirmedHyp)}
 [엔지니어 최종 심각도] ${finalSeverity} (사유: ${finalSeverityReason})
+[Figure 카탈로그 — 시계열 포인트는 없음. available=true인 id만 인용 가능]
+${JSON.stringify(figureCatalog || [])}
+[Evidence ledger 요약]
+${JSON.stringify(evidenceLedger || [])}
 
 작업: 위 내용을 종합하여 분석 보고서 초안과 CS 회신 메일 초안을 작성하라.
-- headline은 전체 분석을 한 줄로 꿰뚫는 핵심 메시지여야 한다 (추측성 표현 배제).
+- headline은 제목이 아니라 결론형 한 문장이다. "분석 결과" 같은 제목 금지.
 - Observed 사실, Derived 파생지표, Inferred 가설을 문장 수준에서 구분하고, evidence가 부족하면 “추가 확인 필요”로 표기하라.
-- occurrence(발생 개요), anomalySummary(이상 구간 요약), rootCause(확정 원인 및 근거), actionRecommendation(조치 권고)은 각 2~3문장 이내로 작성한다.${limitation}
+- available Figure가 하나라도 있으면 evidenceCitations에 headline 또는 rootCause 항목으로 그 figureIds를 최소 1개 포함하라. 포인트를 만들어내지 말고 카탈로그 id만 인용하라.
+- provenBox: Observed만. suggestedBox: 복수 근거 inference. unknownBox: 이 데이터로 판단 불가.
+- independentFindings: RAW에서 도출한 독립 finding 1~3개. 공개 보고서/논문 결론을 베끼지 마라.
+- ftaLeaves: 관련 domain branch와 Confirmed/Probable/Possible/Unlikely/Rejected/Unobservable.
+- occurrence, anomalySummary, rootCause, actionRecommendation은 각 2~3문장 이내.${limitation}${aemoLimit}
 - email.body에는 인사말, 현상, 추정 원인, 심각도, 조치 방향, 맺음말을 포함한 완결된 메일 본문을 작성한다.`;
+}
+
+export function buildPublishedComparisonPrompt({ independentFindings, figureCatalog, publishedExcerpt, sourceProfiles, sourceFormats }) {
+  return `[독립 분석 findings — 이 배열을 수정·재작성·삭제하지 말고 표의 independentFinding 열에 그대로 반영하라]
+${JSON.stringify(independentFindings)}
+
+[독립 분석 Figure 카탈로그]
+${JSON.stringify(figureCatalog || [])}
+
+[공개 보고서 또는 논문 발췌 — 마지막 교차검증 자료일 뿐, Observed 사실이 아님]
+${publishedExcerpt}
+
+[출처 포맷]
+${sourceProfileText(sourceProfiles, sourceFormats)}
+
+작업: 독립 분석 vs 공개 결과를 행 단위로 대조하라.
+- independentFinding 열은 위 findings를 보존한다. 공개 수치를 독립 관측인 척 쓰지 마라.
+- AEMO self-forecast 내부 로직, 논문 GP fault probability(미구현)는 rawSufficient=false.
+- 전압 잔차(Vdev)와 논문의 시간의존 저항이 다른 셀을 가리키면 오류로 기록하지 말고 notes에 지표 정의 차이를 적어라.
+- agree는 yes|no|partial|unknown.`;
 }

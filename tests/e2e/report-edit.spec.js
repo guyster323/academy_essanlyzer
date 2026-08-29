@@ -16,7 +16,15 @@ const MOCK_HYPOTHESES = {
   hypotheses: [{ id: 'H1', name: 'BMS 셀 밸런싱 오작동', domain: 'Battery/BMS', expectedSignature: 'e', actualObservation: 'a', evidence: 'ev', confidence: 'High', severityDraft: '상', severityReason: 'r' }]
 };
 const MOCK_REPORT = {
-  report: { headline: 'AI 초안 헤드라인', occurrence: 'AI 초안 발생개요', anomalySummary: 'AI 초안 이상구간요약', rootCause: 'AI 초안 원인', actionRecommendation: 'AI 초안 조치권고' },
+  report: {
+    headline: 'AI 초안 헤드라인', occurrence: 'AI 초안 발생개요', anomalySummary: 'AI 초안 이상구간요약',
+    rootCause: 'AI 초안 원인', actionRecommendation: 'AI 초안 조치권고',
+    provenBox: '입증 박스', suggestedBox: '시사 박스', unknownBox: '판단 불가 박스',
+    independentFindings: ['독립 finding'],
+    ftaLeaves: [{ branch: 'Battery/BMS', disposition: 'Possible', evidenceIds: ['E001'] }],
+    evidenceCitations: [{ field: 'headline', evidenceIds: ['E001'], figureIds: ['F-generic-1'] }],
+    managementImplications: ['로깅 강화']
+  },
   email: { to: 'CS 담당자', subject: 'AI 초안 제목', body: 'AI 초안 본문' }
 };
 
@@ -45,6 +53,9 @@ test('report headline/sections and email fields are editable textareas, not read
   const headline = page.locator('#reportHeadline');
   await expect(headline).toBeVisible();
   await expect(headline).toHaveValue('AI 초안 헤드라인');
+  await expect(page.locator('.three-box.proven')).toBeVisible();
+  await expect(page.getByRole('button', { name: /HTML로 저장/ })).toBeVisible();
+  await expect(page.getByRole('button', { name: /공개 결과와 대조/ })).toBeVisible();
   await headline.fill('엔지니어가 수정한 헤드라인');
 
   const body = page.locator('#emailBody');

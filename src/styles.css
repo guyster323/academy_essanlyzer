@@ -354,6 +354,28 @@ tr:last-child td{border-bottom:none;}
 .readonly-flag{display:inline-flex;align-items:center;gap:6px;font-size:10.5px;color:var(--text-muted);font-family:var(--font-mono);margin-bottom:14px;}
 .readonly-dot{width:6px;height:6px;border-radius:50%;background:var(--text-muted);}
 
+/* ---------- Analysis figures ---------- */
+.figure-grid{display:grid;grid-template-columns:1fr;gap:14px;margin-bottom:4px;}
+.analysis-figure{
+  margin:0;padding:12px 14px;border:1px solid var(--border);border-radius:4px;background:var(--bg-inset);
+}
+.analysis-figure.unavailable{opacity:0.85;}
+.figure-id{font-family:var(--font-mono);font-size:10px;color:var(--amber);letter-spacing:0.06em;margin-bottom:6px;font-weight:700;}
+.figure-claim{font-size:12.5px;font-weight:600;color:var(--text-primary);line-height:1.45;margin:0 0 10px;}
+.figure-missing{font-size:11.5px;color:var(--text-muted);line-height:1.55;}
+.analysis-figure canvas{display:block;width:100%;max-width:1200px;height:auto;background:#0D1013;border:1px solid var(--border-soft);border-radius:3px;}
+.three-box-grid{display:grid;grid-template-columns:1fr;gap:10px;margin:12px 0 18px;}
+@media (min-width:900px){.three-box-grid{grid-template-columns:1fr 1fr 1fr;}}
+.three-box{border:1px solid var(--border);border-radius:4px;padding:12px 13px;background:var(--bg-inset);}
+.three-box h3{margin:0 0 8px;font-size:11px;letter-spacing:0.04em;text-transform:uppercase;font-family:var(--font-mono);}
+.three-box.proven h3{color:var(--green);}
+.three-box.suggested h3{color:var(--amber);}
+.three-box.unknown h3{color:var(--text-muted);}
+.three-box p{margin:0;font-size:12px;line-height:1.6;color:var(--text-secondary);}
+.comparison-table{width:100%;font-size:11.5px;}
+.fta-leaf{display:flex;justify-content:space-between;gap:10px;padding:6px 0;border-bottom:1px solid var(--border-soft);font-size:12px;}
+.fta-disp{font-family:var(--font-mono);font-size:10px;}
+
 /* ---------- Mobile (<=860px) ----------
    Must stay the LAST rules in this file: an earlier copy of this override
    sat before the base .sidebar{height:100vh} rule and, at equal

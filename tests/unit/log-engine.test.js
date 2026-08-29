@@ -1,6 +1,7 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
-import { makeAccumulator, feedLine } from '../../src/log-engine.js';
+import { makeAccumulator, feedLine, applyAccumulatorToSource } from '../../src/log-engine.js';
+import { MAX_SERIES_POINTS } from '../../src/series-engine.js';
 import { detectFormat, GENERIC_FORMAT, AEMO_MMS_FORMAT } from '../../src/formats.js';
 
 const AEMO_HEADER = 'I,FPP,UNIT_MW,1,INTERVAL_DATETIME,MEASUREMENT_DATETIME,FPP_UNITID,VERSIONNO,MEASURED_MW,MW_QUALITY_FLAG,SCHEDULED_MW,DEVIATION_MW,PARTICIPANTID';
@@ -86,4 +87,33 @@ test('LFP cell-array leaves normal peer-cell rows unalarmed', () => {
   const acc = accumulate([LFP_HEADER, row].join('\n'));
   assert.equal(acc.alarmCount, 0);
   assert.equal(acc.derived.alarmCount, 0);
+});
+
+test('generic 10k-row stream keeps series bins within MAX_SERIES_POINTS and preserves the voltage spike', () => {
+  const lines = ['timestamp,voltage_V,alarm_code'];
+  for (let i = 0; i < 10_000; i++) {
+    const v = i === 5000 ? 4.2 : 3.5;
+    const alarm = i === 5000 ? 'OV001' : '0';
+    const ts = new Date(Date.UTC(2024, 5, 3, 0, 0, i)).toISOString();
+    lines.push(`${ts},${v},${alarm}`);
+  }
+  const acc = accumulate(lines.join('\n'), GENERIC_FORMAT);
+  const src = { name: 'paste.csv', encoding: 'utf-8', format: GENERIC_FORMAT };
+  applyAccumulatorToSource(src, acc);
+  const frozen = Object.values(src.seriesByEntity)[0];
+  assert.ok(frozen);
+  assert.ok(frozen.bins.length <= MAX_SERIES_POINTS);
+  assert.ok(Math.max(...frozen.bins.map(b => b.max.value)) >= 4.2);
+});
+
+test('AEMO grouped stream freezes per-entity MW series', () => {
+  const rows = Array.from({ length: 12 }, (_, i) =>
+    `D,FPP,UNIT_MW,1,"2025/08/19 11:00:${String(i).padStart(2, '0')}","2025/08/19 11:00:${String(i).padStart(2, '0')}",WDBESS1,1,${i === 11 ? -40 : 10},1,10,0,WDBESS1`
+  );
+  const acc = accumulate([AEMO_HEADER, ...rows].join('\n'), AEMO_MMS_FORMAT);
+  const src = { name: 'aemo.csv', encoding: 'utf-8', format: AEMO_MMS_FORMAT };
+  applyAccumulatorToSource(src, acc);
+  assert.ok(src.seriesByEntity.WDBESS1);
+  assert.ok(src.seriesByEntity.WDBESS1.bins.length >= 2);
+  assert.ok(src.seriesByEntity.WDBESS1.signals.includes('mw'));
 });

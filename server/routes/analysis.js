@@ -1,6 +1,6 @@
 import { Router } from 'express';
 import { callStructured } from '../lib/ai-provider.js';
-import { detectIssuesTool, detectAnomalyTool, hypothesesTool, draftReportTool } from '../lib/schemas.js';
+import { detectIssuesTool, detectAnomalyTool, hypothesesTool, draftReportTool, publishedComparisonTool } from '../lib/schemas.js';
 import { parseRequest, parseStructuredResult, ValidationError } from '../lib/validation.js';
 import { retryOnce } from '../lib/retry.js';
 import {
@@ -8,7 +8,8 @@ import {
   buildDetectIssuesPrompt,
   buildDetectAnomalyPrompt,
   buildHypothesesPrompt,
-  buildDraftReportPrompt
+  buildDraftReportPrompt,
+  buildPublishedComparisonPrompt
 } from '../lib/prompts.js';
 
 const router = Router();
@@ -60,7 +61,12 @@ router.post('/generate-hypotheses', wrap('generate-hypotheses', async (body) => 
 
 router.post('/draft-report', wrap('draft-report', async (body) => {
   const prompt = buildDraftReportPrompt(body);
-  return callStructured({ system: PERSONA, prompt, tool: draftReportTool, maxTokens: 2000 });
+  return callStructured({ system: PERSONA, prompt, tool: draftReportTool, maxTokens: 4000 });
+}));
+
+router.post('/compare-published', wrap('compare-published', async (body) => {
+  const prompt = buildPublishedComparisonPrompt(body);
+  return callStructured({ system: PERSONA, prompt, tool: publishedComparisonTool, maxTokens: 2500 });
 }));
 
 export default router;
