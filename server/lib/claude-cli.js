@@ -80,6 +80,11 @@ function runClaudeCli(args, stdinText) {
   });
 }
 
+// maxTokens is not accepted here. The cli path cannot safely honor the
+// route-layer caps (1500/2000/4000): thinking tokens share the output
+// budget and already exceed those caps (see ai-provider.js and
+// Report/latency-findings.md). Do not add CLAUDE_CODE_MAX_OUTPUT_TOKENS
+// without a measurement that still returns structured_output.
 export async function callStructuredViaCli({ system, prompt, tool }) {
   const args = [
     '-p',
