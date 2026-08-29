@@ -14,5 +14,6 @@
 | `rank-3-4-findings.md` | 2026-08-29: Rank 3 CLI 12.9s→5.5s (detect-anomaly with flags 700.9s, schema intact); Rank 4 sys_6 19,248,213-row UI stream in 14.2 min with late resistance events kept. |
 | `rank4-sys6-progress.png` | sys_6 stream at 99% (progress bar advancing, no tab hang). |
 | `rank4-sys6-stream-done.png` | sys_6 ready: 19,248,213 rows, 575,026 resistance events omitted (non-silent). |
+| `pipeline-latency-plan.md` | 2026-08-30: plan (not yet implemented) to cut actual model think-time — missing `maxItems` on `anomalyWindows` (only unbounded array in `schemas.js`), `--effort` tuning, streaming UX; caching downgraded after checking that later stages don't resend raw log text. |
 
 PR: https://github.com/guyster323/academy_essanlyzer/pull/2
