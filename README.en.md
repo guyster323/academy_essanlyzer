@@ -19,7 +19,7 @@
 </p>
 
 <p align="center">
-  ▶️ <a href="docs/assets/demo-case-b.mp4">Watch the full demo (MP4, 38s edit)</a> —
+  ▶️ <a href="docs/assets/demo-case-b.mp4">Watch the full demo (MP4, 24s edit)</a> —
   upload through anomaly detection, hypothesis, human review, and report. Real elapsed time is
   ~15 min on the built-in sample and ~29–36 min on gold Case B; waits in this clip are cut.
 </p>

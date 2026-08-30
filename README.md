@@ -19,7 +19,7 @@
 </p>
 
 <p align="center">
-  ▶️ <a href="docs/assets/demo-case-b.mp4">전체 데모 영상 보기 (MP4, 38초 편집본)</a> —
+  ▶️ <a href="docs/assets/demo-case-b.mp4">전체 데모 영상 보기 (MP4, 24초 편집본)</a> —
   업로드→이상탐지→가설→사람 검토→보고서. 실제 소요는 내장 샘플 약 15분, 골드 Case B 약 29–36분이며
   이 클립은 대기 구간을 잘라 낸 것입니다.
 </p>

@@ -111,7 +111,7 @@ has waits cut.
   <img src="assets/demo-case-b-hero.gif" alt="Case B analysis demo highlight" width="720">
 </p>
 
-▶️ [Watch the full demo (MP4, 38s edit — real elapsed ~29–36 min, waits compressed)](assets/demo-case-b.mp4)
+▶️ [Watch the full demo (MP4, 24s edit — real elapsed ~29–36 min, waits compressed)](assets/demo-case-b.mp4)
 
 ## FAQ
 

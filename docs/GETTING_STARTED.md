@@ -102,7 +102,7 @@ npm run dev
   <img src="assets/demo-case-b-hero.gif" alt="Case B 분석 데모 하이라이트" width="720">
 </p>
 
-▶️ [전체 데모 영상 보기 (MP4, 38초 편집본 — 실제 소요 약 29–36분, 대기 압축)](assets/demo-case-b.mp4)
+▶️ [전체 데모 영상 보기 (MP4, 24초 편집본 — 실제 소요 약 29–36분, 대기 압축)](assets/demo-case-b.mp4)
 
 ## 자주 묻는 질문
 
