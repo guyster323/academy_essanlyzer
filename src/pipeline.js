@@ -170,7 +170,7 @@ function formatTimeCoverageLines(block) {
     ? `\n- 유지된 알람 샘플 시간 분포: ${block.alarmSampleTimeDistribution.map(b => `${(b.start || '').slice(0, 10)}:${b.count}`).join(', ')}`
     : '';
   const dropped = block.alarmDroppedCount
-    ? `\n- 알람 컨텍스트 생략: ${Number(block.alarmDroppedCount).toLocaleString()}건 (상한 내 유지분)`
+    ? `\n- 알람 컨텍스트 생략: ${Number(block.alarmDroppedCount).toLocaleString()}건 (시간 계층화 유지)`
     : '';
   return `- 데이터 시간 범위: ${formatTimeRange(block.dataTimeRange)}
 - 알람 근거 시간 범위: ${formatTimeRange(block.evidenceTimeRange)}${pct}${dist}${dropped}

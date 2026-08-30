@@ -328,7 +328,7 @@ function renderSourceItem(s) {
     const previewRows = s.headSample.length
       ? s.headSample.slice(0, 5).map(r => s.columns.map(c => r[c]).join(' | ')).join('\n')
       : (s.groups ? Object.entries(s.groups).slice(0, 3).map(([k, g]) => `[${k}] ` + (g.headSample[0] ? s.columns.map(c => g.headSample[0][c]).join(' | ') : '')).join('\n') : '');
-    statusLine = `<span class="source-sub">${esc(s.sizeLabel)} · ${s.rowCount.toLocaleString()}행 · 알람 ${s.alarmCount}건 · 파생 이상 ${derivedAlarmCount}건${s.malformedRowCount ? ` · <span style="color:var(--amber)">손상 행 ${s.malformedRowCount}건(파싱 제외)</span>` : ''}${s.droppedResistanceEvents ? ` · <span style="color:var(--amber)">저항 이벤트 ${s.droppedResistanceEvents.toLocaleString()}건 생략(초기 기준선+최근 창 유지)</span>` : ''}${s.alarmDroppedCount ? ` · <span style="color:var(--amber)">알람 컨텍스트 ${s.alarmDroppedCount.toLocaleString()}건 생략</span>` : ''} · 구분자 '${dispDelim}'</span>
+    statusLine = `<span class="source-sub">${esc(s.sizeLabel)} · ${s.rowCount.toLocaleString()}행 · 알람 ${s.alarmCount}건 · 파생 이상 ${derivedAlarmCount}건${s.malformedRowCount ? ` · <span style="color:var(--amber)">손상 행 ${s.malformedRowCount}건(파싱 제외)</span>` : ''}${s.droppedResistanceEvents ? ` · <span style="color:var(--amber)">저항 이벤트 ${s.droppedResistanceEvents.toLocaleString()}건 생략(초기 기준선+최근 창 유지)</span>` : ''}${s.alarmDroppedCount ? ` · <span style="color:var(--amber)">알람 컨텍스트 ${s.alarmDroppedCount.toLocaleString()}건 생략(시간 계층화 유지)</span>` : ''} · 구분자 '${dispDelim}'</span>
       <select class="enc-select" onchange="setSourceEncoding('${s.id}', this.value)">
         <option value="utf-8" ${s.encoding === 'utf-8' ? 'selected' : ''}>UTF-8</option>
         <option value="euc-kr" ${s.encoding === 'euc-kr' ? 'selected' : ''}>EUC-KR</option>

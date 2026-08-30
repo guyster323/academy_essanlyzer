@@ -110,9 +110,15 @@ export function histogramTimes(times, dataRange, nBuckets = ALARM_TIME_BUCKETS) 
 }
 
 /**
- * Retain at most `cap` alarm-context windows. T1 records timestamps and
- * counts overflows (never silent). Replacement policy is first-N; T2
- * replaces this with time-stratified retention without thinning CONTEXT_WINDOW.
+ * Retain at most `cap` alarm-context windows with even coverage across the
+ * observed time span. Overflows are counted (never silent). The caller
+ * supplies the full CONTEXT_WINDOW snapshot — this never thins it.
+ *
+ * Once full, drop the most redundant of (kept ∪ new): the point with the
+ * smallest nearest-neighbor gap. Unique endpoints that extend the span
+ * survive; a late sample can replace an early cluster. Not a copy of the
+ * resistance-event baseline+recent ring — that keeps early+late, this
+ * spreads across the whole span.
  */
 export function considerAlarmSample(bucket, window, annotations, t, cap) {
   if (!bucket.alarmSamples) bucket.alarmSamples = [];
@@ -130,7 +136,43 @@ export function considerAlarmSample(bucket, window, annotations, t, cap) {
     times.push(Number.isFinite(t) ? t : null);
     return;
   }
+
   bucket.alarmDroppedCount += 1;
+
+  if (!Number.isFinite(t)) return;
+
+  const dateless = times.findIndex(x => !Number.isFinite(x));
+  if (dateless >= 0) {
+    samples[dateless] = window;
+    notes[dateless] = annotations;
+    times[dateless] = t;
+    return;
+  }
+
+  const pts = times.map((tt, i) => ({ t: tt, i }));
+  pts.push({ t, i: -1 });
+  pts.sort((a, b) => a.t - b.t || a.i - b.i);
+
+  let dropK = 0;
+  let bestRedundancy = Infinity;
+  for (let k = 0; k < pts.length; k++) {
+    const prev = k > 0 ? pts[k - 1].t : null;
+    const next = k < pts.length - 1 ? pts[k + 1].t : null;
+    // Unique endpoints own the span; dropping one shrinks coverage. Always
+    // prefer to drop an interior cluster point instead.
+    const nn = (prev == null || next == null)
+      ? Infinity
+      : Math.min(pts[k].t - prev, next - pts[k].t);
+    if (nn < bestRedundancy || (nn === bestRedundancy && k > dropK)) {
+      bestRedundancy = nn;
+      dropK = k;
+    }
+  }
+  const drop = pts[dropK];
+  if (drop.i === -1) return;
+  samples[drop.i] = window;
+  notes[drop.i] = annotations;
+  times[drop.i] = t;
 }
 
 export function sortAlarmSamplesByTime(bucket) {

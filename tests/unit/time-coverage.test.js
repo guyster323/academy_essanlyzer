@@ -24,7 +24,7 @@ test('coverageRatio is evidence span over data span and flags below 20%', () => 
   assert.equal(coverageRatio(evidence, null), null);
 });
 
-test('streaming records full data span separately from first-N alarm evidence span', () => {
+test('streaming records full data span and stratified alarm evidence covers both ends', () => {
   const lines = ['timestamp,voltage_V,alarm_code'];
   const t0 = Date.UTC(2018, 0, 1);
   const n = 120;
@@ -42,15 +42,20 @@ test('streaming records full data span separately from first-N alarm evidence sp
   assert.equal(src.dataTimeRange.maxMs, t0 + (n - 1) * 86400000);
   assert.equal(src.alarmSamples.length, ENGINE_CAP);
   assert.ok(src.alarmDroppedCount > 0);
-  // First-N keeps the earliest alarms (even days 0,2,...,78).
+  assert.equal(src.alarmDroppedCount, 60 - ENGINE_CAP);
   assert.equal(src.evidenceTimeRange.minMs, t0);
-  const lastKept = src.alarmSampleTimes[src.alarmSampleTimes.length - 1];
-  assert.ok(lastKept < src.dataTimeRange.maxMs);
-  assert.ok(src.timeCoverageRatio < 0.8);
+  const lastAlarm = t0 + 118 * 86400000;
+  assert.equal(src.evidenceTimeRange.maxMs, lastAlarm);
+  assert.ok(src.timeCoverageRatio > 0.9);
   const dist = src.alarmSampleTimeDistribution;
   assert.equal(dist.length, 8);
-  assert.ok(dist[0].count > 0, 'first-N fills the earliest data-span bucket');
-  assert.equal(dist[dist.length - 1].count, 0, 'first-N leaves the last data-span bucket empty');
+  assert.ok(dist[0].count > 0, 'stratified sampling keeps early-span alarms');
+  assert.ok(dist[dist.length - 1].count > 0, 'stratified sampling keeps late-span alarms');
+  src.alarmSamples.forEach(win => {
+    assert.ok(win.length <= 5);
+    assert.ok(win.length >= 1);
+  });
+  assert.equal(src.alarmSamples[src.alarmSamples.length - 1].length, 5);
 });
 
 test('blocksToPromptText prefixes a non-silent note when evidence covers under 20% of the data span', () => {
@@ -126,7 +131,7 @@ test('figureCatalog reports each figure\'s covered time range and skips non-time
   assert.equal(figureCoveredTimeRange({ xLabel: '시간', series: [] }), null);
 });
 
-test('considerAlarmSample first-N counts overflows without thinning the window', () => {
+test('considerAlarmSample spreads across the span instead of keeping the first N', () => {
   const bucket = { alarmSamples: [], alarmAnnotations: [], alarmSampleTimes: [] };
   const cap = 4;
   for (let i = 0; i < 10; i++) {
@@ -135,8 +140,27 @@ test('considerAlarmSample first-N counts overflows without thinning the window',
   }
   assert.equal(bucket.alarmSamples.length, cap);
   assert.equal(bucket.alarmDroppedCount, 6);
-  assert.deepEqual(bucket.alarmSampleTimes, [0, 1000, 2000, 3000]);
+  const kept = [...bucket.alarmSampleTimes].sort((a, b) => a - b);
+  assert.equal(kept[0], 0);
+  assert.equal(kept[kept.length - 1], 9000);
+  assert.notDeepEqual(kept, [0, 1000, 2000, 3000], 'early-bias first-N must be gone');
   assert.equal(bucket.alarmSamples[0].length, 5);
+});
+
+test('early-clustered alarms plus a late tail keep samples from both ends of the span', () => {
+  const bucket = { alarmSamples: [], alarmAnnotations: [], alarmSampleTimes: [] };
+  const cap = 8;
+  for (let i = 0; i < 50; i++) {
+    considerAlarmSample(bucket, [{ i }], [{ reason: String(i) }], i, cap);
+  }
+  for (let i = 0; i < 5; i++) {
+    considerAlarmSample(bucket, [{ i: 1000 + i }], [{ reason: 'late' }], 100000 + i * 1000, cap);
+  }
+  const kept = [...bucket.alarmSampleTimes].sort((a, b) => a - b);
+  assert.equal(kept.length, cap);
+  assert.ok(kept[0] < 50, 'keeps an early-cluster sample');
+  assert.ok(kept[kept.length - 1] >= 100000, 'keeps a late-tail sample');
+  assert.ok(kept.filter(t => t >= 100000).length >= 1);
 });
 
 test('buildTimeCoverageNote states coverage as fact', () => {
