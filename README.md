@@ -65,8 +65,15 @@ LG에너지솔루션 ESS 분석파트의 CS 의뢰 기반 BMS/EMS 이슈 분석 
 `AI_PROVIDER` 값만 보고 두 구현 중 하나로 분기하므로 나머지 코드는 provider를 모릅니다.
 
 `cli` 모드는 Claude Code 하네스를 매 호출마다 새로 띄우는 구조라 API 직접 호출보다 느립니다. 새 포맷
-인식 프롬프트(파생 통계 교차 참조·근거 계층 구분·반증 요구)는 원래보다 더 엄격한 추론을 요구해 실제
-호출 시간이 호출당 100~240초까지 걸릴 수 있습니다(`server/lib/claude-cli.js`의 `CLI_TIMEOUT_MS`).
+인식 프롬프트(파생 통계 교차 참조·근거 계층 구분·반증 요구)는 원래보다 더 엄격한 추론을 요구합니다.
+실측(2026-08-30, `AI_PROVIDER=cli`): 초보자 가이드 내장 샘플(10행 generic CSV)은 호출당 214.3초 /
+318.6초 / 340.7초(이상탐지·가설·보고서, 합계 873.6초 ≈ 14.6분). 골드 Case B
+(`Log_sample/extracted/data_sys_6_stride80.csv`, 240,603행)는 이상탐지 707.8–1,139.8초(이전 실측,
+이번에 재측정하지 않음 — `Report/latency-effort-real-outputs/COMPARISON.md`), 가설 557.4초·보고서
+485.6초(오늘 실측) — 전 과정 약 29–36분. 샘플만 인용하면 대용량 경로를 숨기게 되므로 둘 다 적습니다.
+느린 이유: 유효 런에서 출력 토큰의 87–94%가 extended thinking입니다(`Report/latency-findings.md`).
+경과 시간이 올라가는 한 멈춘 것이 아닙니다. 타임아웃 기본값은 30분입니다
+(`server/lib/claude-cli.js` `CLI_TIMEOUT_MS` = `1_800_000`).
 로딩 화면에는 실시간 경과 시간과 단계별 안내가 표시됩니다. 드물게 모델이 스키마 형태만 맞춘 부실한
 응답을 반환하는 경우가 있어 `server/lib/validation.js`가 플레이스홀더성 응답(예: 모든 필드가 `"test"`)을
 거부하고, `server/routes/analysis.js`가 그런 502 실패에 한해 자동으로 1회 재시도합니다.

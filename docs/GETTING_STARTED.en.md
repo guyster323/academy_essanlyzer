@@ -63,7 +63,7 @@ browser (Chrome, etc.). Seeing the app's screen means it worked.
 > 💡 `npm install` can take a few minutes the first time. Just make sure you're online and
 > let it finish.
 
-## Step 3 — Run your first analysis (done in 5 minutes)
+## Step 3 — Run your first analysis (sample ~15 min; a large real log 30–36 min)
 
 There's a "Load sample case" button near the top of the screen. Clicking it auto-fills
 example data, so you can walk through the entire flow immediately even without a real log
@@ -71,9 +71,12 @@ file of your own.
 
 1. Click **"샘플 케이스 불러오기" (Load sample case)** — example CS-request text gets filled in.
 2. Check the checkbox below it (confirming customer name/site/personal info has been removed).
-3. Click **"이상 구간 탐지 시작 →" (Start anomaly detection)** — from here, the AI needs a
-   moment to respond (usually 30 seconds to a few minutes). The screen shows a live elapsed
-   timer, so if it's still counting up, it's genuinely working, not stuck.
+3. Click **"이상 구간 탐지 시작 →" (Start anomaly detection)** — from here, the AI needs
+   time to respond. The built-in sample takes about 3–6 minutes per step, 873.6s (~14.6 min)
+   across the three AI calls. A real large log takes 12–19 minutes for anomaly detection
+   alone and about 30–36 minutes end-to-end. If the on-screen elapsed timer keeps climbing,
+   it is thinking, not stuck (extended thinking is 87–94% of output tokens). The timeout
+   default is 30 minutes.
 4. Once results appear, click **"원인 가설 생성 →" (Generate hypotheses)** to move on.
 5. Click one of the AI's suggested hypotheses to select it, pick a severity (high/medium/low)
    yourself, and write one line justifying it. **This step must be done by a human and cannot
@@ -117,9 +120,11 @@ A. Either the Claude Code CLI isn't installed, or your terminal hasn't picked up
 PATH yet. Try closing the terminal completely and reopening it.
 
 **Q. The AI response is taking a really long time (2-3+ minutes).**
-A. That's expected. Depending on log size and how many hypotheses are being generated, it can
-take up to about 4 minutes. As long as the elapsed-time counter on screen keeps climbing,
-it's working normally.
+A. That's expected. Even the built-in sample takes 214–341 seconds per step (~15 min
+combined). A large LFP log has been measured at 12–19 minutes for anomaly detection,
+~9 minutes for hypotheses, and ~8 minutes for the report draft. If the elapsed-time
+counter keeps climbing, it is extended thinking, not a freeze. The timeout default is
+30 minutes.
 
 **Q. Some files inside my uploaded ZIP show "읽기 실패" (read failed).**
 A. Only that one file has a problem — the rest continue processing normally. The original
