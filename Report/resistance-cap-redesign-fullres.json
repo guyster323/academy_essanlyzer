@@ -1,0 +1,161 @@
+{
+  "capturedAt": "2026-08-30T14:26:18.530Z",
+  "wallMs": 984373,
+  "wallMin": 16.4,
+  "rowCount": 19248213,
+  "derivedAlarmCount": 751686,
+  "outlierCellVdev": {
+    "Cell 8": 744400,
+    "Cell 3": 3386,
+    "Cell 7": 401,
+    "Cell 5": 456,
+    "Cell 1": 3038,
+    "Cell 4": 2
+  },
+  "droppedResistanceEvents": 576702,
+  "resistanceEventYearCounts": {
+    "2018": 390,
+    "2019": 681,
+    "2020": 666,
+    "2021": 581,
+    "2022": 6
+  },
+  "resistanceEventTimeDistribution": [
+    {
+      "startMs": 1524908705000,
+      "endMs": 1539520361875,
+      "start": "2018-04-28T09:45:05.000Z",
+      "end": "2018-10-14T12:32:41.875Z",
+      "count": 32
+    },
+    {
+      "startMs": 1539520361875,
+      "endMs": 1554132018750,
+      "start": "2018-10-14T12:32:41.875Z",
+      "end": "2019-04-01T15:20:18.750Z",
+      "count": 532
+    },
+    {
+      "startMs": 1554132018750,
+      "endMs": 1568743675625,
+      "start": "2019-04-01T15:20:18.750Z",
+      "end": "2019-09-17T18:07:55.625Z",
+      "count": 303
+    },
+    {
+      "startMs": 1568743675625,
+      "endMs": 1583355332500,
+      "start": "2019-09-17T18:07:55.625Z",
+      "end": "2020-03-04T20:55:32.500Z",
+      "count": 320
+    },
+    {
+      "startMs": 1583355332500,
+      "endMs": 1597966989375,
+      "start": "2020-03-04T20:55:32.500Z",
+      "end": "2020-08-20T23:43:09.375Z",
+      "count": 290
+    },
+    {
+      "startMs": 1597966989375,
+      "endMs": 1612578646250,
+      "start": "2020-08-20T23:43:09.375Z",
+      "end": "2021-02-06T02:30:46.250Z",
+      "count": 318
+    },
+    {
+      "startMs": 1612578646250,
+      "endMs": 1627190303125,
+      "start": "2021-02-06T02:30:46.250Z",
+      "end": "2021-07-25T05:18:23.125Z",
+      "count": 290
+    },
+    {
+      "startMs": 1627190303125,
+      "endMs": 1641801960000,
+      "start": "2021-07-25T05:18:23.125Z",
+      "end": "2022-01-10T08:06:00.000Z",
+      "count": 239
+    }
+  ],
+  "eventCount": 2324,
+  "firstEventT": "2018-04-28T09:46:25.000Z",
+  "lastEventT": "2022-01-06T12:32:25.000Z",
+  "dataTimeRange": {
+    "minMs": 1524908705000,
+    "maxMs": 1641801960000,
+    "min": "2018-04-28T09:45:05.000Z",
+    "max": "2022-01-10T08:06:00.000Z"
+  },
+  "spanDays": 1352.9311921296296,
+  "largestGap": {
+    "gapMs": 13844590000,
+    "gapDays": 160.23831018518518,
+    "from": "2018-05-02T17:41:55.000Z",
+    "to": "2018-10-09T23:25:05.000Z"
+  },
+  "gapFractionOfSpan": 0.1184378859156587,
+  "bf1": {
+    "available": true,
+    "claim": "Cell 3 경로의 유효 직렬저항이 동료 셀과 분리된다 (전기화학/커넥터/부식은 미확정)",
+    "summaryStats": {
+      "outlierCell": 3,
+      "deltaR": 0.00011699217199815157,
+      "eventCount": 2324,
+      "matchedCount": 549,
+      "droppedEvents": 576702,
+      "yearCounts": {
+        "2018": 390,
+        "2019": 681,
+        "2020": 666,
+        "2021": 581,
+        "2022": 6
+      },
+      "firstEventT": 1524908785000,
+      "lastEventT": 1641472345000
+    }
+  },
+  "bf4": {
+    "available": true,
+    "unavailableReason": null,
+    "claim": "Resistance knee가 2018-12-19 부근에서 독립 탐지됨",
+    "summaryStats": {
+      "cell": 3,
+      "kneeT": 1545231600000,
+      "piecewiseT": 1547650800000,
+      "kneedleT": 1542812400000,
+      "available": true,
+      "droppedEvents": 576702,
+      "firstEventT": 1524908785000,
+      "lastEventT": 1641472345000
+    }
+  },
+  "bf5": {
+    "available": false,
+    "unavailableReason": "GP/BattGP는 이번 범위에서 미구현 — Unknown으로 남깁니다"
+  },
+  "attributionConflict": {
+    "status": "conflict",
+    "voltageResidual": {
+      "cell": "Cell 8",
+      "count": 744400,
+      "total": 751683,
+      "share": 0.9903110752804041,
+      "counts": {
+        "Cell 8": 744400,
+        "Cell 3": 3386,
+        "Cell 7": 401,
+        "Cell 5": 456,
+        "Cell 1": 3038,
+        "Cell 4": 2
+      }
+    },
+    "eventResistance": {
+      "cell": "Cell 3",
+      "deltaR": 0.00011699217199815157,
+      "matchedCount": 549,
+      "droppedEvents": 576702,
+      "eventCount": 2324
+    }
+  }
+}
