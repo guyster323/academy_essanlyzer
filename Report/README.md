@@ -4,6 +4,7 @@
 |---|---|
 | `case_a_report.html` | Orca live Case A executive HTML (A-F1–F6, 3-box, FTA). Charts are inlined PNG. |
 | `case_a_report_compared.html` | Same after `/api/compare-published` vs AEMO 19 Aug 2025 excerpt. Independent findings were not rewritten. |
+| `case_a_vs_aemo_log_analysis.md` | 2026-08-31: log-analysis comparison of our Case A report against AEMO's public material. Key finding: AEMO's -55 MW at 12:15 is a deviation-from-target event, ours is a -241 MW raw output change at 09:04 — different physical quantities. We cannot detect AEMO's kind of event, and the cause is not missing data: `DEVIATION_MW` is present and populated (±124.8 MW that day) but `formats.js` reads only `MEASURED_MW` and A-F6 is a hardcoded empty figure. |
 | `case_a_pipeline.json` | Compact JSON of headline, figures, findings. |
 | `case_b_evidence.html` | Case B independent evidence after detect (B-F1–F6). Hypothesis/executive draft blocked by Claude CLI session limit. |
 | `case_b_pipeline.json` | Figure catalog + window summary. |
