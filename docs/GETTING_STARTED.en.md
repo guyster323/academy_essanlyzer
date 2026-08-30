@@ -17,8 +17,8 @@ fine if you've never used a terminal before.
 
 Upload a battery (ESS) log file, and the AI finds unusual segments and suggests a few
 candidate causes. **The AI never makes the final call** — which cause is correct and how
-severe it is always gets confirmed by a human engineer at the end. The AI only produces a
-draft to save time.
+severe it is always gets confirmed by a human engineer at the end. When evidence conflicts,
+the app does not pick a side. It makes sure the engineer sees every basis for deciding.
 
 Your log files never leave your computer (the browser). Only a statistical summary and a
 handful of sample lines are ever sent to the server — the raw file itself is never
@@ -63,7 +63,7 @@ browser (Chrome, etc.). Seeing the app's screen means it worked.
 > 💡 `npm install` can take a few minutes the first time. Just make sure you're online and
 > let it finish.
 
-## Step 3 — Run your first analysis (done in 5 minutes)
+## Step 3 — Run your first analysis (sample ~15 min; a large real log 30–36 min)
 
 There's a "Load sample case" button near the top of the screen. Clicking it auto-fills
 example data, so you can walk through the entire flow immediately even without a real log
@@ -71,9 +71,12 @@ file of your own.
 
 1. Click **"샘플 케이스 불러오기" (Load sample case)** — example CS-request text gets filled in.
 2. Check the checkbox below it (confirming customer name/site/personal info has been removed).
-3. Click **"이상 구간 탐지 시작 →" (Start anomaly detection)** — from here, the AI needs a
-   moment to respond (usually 30 seconds to a few minutes). The screen shows a live elapsed
-   timer, so if it's still counting up, it's genuinely working, not stuck.
+3. Click **"이상 구간 탐지 시작 →" (Start anomaly detection)** — from here, the AI needs
+   time to respond. The built-in sample takes about 3–6 minutes per step, 873.6s (~14.6 min)
+   across the three AI calls. A real large log takes 12–19 minutes for anomaly detection
+   alone and about 30–36 minutes end-to-end. If the on-screen elapsed timer keeps climbing,
+   it is thinking, not stuck (extended thinking is 87–94% of output tokens). The timeout
+   default is 30 minutes.
 4. Once results appear, click **"원인 가설 생성 →" (Generate hypotheses)** to move on.
 5. Click one of the AI's suggested hypotheses to select it, pick a severity (high/medium/low)
    yourself, and write one line justifying it. **This step must be done by a human and cannot
@@ -100,15 +103,15 @@ If you have your own CSV/TXT/LOG file or a ZIP archive:
 
 ## 🎬 Demo video — analyzing the Darmstadt (Case B) battery field dataset
 
-A real run against the real public LFP battery field dataset (`data_sys_28.csv`): upload →
-anomaly detection → hypothesis generation → human review → report draft, start to finish
-(including 3 real Claude responses).
+Upload → anomaly detection → hypothesis generation → human review → report draft against
+the public LFP field dataset. Gold Case B really takes about 29–36 minutes; the clip below
+has waits cut.
 
 <p align="center">
   <img src="assets/demo-case-b-hero.gif" alt="Case B analysis demo highlight" width="720">
 </p>
 
-▶️ [Watch the full demo (MP4, 38s)](assets/demo-case-b.mp4)
+▶️ [Watch the full demo (MP4, 24s edit — real elapsed ~29–36 min, waits compressed)](assets/demo-case-b.mp4)
 
 ## FAQ
 
@@ -117,9 +120,11 @@ A. Either the Claude Code CLI isn't installed, or your terminal hasn't picked up
 PATH yet. Try closing the terminal completely and reopening it.
 
 **Q. The AI response is taking a really long time (2-3+ minutes).**
-A. That's expected. Depending on log size and how many hypotheses are being generated, it can
-take up to about 4 minutes. As long as the elapsed-time counter on screen keeps climbing,
-it's working normally.
+A. That's expected. Even the built-in sample takes 214–341 seconds per step (~15 min
+combined). A large LFP log has been measured at 12–19 minutes for anomaly detection,
+~9 minutes for hypotheses, and ~8 minutes for the report draft. If the elapsed-time
+counter keeps climbing, it is extended thinking, not a freeze. The timeout default is
+30 minutes.
 
 **Q. Some files inside my uploaded ZIP show "읽기 실패" (read failed).**
 A. Only that one file has a problem — the rest continue processing normally. The original

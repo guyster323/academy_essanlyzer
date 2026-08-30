@@ -19,8 +19,9 @@
 </p>
 
 <p align="center">
-  ▶️ <a href="docs/assets/demo-case-b.mp4">Watch the full demo (MP4, 38s)</a> — a real run against
-  real public data, upload through anomaly detection, hypothesis, human review, and report
+  ▶️ <a href="docs/assets/demo-case-b.mp4">Watch the full demo (MP4, 24s edit)</a> —
+  upload through anomaly detection, hypothesis, human review, and report. Real elapsed time is
+  ~15 min on the built-in sample and ~29–36 min on gold Case B; waits in this clip are cut.
 </p>
 
 ---
@@ -31,7 +32,10 @@ A semi-automated workstation for LG Energy Solution's ESS Analysis team, built a
 CS-request-driven BMS/EMS issue analysis. A human makes every consequential call (which
 hypothesis, what severity); the AI only ever produces drafts (anomaly window detection →
 root-cause hypotheses → report/email). That human-review checkpoint is never skipped, no
-matter what feature gets added on top.
+matter what feature gets added on top. When two methods disagree (for example voltage
+residual pointing at Cell 8 while event resistance points at Cell 5), the app does not
+pick a winner. It does not decide for the engineer — it makes sure the engineer sees every
+basis for deciding.
 
 > This document is the technical reference for developers already familiar with the
 > project structure. If this is your first time here, read the
@@ -74,9 +78,19 @@ never knows which provider is active.
 `cli` mode spins up a fresh Claude Code harness per call, so it's slower than calling the
 API directly. The format-aware prompts (cross-referencing derived statistics, distinguishing
 evidence tiers, requiring disconfirming evidence) ask for materially more rigorous reasoning
-than a plain scan, and real calls have been measured taking 100–240 seconds
-(`CLI_TIMEOUT_MS` in `server/lib/claude-cli.js`). The loading screen shows a live elapsed-time
-counter and staged status messages so a slow-but-healthy call never reads as frozen. On the
+than a plain scan. Measured 2026-08-30 (`AI_PROVIDER=cli`): the beginner's-guide built-in
+sample (10-row generic CSV) took 214.3s / 318.6s / 340.7s per call (detect-anomaly /
+generate-hypotheses / draft-report; 873.6s ≈ 14.6 min combined). Gold Case B
+(`Log_sample/extracted/data_sys_6_stride80.csv`, 240,603 rows) took 707.8–1,139.8s for
+detect-anomaly (previously measured, not re-run today —
+`Report/latency-effort-real-outputs/COMPARISON.md`) and 557.4s / 485.6s today for
+hypotheses / draft-report — about 29–36 min end-to-end. Quoting only the sample would hide
+the large-log path, so both are listed. Why it is slow: extended thinking is 87–94% of
+output tokens on valid runs (`Report/latency-findings.md`). If the elapsed-time counter is
+still climbing, the call is healthy, not frozen. The timeout default is 30 minutes
+(`CLI_TIMEOUT_MS` = `1_800_000` in `server/lib/claude-cli.js`). The loading screen shows a
+live elapsed-time counter and staged status messages so a slow-but-healthy call never reads
+as frozen. On the
 rare occasion the model returns a response that only satisfies the schema shape but not its
 substance (e.g. every field literally `"test"`), `server/lib/validation.js` rejects it and
 `server/routes/analysis.js` retries once automatically for that class of 502 failure.
