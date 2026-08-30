@@ -17,15 +17,17 @@ import os from 'node:os';
  */
 
 const CLI_BIN = process.env.CLAUDE_CLI_PATH || 'claude';
-// Safety ceiling, not a performance target. Gold Case B detect-anomaly
-// (stride80, production CLI flags) measured 700.9s wall-clock — see
-// Report/rank-3-4-findings.md — which exceeds the previous 600_000 ms
-// (10 min) default. A fresh clone without a gitignored .env override is
-// therefore guaranteed a 504 on that gold case. Extended thinking dominates
-// (Report/latency-root-cause-and-plan.md) and there is no proven lever to
-// cut it, so the default is 20 min of headroom above the measured 700.9s.
-// Overridable via CLAUDE_CLI_TIMEOUT_MS for CI/demo.
-const CLI_TIMEOUT_MS = Number(process.env.CLAUDE_CLI_TIMEOUT_MS) || 1_200_000;
+// Safety ceiling, not a performance target. Extended thinking dominates the
+// wall-clock (87-94% of output tokens on every valid run) and there is no
+// proven lever to cut it — see Report/latency-root-cause-and-plan.md.
+// Measured detect-anomaly against the real stride80 prompt (54,738 chars,
+// production CLI flags, Report/latency-effort-real-outputs/COMPARISON.md):
+// 707.8s, 732.7s, 820.7s, 1139.8s. The slowest run left only ~60s under a
+// 20-minute ceiling, and n=4 is too few to treat 1139.8s as the worst case,
+// so this is 30 min — roughly 1.6x the slowest observed run. A too-low
+// ceiling is the expensive failure here: it 504s after already burning the
+// full think time. Overridable via CLAUDE_CLI_TIMEOUT_MS for CI/demo.
+const CLI_TIMEOUT_MS = Number(process.env.CLAUDE_CLI_TIMEOUT_MS) || 1_800_000;
 const MAX_OUTPUT_BYTES = 20 * 1024 * 1024;
 
 function runClaudeCli(args, stdinText) {

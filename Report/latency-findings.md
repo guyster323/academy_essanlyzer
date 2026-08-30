@@ -23,6 +23,16 @@ This is not a performance target. Rank 3 measured Case B detect-anomaly at
 code default. A fresh clone without the gitignored `.env` override was
 guaranteed a 504 on the gold case.
 
+> **Superseded 2026-08-30 — the default is now `1_800_000` (30 min).** The
+> 20-minute ceiling above was sized against a single 700.9s data point. The
+> later real-prompt suite
+> (`Report/latency-effort-real-outputs/COMPARISON.md`) measured 707.8s /
+> 732.7s / 820.7s / **1139.8s**, leaving only ~60s of margin on the slowest
+> valid run — and n=4 is too few to treat 1139.8s as a true worst case. The
+> asymmetry matters: an over-tight ceiling 504s *after* already spending the
+> full think time, while a generous one costs nothing when calls finish
+> quickly.
+
 ---
 
 ## 6-2. `maxTokens` on the cli path — declined, with measurements
