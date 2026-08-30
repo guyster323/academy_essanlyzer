@@ -196,75 +196,136 @@ export const AEMO_MMS_FORMAT = {
     const s = (v || '').trim();
     return !!s && s !== '1'; // 1=정상, 2=대체/추정치, 0=불량
   },
-  derivedLabel: 'MEASURED_MW 독립 통계 이상탐지 (rolling mean/std·MAD z-score·ramp)',
+  derivedLabel: 'MEASURED_MW 독립 통계 이상탐지 (rolling mean/std·MAD z-score·ramp) + DEVIATION_MW 타깃 편차',
   computeDerivedAlarm(rowObj, acc, bucket) {
     const measuredMw = finiteNumber(rowObj.MEASURED_MW);
-    if (measuredMw === null) return null;
+    const deviationMw = finiteNumber(rowObj.DEVIATION_MW);
+    if (measuredMw === null && deviationMw === null) return null;
 
-    const state = getDerivedState(bucket, 'aemoMw');
-    const values = state.values || (state.values = []);
-    const deltas = state.deltas || (state.deltas = []);
-    const previous = state.previous;
-    const rollingMean = mean(values);
-    const rollingMedian = median(values);
-    const rollingStd = standardDeviation(values, rollingMean);
-    const rollingMad = medianAbsoluteDeviation(values, rollingMedian);
-    const deltaMw = previous === undefined ? null : measuredMw - previous;
-    const deltaAbs = deltaMw === null ? null : Math.abs(deltaMw);
-    const typicalDelta = median(deltas);
+    let rollingMean = null;
+    let rollingStd = 0;
+    let mwRobustZ = 0;
+    let mwStdZ = 0;
+    let deltaMw = 0;
+    let mwRampScore = 0;
+    let deviationFromMedian = 0;
+    let statisticalAlarm = false;
+    let rampAlarm = false;
 
-    // The floors prevent a flat baseline from making every tiny numerical
-    // jitter look extreme. The decision still requires a material MW change
-    // and a robust/statistical or ramp signal.
-    const robustScale = Math.max(1.4826 * rollingMad, 0.5);
-    const stdScale = Math.max(rollingStd, 0.5);
-    const rampScale = Math.max(1.4826 * (typicalDelta || 0), 0.5);
-    const deviationFromMedian = rollingMedian === null ? 0 : Math.abs(measuredMw - rollingMedian);
-    const deviationFromMean = rollingMean === null ? 0 : Math.abs(measuredMw - rollingMean);
-    const mwRobustZ = rollingMedian === null ? 0 : deviationFromMedian / robustScale;
-    const mwStdZ = rollingMean === null ? 0 : deviationFromMean / stdScale;
-    const mwRampScore = deltaAbs === null ? 0 : deltaAbs / rampScale;
-    const enoughBaseline = values.length >= 8;
-    const statisticalAlarm = enoughBaseline && deviationFromMedian >= 5 && (mwRobustZ >= 3 || mwStdZ >= 3);
-    const rampAlarm = enoughBaseline && deltaAbs !== null && deltaAbs >= 5 && mwRampScore >= 6;
-    const alarm = statisticalAlarm || rampAlarm;
+    if (measuredMw !== null) {
+      const state = getDerivedState(bucket, 'aemoMw');
+      const values = state.values || (state.values = []);
+      const deltas = state.deltas || (state.deltas = []);
+      const previous = state.previous;
+      rollingMean = mean(values);
+      const rollingMedian = median(values);
+      rollingStd = standardDeviation(values, rollingMean);
+      const rollingMad = medianAbsoluteDeviation(values, rollingMedian);
+      const delta = previous === undefined ? null : measuredMw - previous;
+      const deltaAbs = delta === null ? null : Math.abs(delta);
+      const typicalDelta = median(deltas);
 
-    if (deltaAbs !== null) {
-      deltas.push(deltaAbs);
-      if (deltas.length > 15) deltas.shift();
+      // The floors prevent a flat baseline from making every tiny numerical
+      // jitter look extreme. The decision still requires a material MW change
+      // and a robust/statistical or ramp signal.
+      const robustScale = Math.max(1.4826 * rollingMad, 0.5);
+      const stdScale = Math.max(rollingStd, 0.5);
+      const rampScale = Math.max(1.4826 * (typicalDelta || 0), 0.5);
+      deviationFromMedian = rollingMedian === null ? 0 : Math.abs(measuredMw - rollingMedian);
+      const deviationFromMean = rollingMean === null ? 0 : Math.abs(measuredMw - rollingMean);
+      mwRobustZ = rollingMedian === null ? 0 : deviationFromMedian / robustScale;
+      mwStdZ = rollingMean === null ? 0 : deviationFromMean / stdScale;
+      mwRampScore = deltaAbs === null ? 0 : deltaAbs / rampScale;
+      const enoughBaseline = values.length >= 8;
+      statisticalAlarm = enoughBaseline && deviationFromMedian >= 5 && (mwRobustZ >= 3 || mwStdZ >= 3);
+      rampAlarm = enoughBaseline && deltaAbs !== null && deltaAbs >= 5 && mwRampScore >= 6;
+      deltaMw = delta === null ? 0 : delta;
+
+      if (deltaAbs !== null) {
+        deltas.push(deltaAbs);
+        if (deltas.length > 15) deltas.shift();
+      }
+      values.push(measuredMw);
+      if (values.length > 15) values.shift();
+      state.previous = measuredMw;
     }
-    values.push(measuredMw);
-    if (values.length > 15) values.shift();
-    state.previous = measuredMw;
+
+    // DEVIATION_MW is already a residual vs SCHEDULED_MW. "Normal" is
+    // on-target (0), not a rolling median of the residual — a persistent
+    // offset is what this rule is for. Floor and robust-z structure match
+    // MEASURED_MW (5 MW + z>=3) but the scale is rolling |tracking error|.
+    // Measured NEXT_DAY WDBESS1 |DEVIATION_MW| median was ~3.2 MW, so 5 MW
+    // is above typical tracking error. Columns may be absent on other AEMO
+    // files; skip this branch when the value is missing.
+    let deviationAbs = 0;
+    let deviationRobustZ = 0;
+    let deviationAlarm = false;
+    if (deviationMw !== null) {
+      const state = getDerivedState(bucket, 'aemoDeviation');
+      const absValues = state.absValues || (state.absValues = []);
+      deviationAbs = Math.abs(deviationMw);
+      const typicalAbs = median(absValues);
+      const robustScale = Math.max(1.4826 * (typicalAbs || 0), 0.5);
+      deviationRobustZ = deviationAbs / robustScale;
+      const enoughBaseline = absValues.length >= 8;
+      deviationAlarm = enoughBaseline && deviationAbs >= 5 && deviationRobustZ >= 3;
+      absValues.push(deviationAbs);
+      if (absValues.length > 15) absValues.shift();
+    }
+
+    const mwAlarm = statisticalAlarm || rampAlarm;
+    const alarm = mwAlarm || deviationAlarm;
+    const codes = [];
+    const reasonParts = [];
+    if (mwAlarm) {
+      codes.push('MEASURED_MW statistical/ramp anomaly');
+      reasonParts.push(`MEASURED_MW 독립 이상 (robust z=${mwRobustZ.toFixed(2)}, ramp=${mwRampScore.toFixed(2)})`);
+    }
+    if (deviationAlarm) {
+      codes.push('DEVIATION_MW target deviation');
+      reasonParts.push(`DEVIATION_MW 타깃 편차 (|dev|=${deviationAbs.toFixed(2)} MW, robust z=${deviationRobustZ.toFixed(2)})`);
+    }
 
     return {
       alarm,
-      reasonCode: 'MEASURED_MW statistical/ramp anomaly',
-      reason: alarm
-        ? `MEASURED_MW 독립 이상 (robust z=${mwRobustZ.toFixed(2)}, ramp=${mwRampScore.toFixed(2)})`
-        : '',
+      reasonCode: codes.length
+        ? codes.join(' + ')
+        : (measuredMw !== null ? 'MEASURED_MW statistical/ramp anomaly' : 'DEVIATION_MW target deviation'),
+      reason: alarm ? reasonParts.join('; ') : '',
       metrics: {
-        measuredMw,
-        rollingMean: rollingMean === null ? measuredMw : rollingMean,
+        measuredMw: measuredMw === null ? 0 : measuredMw,
+        rollingMean: rollingMean === null ? (measuredMw === null ? 0 : measuredMw) : rollingMean,
         rollingStd,
         mwRobustZ,
         mwStdZ,
-        deltaMw: deltaMw === null ? 0 : deltaMw,
-        mwRampScore
+        deltaMw,
+        mwRampScore,
+        deviationMw: deviationMw === null ? 0 : deviationMw,
+        deviationAbs,
+        deviationRobustZ
       },
-      categories: { signal: 'MEASURED_MW' },
+      categories: { signal: deviationAlarm && !mwAlarm ? 'DEVIATION_MW' : 'MEASURED_MW' },
       details: {
         deviationMw: deviationFromMedian,
-        rollingMean: rollingMean === null ? measuredMw : rollingMean,
+        rollingMean: rollingMean === null ? (measuredMw === null ? 0 : measuredMw) : rollingMean,
         rollingStd,
         robustZ: mwRobustZ,
         rampScore: mwRampScore,
+        deviationAbs,
+        deviationRobustZ,
+        rulesFired: codes,
         evidenceTier: 'Derived'
       }
     };
   },
   seriesBinMode: 'adaptive',
-  seriesSignals: ['mw', 'quality', 'deltaMw'],
+  seriesSignals: ['mw', 'quality', 'deltaMw', 'scheduledMw', 'deviationMw'],
+  seriesSignalsFor(columns) {
+    const signals = ['mw', 'quality', 'deltaMw'];
+    if ((columns || []).includes('SCHEDULED_MW')) signals.push('scheduledMw');
+    if ((columns || []).includes('DEVIATION_MW')) signals.push('deviationMw');
+    return signals;
+  },
   extractSeriesSample(rowObj, acc, bucket) {
     const t = parseTimestampMs(rowObj.MEASUREMENT_DATETIME || rowObj.INTERVAL_DATETIME);
     const mw = finiteNumber(rowObj.MEASURED_MW);
@@ -273,7 +334,12 @@ export const AEMO_MMS_FORMAT = {
     const prev = bucket && bucket._seriesPrevMw;
     const deltaMw = prev === undefined ? 0 : mw - prev;
     if (bucket) bucket._seriesPrevMw = mw;
-    return { t, values: { mw, quality: quality == null ? 1 : quality, deltaMw } };
+    const values = { mw, quality: quality == null ? 1 : quality, deltaMw };
+    const scheduledMw = finiteNumber(rowObj.SCHEDULED_MW);
+    const deviationMw = finiteNumber(rowObj.DEVIATION_MW);
+    if (scheduledMw !== null) values.scheduledMw = scheduledMw;
+    if (deviationMw !== null) values.deviationMw = deviationMw;
+    return { t, values };
   }
 };
 

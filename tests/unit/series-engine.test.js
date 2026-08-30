@@ -2,7 +2,8 @@ import test from 'node:test';
 import assert from 'node:assert/strict';
 import {
   MAX_SERIES_POINTS, parseTimestampMs, downsampleMinMaxMean,
-  createSeriesBuffer, pushSample, freezeSeries, primaryRange, frozenFromPairs
+  createSeriesBuffer, pushSample, freezeSeries, primaryRange, frozenFromPairs,
+  mergeFrozenSeries
 } from '../../src/series-engine.js';
 
 test('parseTimestampMs accepts AEMO slash dates and ISO strings', () => {
@@ -55,4 +56,39 @@ test('frozenFromPairs round-trips a short fixture series', () => {
   assert.equal(frozen.entityId, 'WDBESS1');
   assert.equal(frozen.bins.length, 3);
   assert.equal(frozen.bins[2].mean.mw, 5);
+});
+
+test('mergeFrozenSeries sorts bins by time even when the later source is earlier', () => {
+  const first = frozenFromPairs('U', [[5000, 5], [6000, 6]], 'mw');
+  const second = frozenFromPairs('U', [[1000, 1], [2000, 2]], 'mw');
+  const merged = mergeFrozenSeries(first, second);
+  assert.deepEqual(merged.bins.map(b => b.t), [1000, 2000, 5000, 6000]);
+  assert.equal(merged.sampleCount, 4);
+});
+
+test('mergeFrozenSeries does not insert points into a time gap', () => {
+  const left = frozenFromPairs('U', [[0, 1], [1000, 2]], 'mw');
+  const right = frozenFromPairs('U', [[1_000_000, 3], [1_001_000, 4]], 'mw');
+  const merged = mergeFrozenSeries(left, right);
+  const times = merged.bins.map(b => b.t);
+  assert.deepEqual(times, [0, 1000, 1_000_000, 1_001_000]);
+  assert.equal(times.some(t => t > 1000 && t < 1_000_000), false);
+});
+
+test('mergeFrozenSeries pairwise-rebins so the result stays within MAX_SERIES_POINTS and keeps a spike', () => {
+  const leftPairs = [];
+  const rightPairs = [];
+  for (let i = 0; i < MAX_SERIES_POINTS; i++) leftPairs.push([i, 1]);
+  for (let i = 0; i < MAX_SERIES_POINTS; i++) {
+    const t = MAX_SERIES_POINTS + i;
+    rightPairs.push([t, t === MAX_SERIES_POINTS + 10 ? 80 : 1]);
+  }
+  const left = frozenFromPairs('U', leftPairs, 'mw', MAX_SERIES_POINTS);
+  const right = frozenFromPairs('U', rightPairs, 'mw', MAX_SERIES_POINTS);
+  const merged = mergeFrozenSeries(left, right, MAX_SERIES_POINTS);
+  assert.ok(merged.bins.length <= MAX_SERIES_POINTS);
+  assert.ok(merged.bins.length >= 2);
+  assert.equal(Math.max(...merged.bins.map(b => b.max.mw)), 80);
+  const times = merged.bins.map(b => b.t);
+  for (let i = 1; i < times.length; i++) assert.ok(times[i] >= times[i - 1]);
 });

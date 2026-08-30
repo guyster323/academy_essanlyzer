@@ -116,6 +116,21 @@ test('AEMO grouped stream freezes per-entity MW series', () => {
   assert.ok(src.seriesByEntity.WDBESS1);
   assert.ok(src.seriesByEntity.WDBESS1.bins.length >= 2);
   assert.ok(src.seriesByEntity.WDBESS1.signals.includes('mw'));
+  assert.ok(src.seriesByEntity.WDBESS1.signals.includes('deviationMw'));
+  assert.ok(src.seriesByEntity.WDBESS1.signals.includes('scheduledMw'));
+});
+
+test('AEMO series omits deviationMw when the header has no DEVIATION_MW column', () => {
+  const header = 'I,FPP,UNIT_MW,1,INTERVAL_DATETIME,MEASUREMENT_DATETIME,FPP_UNITID,VERSIONNO,MEASURED_MW,MW_QUALITY_FLAG,PARTICIPANTID';
+  const rows = Array.from({ length: 4 }, (_, i) =>
+    `D,FPP,UNIT_MW,1,"2025/08/16 04:00:0${i}","2025/08/16 04:00:0${i}",U1,1,10,1,U1`
+  );
+  const acc = accumulate([header, ...rows].join('\n'), AEMO_MMS_FORMAT);
+  const src = { name: 'aemo.csv', encoding: 'utf-8', format: AEMO_MMS_FORMAT };
+  applyAccumulatorToSource(src, acc);
+  assert.ok(src.seriesByEntity.U1.signals.includes('mw'));
+  assert.equal(src.seriesByEntity.U1.signals.includes('deviationMw'), false);
+  assert.equal(src.seriesByEntity.U1.signals.includes('scheduledMw'), false);
 });
 
 test('LFP stream past MAX_RESISTANCE_EVENTS keeps recent events and reports the drop count', () => {

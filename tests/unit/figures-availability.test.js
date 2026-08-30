@@ -1,7 +1,7 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
-import { frozenFromPairs } from '../../src/series-engine.js';
-import { buildFigures } from '../../src/figures.js';
+import { frozenFromPairs, createSeriesBuffer, pushSample, freezeSeries } from '../../src/series-engine.js';
+import { buildFigures, collectSeriesContext } from '../../src/figures.js';
 
 function availabilityPairs(figures) {
   return Object.fromEntries(figures.map(f => [f.id, {
@@ -38,6 +38,62 @@ test('empty LFP source: B-F3 unavailableReason is set when available is false (P
     if (v.available) assert.equal(v.unavailableReason, null, `${id} available+reason contradiction`);
     else assert.ok(v.unavailableReason, `${id} unavailable without reason`);
   });
+});
+
+test('A-F6 is unavailable and names the missing DEVIATION_MW column when the series has no deviation signal', () => {
+  const t0 = Date.UTC(2025, 7, 19, 0, 0, 0);
+  const frozen = frozenFromPairs('WDBESS1', [[t0, 10], [t0 + 4000, -40]], 'mw');
+  const figures = buildFigures([{
+    formatId: 'aemo-mms',
+    seriesByEntity: { WDBESS1: frozen }
+  }]);
+  const af6 = figures.find(f => f.id === 'A-F6');
+  assert.ok(af6);
+  assert.equal(af6.available, false);
+  assert.match(af6.unavailableReason, /DEVIATION_MW 컬럼이 없어/);
+  assert.equal(/Dispatch Target/.test(af6.unavailableReason), false);
+});
+
+test('A-F6 is unavailable with an insufficient-data reason when DEVIATION_MW is listed but has too few points', () => {
+  const buf = createSeriesBuffer({ signals: ['mw', 'deviationMw'] });
+  pushSample(buf, 'WDBESS1', Date.UTC(2025, 7, 19, 0, 0, 0), { mw: 10, deviationMw: -2 });
+  const frozen = freezeSeries(buf);
+  const figures = buildFigures([{
+    formatId: 'aemo-mms',
+    seriesByEntity: { WDBESS1: frozen }
+  }]);
+  const af6 = figures.find(f => f.id === 'A-F6');
+  assert.equal(af6.available, false);
+  assert.match(af6.unavailableReason, /컬럼은 있으나 시계열 값이 부족/);
+});
+
+test('A-F6 is available when the frozen series actually has DEVIATION_MW points', () => {
+  const buf = createSeriesBuffer({ signals: ['mw', 'scheduledMw', 'deviationMw'] });
+  const t0 = Date.UTC(2025, 7, 19, 2, 0, 0);
+  pushSample(buf, 'WDBESS1', t0, { mw: 10, scheduledMw: 10, deviationMw: 0 });
+  pushSample(buf, 'WDBESS1', t0 + 4000, { mw: 10, scheduledMw: 40, deviationMw: -30 });
+  const frozen = freezeSeries(buf);
+  const figures = buildFigures([{
+    formatId: 'aemo-mms',
+    seriesByEntity: { WDBESS1: frozen }
+  }]);
+  const af6 = figures.find(f => f.id === 'A-F6');
+  assert.equal(af6.available, true);
+  assert.equal(af6.unavailableReason, null);
+  assert.ok(af6.series.some(s => s.name.includes('DEVIATION_MW')));
+  assert.equal(af6.summaryStats.eventDeviationMw, -30);
+});
+
+test('collectSeriesContext merges same-entity bins across sources in time order', () => {
+  const later = frozenFromPairs('WDBESS1', [[2000, 20], [3000, 30]], 'mw');
+  const earlier = frozenFromPairs('WDBESS1', [[0, 0], [1000, 10]], 'mw');
+  const ctx = collectSeriesContext([
+    { formatId: 'aemo-mms', seriesByEntity: { WDBESS1: later } },
+    { formatId: 'aemo-mms', seriesByEntity: { WDBESS1: earlier } }
+  ]);
+  const bins = ctx.seriesByEntity.WDBESS1.bins;
+  assert.deepEqual(bins.map(b => b.t), [0, 1000, 2000, 3000]);
+  assert.deepEqual(bins.map(b => b.mean.mw), [0, 10, 20, 30]);
 });
 
 test('LFP B-F3 with a vRange series is available and does not set unavailableReason', () => {
