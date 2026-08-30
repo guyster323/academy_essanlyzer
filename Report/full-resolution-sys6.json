@@ -1,0 +1,481 @@
+{
+  "capturedAt": "2026-08-30T12:08:48.290Z",
+  "source": {
+    "id": "SRC-2",
+    "path": "field_data/data_sys_6.csv",
+    "name": "data_sys_6.csv",
+    "status": "ready",
+    "selected": true,
+    "errorMsg": "",
+    "formatId": "lfp-cell-array",
+    "formatLabel": "LFP cell-array 필드 데이터",
+    "sizeBytes": 2889184963,
+    "sizeLabel": "2755.34 MB",
+    "processedBytes": 2889184963,
+    "rowCount": 19248213,
+    "alarmCount": 751686,
+    "derivedAlarmCount": 751686,
+    "droppedResistanceEvents": 575026,
+    "alarmDroppedCount": 751646,
+    "malformedRowCount": 0,
+    "dataTimeRange": {
+      "minMs": 1524908705000,
+      "maxMs": 1641801960000,
+      "min": "2018-04-28T09:45:05.000Z",
+      "max": "2022-01-10T08:06:00.000Z"
+    },
+    "evidenceTimeRange": {
+      "minMs": 1524908890000,
+      "maxMs": 1641801960000,
+      "min": "2018-04-28T09:48:10.000Z",
+      "max": "2022-01-10T08:06:00.000Z"
+    },
+    "timeCoverageRatio": 0.999998417359496,
+    "outlierCell": {
+      "Cell 8": 744400,
+      "Cell 3": 3386,
+      "Cell 7": 401,
+      "Cell 5": 456,
+      "Cell 1": 3038,
+      "Cell 4": 2
+    },
+    "categoryTimeBuckets": [
+      {
+        "startMs": 1539127695000,
+        "endMs": 1544657295000,
+        "start": "2018-10-09T23:28:15.000Z",
+        "end": "2018-12-12T23:28:15.000Z",
+        "counts": {
+          "outlierCell": {
+            "Cell 8": 5460
+          }
+        }
+      },
+      {
+        "startMs": 1544657295000,
+        "endMs": 1550186895000,
+        "start": "2018-12-12T23:28:15.000Z",
+        "end": "2019-02-14T23:28:15.000Z",
+        "counts": {
+          "outlierCell": {
+            "Cell 8": 4529,
+            "Cell 3": 5,
+            "Cell 7": 47,
+            "Cell 5": 15
+          }
+        }
+      },
+      {
+        "startMs": 1550186895000,
+        "endMs": 1555716495000,
+        "start": "2019-02-14T23:28:15.000Z",
+        "end": "2019-04-19T23:28:15.000Z",
+        "counts": {
+          "outlierCell": {
+            "Cell 8": 2141,
+            "Cell 7": 39,
+            "Cell 1": 1,
+            "Cell 5": 3
+          }
+        }
+      },
+      {
+        "startMs": 1555716495000,
+        "endMs": 1561246095000,
+        "start": "2019-04-19T23:28:15.000Z",
+        "end": "2019-06-22T23:28:15.000Z",
+        "counts": {
+          "outlierCell": {
+            "Cell 8": 1897,
+            "Cell 7": 2
+          }
+        }
+      },
+      {
+        "startMs": 1561246095000,
+        "endMs": 1566775695000,
+        "start": "2019-06-22T23:28:15.000Z",
+        "end": "2019-08-25T23:28:15.000Z",
+        "counts": {
+          "outlierCell": {
+            "Cell 8": 809
+          }
+        }
+      },
+      {
+        "startMs": 1566775695000,
+        "endMs": 1572305295000,
+        "start": "2019-08-25T23:28:15.000Z",
+        "end": "2019-10-28T23:28:15.000Z",
+        "counts": {
+          "outlierCell": {
+            "Cell 8": 1426
+          }
+        }
+      },
+      {
+        "startMs": 1572305295000,
+        "endMs": 1577834895000,
+        "start": "2019-10-28T23:28:15.000Z",
+        "end": "2019-12-31T23:28:15.000Z",
+        "counts": {
+          "outlierCell": {
+            "Cell 8": 2529,
+            "Cell 7": 20
+          }
+        }
+      },
+      {
+        "startMs": 1577834895000,
+        "endMs": 1583364495000,
+        "start": "2019-12-31T23:28:15.000Z",
+        "end": "2020-03-04T23:28:15.000Z",
+        "counts": {
+          "outlierCell": {
+            "Cell 8": 2849,
+            "Cell 7": 222
+          }
+        }
+      },
+      {
+        "startMs": 1583364495000,
+        "endMs": 1588894095000,
+        "start": "2020-03-04T23:28:15.000Z",
+        "end": "2020-05-07T23:28:15.000Z",
+        "counts": {
+          "outlierCell": {
+            "Cell 8": 3119
+          }
+        }
+      },
+      {
+        "startMs": 1588894095000,
+        "endMs": 1594423695000,
+        "start": "2020-05-07T23:28:15.000Z",
+        "end": "2020-07-10T23:28:15.000Z",
+        "counts": {
+          "outlierCell": {
+            "Cell 8": 7860,
+            "Cell 3": 2
+          }
+        }
+      },
+      {
+        "startMs": 1594423695000,
+        "endMs": 1599953295000,
+        "start": "2020-07-10T23:28:15.000Z",
+        "end": "2020-09-12T23:28:15.000Z",
+        "counts": {
+          "outlierCell": {
+            "Cell 8": 12543
+          }
+        }
+      },
+      {
+        "startMs": 1599953295000,
+        "endMs": 1605482895000,
+        "start": "2020-09-12T23:28:15.000Z",
+        "end": "2020-11-15T23:28:15.000Z",
+        "counts": {
+          "outlierCell": {
+            "Cell 8": 7640,
+            "Cell 7": 62,
+            "Cell 4": 2
+          }
+        }
+      },
+      {
+        "startMs": 1605482895000,
+        "endMs": 1611012495000,
+        "start": "2020-11-15T23:28:15.000Z",
+        "end": "2021-01-18T23:28:15.000Z",
+        "counts": {
+          "outlierCell": {
+            "Cell 8": 15549,
+            "Cell 7": 7,
+            "Cell 5": 1,
+            "Cell 3": 2
+          }
+        }
+      },
+      {
+        "startMs": 1611012495000,
+        "endMs": 1616542095000,
+        "start": "2021-01-18T23:28:15.000Z",
+        "end": "2021-03-23T23:28:15.000Z",
+        "counts": {
+          "outlierCell": {
+            "Cell 8": 9575,
+            "Cell 3": 102,
+            "Cell 5": 45,
+            "Cell 7": 1
+          }
+        }
+      },
+      {
+        "startMs": 1616542095000,
+        "endMs": 1622071695000,
+        "start": "2021-03-23T23:28:15.000Z",
+        "end": "2021-05-26T23:28:15.000Z",
+        "counts": {
+          "outlierCell": {
+            "Cell 8": 29633,
+            "Cell 3": 554,
+            "Cell 1": 574,
+            "Cell 5": 25,
+            "Cell 7": 1
+          }
+        }
+      },
+      {
+        "startMs": 1622071695000,
+        "endMs": 1627601295000,
+        "start": "2021-05-26T23:28:15.000Z",
+        "end": "2021-07-29T23:28:15.000Z",
+        "counts": {
+          "outlierCell": {
+            "Cell 8": 86912,
+            "Cell 3": 632,
+            "Cell 1": 132,
+            "Cell 5": 56
+          }
+        }
+      },
+      {
+        "startMs": 1627601295000,
+        "endMs": 1633130895000,
+        "start": "2021-07-29T23:28:15.000Z",
+        "end": "2021-10-01T23:28:15.000Z",
+        "counts": {
+          "outlierCell": {
+            "Cell 8": 182463,
+            "Cell 3": 1830,
+            "Cell 5": 311,
+            "Cell 1": 474
+          }
+        }
+      },
+      {
+        "startMs": 1633130895000,
+        "endMs": 1638660495000,
+        "start": "2021-10-01T23:28:15.000Z",
+        "end": "2021-12-04T23:28:15.000Z",
+        "counts": {
+          "outlierCell": {
+            "Cell 8": 295934,
+            "Cell 1": 1857,
+            "Cell 3": 259
+          }
+        }
+      },
+      {
+        "startMs": 1638660495000,
+        "endMs": 1644190095000,
+        "start": "2021-12-04T23:28:15.000Z",
+        "end": "2022-02-06T23:28:15.000Z",
+        "counts": {
+          "outlierCell": {
+            "Cell 8": 71532
+          }
+        }
+      }
+    ],
+    "eventEntityKeys": [
+      "data_sys_6.csv"
+    ],
+    "eventCountsByEntity": {
+      "data_sys_6.csv": 4000
+    }
+  },
+  "figures": [
+    {
+      "id": "B-F1",
+      "claim": "Cell 1 경로의 유효 직렬저항이 동료 셀과 분리된다 (전기화학/커넥터/부식은 미확정)",
+      "available": true,
+      "unavailableReason": null,
+      "evidenceTier": "Derived",
+      "summaryStats": {
+        "outlierCell": 1,
+        "deltaR": 0.0001546197458928897,
+        "eventCount": 4000,
+        "matchedCount": 603,
+        "droppedEvents": 575026
+      },
+      "seriesPointCounts": [
+        {
+          "name": "Cell 1",
+          "n": 603
+        },
+        {
+          "name": "Cell 2",
+          "n": 603
+        },
+        {
+          "name": "Cell 3",
+          "n": 603
+        },
+        {
+          "name": "Cell 4",
+          "n": 603
+        },
+        {
+          "name": "Cell 5",
+          "n": 603
+        },
+        {
+          "name": "Cell 6",
+          "n": 603
+        },
+        {
+          "name": "Cell 7",
+          "n": 603
+        },
+        {
+          "name": "Cell 8",
+          "n": 603
+        }
+      ]
+    },
+    {
+      "id": "B-F2",
+      "claim": "저항 분리가 SOC/T/I 매칭 후에도 남는가",
+      "available": true,
+      "unavailableReason": null,
+      "evidenceTier": "Derived",
+      "summaryStats": {
+        "matchedCount": 603,
+        "rawCount": 4000
+      },
+      "seriesPointCounts": [
+        {
+          "name": "Cell 1",
+          "n": 603
+        },
+        {
+          "name": "Cell 2",
+          "n": 603
+        },
+        {
+          "name": "Cell 3",
+          "n": 603
+        },
+        {
+          "name": "Cell 4",
+          "n": 603
+        },
+        {
+          "name": "Cell 5",
+          "n": 603
+        },
+        {
+          "name": "Cell 6",
+          "n": 603
+        },
+        {
+          "name": "Cell 7",
+          "n": 603
+        },
+        {
+          "name": "Cell 8",
+          "n": 603
+        }
+      ]
+    },
+    {
+      "id": "B-F3",
+      "claim": "Cell 전압 분산이 장기적으로 확대되는가 (전압 잔차 — 저항이 아님)",
+      "available": true,
+      "unavailableReason": null,
+      "evidenceTier": "Derived",
+      "summaryStats": {
+        "signal": "vRange",
+        "note": "전압 잔차 (저항 아님)"
+      },
+      "seriesPointCounts": [
+        {
+          "name": "vRange",
+          "n": 1350
+        }
+      ]
+    },
+    {
+      "id": "B-F4",
+      "claim": "Resistance knee를 이 데이터에서 독립 탐지하지 못함",
+      "available": false,
+      "unavailableReason": "저항 시계열이 짧아 knee를 독립 탐지할 수 없음",
+      "evidenceTier": "Derived",
+      "summaryStats": {
+        "cell": 1,
+        "kneeT": null,
+        "piecewiseT": null,
+        "kneedleT": null,
+        "available": false,
+        "droppedEvents": 575026,
+        "firstEventT": 1524908785000,
+        "lastEventT": 1641472345000
+      },
+      "seriesPointCounts": [
+        {
+          "name": "Cell 1",
+          "n": 603
+        }
+      ]
+    },
+    {
+      "id": "B-F5",
+      "claim": "Cell 이상 확률이 Peer Cell보다 먼저 증가하는가 (GP fault probability)",
+      "available": false,
+      "unavailableReason": "GP/BattGP는 이번 범위에서 미구현 — Unknown으로 남깁니다",
+      "evidenceTier": "Derived",
+      "summaryStats": {},
+      "seriesPointCounts": []
+    },
+    {
+      "id": "B-F6",
+      "claim": "Balancing·Temperature가 특정 Cell 이상을 설명하는가",
+      "available": false,
+      "unavailableReason": "balancing current 컬럼이 없어 B-F6를 그릴 수 없습니다",
+      "evidenceTier": "Derived",
+      "summaryStats": {
+        "balancingAh": [
+          0,
+          0,
+          0,
+          0,
+          0,
+          0,
+          0,
+          0
+        ],
+        "maxCell": null
+      },
+      "seriesPointCounts": []
+    }
+  ],
+  "attributionConflict": {
+    "status": "conflict",
+    "conflict": true,
+    "voltageResidual": {
+      "cell": "Cell 8",
+      "count": 744400,
+      "total": 751683,
+      "share": 0.9903110752804041,
+      "counts": {
+        "Cell 8": 744400,
+        "Cell 3": 3386,
+        "Cell 7": 401,
+        "Cell 5": 456,
+        "Cell 1": 3038,
+        "Cell 4": 2
+      }
+    },
+    "eventResistance": {
+      "cell": "Cell 1",
+      "deltaR": 0.0001546197458928897,
+      "matchedCount": 603,
+      "droppedEvents": 575026,
+      "eventCount": 4000
+    },
+    "missing": []
+  }
+}
