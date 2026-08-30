@@ -177,8 +177,11 @@ function attachSeries(acc, bucket, entityKey) {
       return null;
     }
   }
+  const signals = typeof fmt.seriesSignalsFor === 'function'
+    ? fmt.seriesSignalsFor(acc.columns)
+    : (fmt.seriesSignals || ['value']);
   bucket.series = createSeriesBuffer({
-    signals: fmt.seriesSignals || ['value'],
+    signals,
     maxPoints: MAX_SERIES_POINTS,
     binMode: fmt.seriesBinMode || 'adaptive'
   });
