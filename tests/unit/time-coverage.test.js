@@ -148,6 +148,25 @@ test('considerAlarmSample spreads across the span instead of keeping the first N
   assert.equal(bucket.alarmSamples[0].length, 5);
 });
 
+test('time-stratum quotas fill every data-span bucket when alarms exist throughout', () => {
+  const bucket = { alarmSamples: [], alarmAnnotations: [], alarmSampleTimes: [] };
+  const cap = 40;
+  const t0 = Date.UTC(2018, 0, 1);
+  const t1 = Date.UTC(2022, 0, 1);
+  const n = 400;
+  for (let i = 0; i < n; i++) {
+    const t = t0 + Math.round((t1 - t0) * i / (n - 1));
+    bucket.dataTimeRange = makeTimeRange(t0, t);
+    considerAlarmSample(bucket, [{ i }], [{ reason: String(i) }], t, cap);
+  }
+  const dist = histogramTimes(bucket.alarmSampleTimes, makeTimeRange(t0, t1), 8);
+  dist.forEach((b, i) => {
+    assert.ok(b.count > 0, `expected samples in data-span bucket ${i}, got ${b.count}`);
+  });
+  assert.equal(bucket.alarmSamples.length, cap);
+  assert.equal(bucket.alarmDroppedCount, n - cap);
+});
+
 test('early-clustered alarms plus a late tail keep samples from both ends of the span', () => {
   const bucket = { alarmSamples: [], alarmAnnotations: [], alarmSampleTimes: [] };
   const cap = 8;
