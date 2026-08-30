@@ -5,6 +5,10 @@ import { EVIDENCE_TIERS, HYPOTHESIS_DOMAINS, FTA_DISPOSITIONS, AGREE_ENUM } from
 // keep these two in sync when either changes.
 export const MAX_LOG_TEXT_CHARS = 300_000;
 export const MAX_ANOMALY_WINDOWS = 200;
+// Detect-anomaly *output* cap. Case B gold run produced 16 windows; this
+// matches schemas.js maxItems. Request bodies (hypotheses/report) still use
+// MAX_ANOMALY_WINDOWS so an older snapshot with more windows can be sent.
+export const MAX_DETECT_ANOMALY_WINDOWS = 16;
 // Kept in sync with src/reference-docs.js's MAX_TOTAL_REFERENCE_CHARS.
 export const MAX_REFERENCE_DOCS_CHARS = 60_000;
 
@@ -124,7 +128,27 @@ const REQUEST_SCHEMAS = {
       supports: z.string().max(400).optional(),
       contradicts: z.string().max(400).optional(),
       confidence: z.string().max(40).optional()
-    })).max(80).optional()
+    })).max(80).optional(),
+    attributionConflict: z.object({
+      status: z.enum(['conflict', 'agreement', 'cross-check-unavailable']),
+      conflict: z.boolean(),
+      voltageResidual: z.object({
+        cell: z.string().max(40).nullable(),
+        count: z.number().nonnegative(),
+        total: z.number().nonnegative(),
+        share: z.number().nullable(),
+        counts: z.record(z.string(), z.number()).optional(),
+        tie: z.array(z.string().max(40)).optional()
+      }).optional(),
+      eventResistance: z.object({
+        cell: z.string().max(40).nullable(),
+        deltaR: z.number().nullable().optional(),
+        matchedCount: z.number().nullable().optional(),
+        droppedEvents: z.number().nullable().optional(),
+        eventCount: z.number().nullable().optional()
+      }).optional(),
+      missing: z.array(z.string().max(40)).optional()
+    }).optional()
   }).strict(),
 
   'compare-published': z.object({
@@ -167,7 +191,7 @@ const RESPONSE_SCHEMAS = {
 
   'detect-anomaly': z.object({
     issueStructured: issueStructuredSchema,
-    anomalyWindows: z.array(anomalyWindowSchema)
+    anomalyWindows: z.array(anomalyWindowSchema).max(MAX_DETECT_ANOMALY_WINDOWS)
   }).strict(),
 
   'generate-hypotheses': z.object({
@@ -262,7 +286,17 @@ export function parseStructuredResult(kind, input, context = {}) {
   // A schema failure here means Claude's response, not the caller's request.
   const schema = RESPONSE_SCHEMAS[kind];
   if (!schema) throw new Error(`Unknown validation kind: ${kind}`);
-  const result = schema.safeParse(input);
+  let payload = input;
+  let droppedAnomalyWindows = 0;
+  if (kind === 'detect-anomaly' && Array.isArray(input?.anomalyWindows)
+      && input.anomalyWindows.length > MAX_DETECT_ANOMALY_WINDOWS) {
+    droppedAnomalyWindows = input.anomalyWindows.length - MAX_DETECT_ANOMALY_WINDOWS;
+    payload = {
+      ...input,
+      anomalyWindows: input.anomalyWindows.slice(0, MAX_DETECT_ANOMALY_WINDOWS)
+    };
+  }
+  const result = schema.safeParse(payload);
   if (!result.success) {
     const err = new Error(`모델 응답 검증 실패: ${result.error.issues.map(i => `${i.path.join('.')} ${i.message}`).join('; ')}`);
     err.status = 502;
@@ -271,6 +305,9 @@ export function parseStructuredResult(kind, input, context = {}) {
   if (kind === 'generate-hypotheses') validateContextualHypotheses(result.data, context);
   if (kind === 'draft-report') validateReportCitations(result.data, context);
   if (kind === 'compare-published') validateComparisonDoesNotRewrite(result.data, context);
+  if (droppedAnomalyWindows) {
+    result.data.truncation = { droppedAnomalyWindows, kept: MAX_DETECT_ANOMALY_WINDOWS };
+  }
   return result.data;
 }
 

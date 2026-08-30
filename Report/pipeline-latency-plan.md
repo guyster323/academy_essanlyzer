@@ -1,5 +1,13 @@
 # 파이프라인 지연시간(latency) 축소 계획 (2026-08-30)
 
+> **이후 정정됨 / superseded (2026-08-30).** 이 문서의 1순위 가설 — `anomalyWindows`에
+> `maxItems`가 없어서 출력 길이가 들쭉날쭉하고, 그게 700초 지연의 원인이라는 것 — 은
+> `Report/latency-root-cause-and-plan.md`의 실측으로 뒤집혔다. 약 200자 프롬프트만으로도
+> 220–367초가 걸렸고, 5회 모두 이상 구간은 12–16건만 나왔다. 상한이 없어서 40건씩
+> 쏟아낸 게 아니었다. `maxItems`는 **일관성 문제로는 여전히 유효**하지만 **지연시간
+> 해결책이 아니다.** 이 문서는 당시의 코드-읽기 가설 기록으로 보존한다. 실행 근거는
+> `latency-root-cause-and-plan.md` / `latency-findings.md`를 따른다.
+
 `Report/rank-3-4-findings.md`(Rank 3: CLI 고정 오버헤드 제거)의 후속. Rank 3에서 이미
 확인됐듯, `--safe-mode` 등은 **매 호출마다 붙는 고정 기동비용**만 없앨 뿐 실제 모델
 사고 시간은 줄이지 못한다 (같은 stride80 detect-anomaly 프롬프트가 플래그 적용 후에도

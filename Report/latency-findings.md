@@ -96,6 +96,12 @@ returns `structured_output` for every stage.
 
 ## 6-3. `--effort` — measured, not adopted
 
+> **이후 재측정 (2026-08-30).** The n=3 table below used a ~200-character
+> prompt and is **not a valid effort comparison** (7/9 empty windows). A
+> remake with the real 54,738-char stride80 detect prompt is in
+> `Report/latency-effort-real-outputs/COMPARISON.md`: 4/9 valid (15–16
+> windows), 5/9 429 spend-limit, no level adopted.
+
 `server/lib/claude-cli.js` still passes no `--effort`. That is intentional.
 
 Same prompt as the plan's section 1 (the ~200-character LFP summary asking

@@ -322,6 +322,33 @@ tr:last-child td{border-bottom:none;}
 }
 .checkpoint-banner b{color:var(--cyan);}
 
+.attribution-conflict-banner{
+  border:1.5px solid var(--amber);background:var(--amber-dim);border-radius:4px;
+  padding:14px 16px;margin-bottom:14px;
+}
+.attribution-conflict-title{
+  font-size:13px;font-weight:700;color:var(--amber);margin-bottom:6px;
+}
+.attribution-conflict-caution{
+  font-size:11.5px;color:#FFE1AD;line-height:1.55;margin-bottom:12px;
+}
+.attribution-conflict-sides{
+  display:grid;grid-template-columns:1fr 1fr;gap:12px;
+}
+.attribution-conflict-side{
+  background:var(--bg-inset);border:1px solid var(--border);border-radius:3px;padding:11px 12px;
+}
+.attribution-conflict-method{
+  font-family:var(--font-mono);font-size:9.5px;color:var(--text-muted);
+  text-transform:uppercase;letter-spacing:0.05em;margin-bottom:6px;
+}
+.attribution-conflict-cell{
+  font-size:18px;font-weight:700;color:var(--text-primary);margin-bottom:4px;
+}
+.attribution-conflict-stats{
+  font-family:var(--font-mono);font-size:11px;color:var(--text-secondary);line-height:1.5;
+}
+
 /* ---------- Report ---------- */
 .report-section{margin-bottom:16px;}
 .report-section-label{font-family:var(--font-mono);font-size:10px;color:var(--amber);letter-spacing:0.06em;text-transform:uppercase;margin-bottom:6px;font-weight:700;}
@@ -390,4 +417,5 @@ tr:last-child td{border-bottom:none;}
      width and wrap/scroll its own content instead. */
   .sidebar{position:static;height:auto;min-width:0;}
   .main{min-width:0;}
+  .attribution-conflict-sides{grid-template-columns:1fr;}
 }

@@ -161,6 +161,14 @@ test('streamIntoSource profile records per-phase timings without changing row co
   assert.ok(profile.chunkCount > 1);
   assert.ok(profile.yieldCount > 1);
   assert.ok(profile.feedLineMs >= 0);
+  assert.ok(profile.feedParseMs >= 0);
+  assert.ok(profile.feedDerivedMs >= 0);
+  assert.ok(profile.feedSeriesMs >= 0);
+  assert.ok(profile.feedForensicsMs >= 0);
+  assert.ok(profile.feedStatsMs >= 0);
+  const feedParts = profile.feedParseMs + profile.feedDerivedMs + profile.feedSeriesMs
+    + profile.feedForensicsMs + profile.feedStatsMs;
+  assert.ok(feedParts <= profile.feedLineMs + 5, `feed subphases ${feedParts} vs feedLineMs ${profile.feedLineMs}`);
   assert.ok(profile.decodeMs >= 0);
   assert.ok(profile.splitMs >= 0);
   assert.ok(profile.yieldWaitMs >= 0);

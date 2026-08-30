@@ -1,0 +1,110 @@
+{
+  "label": "csv-stride80-feedline-sub",
+  "wall_ms": 9751,
+  "wall_s": 9.8,
+  "accounted_ms": 9681,
+  "accounted_pct": "99.3",
+  "bytes": 36113717,
+  "chunkCount": 138,
+  "lineCount": 240604,
+  "nonemptyLineCount": 240604,
+  "yieldCount": 120,
+  "mb_per_s": "3.53",
+  "phases": [
+    {
+      "phase": "inflateOrReadMs",
+      "ms": 57,
+      "pct": "0.6"
+    },
+    {
+      "phase": "zipReadMs",
+      "ms": 0,
+      "pct": "0.0"
+    },
+    {
+      "phase": "inflateMs",
+      "ms": 0,
+      "pct": "0.0"
+    },
+    {
+      "phase": "decodeMs",
+      "ms": 17,
+      "pct": "0.2"
+    },
+    {
+      "phase": "splitMs",
+      "ms": 26,
+      "pct": "0.3"
+    },
+    {
+      "phase": "feedLineMs",
+      "ms": 8763,
+      "pct": "89.9"
+    },
+    {
+      "phase": "feedParseMs",
+      "ms": 531,
+      "pct": "5.4"
+    },
+    {
+      "phase": "feedDerivedMs",
+      "ms": 2841,
+      "pct": "29.1"
+    },
+    {
+      "phase": "feedSeriesMs",
+      "ms": 1981,
+      "pct": "20.3"
+    },
+    {
+      "phase": "feedForensicsMs",
+      "ms": 1592,
+      "pct": "16.3"
+    },
+    {
+      "phase": "feedStatsMs",
+      "ms": 1642,
+      "pct": "16.8"
+    },
+    {
+      "phase": "progressMs",
+      "ms": 0,
+      "pct": "0.0"
+    },
+    {
+      "phase": "yieldWaitMs",
+      "ms": 816,
+      "pct": "8.4"
+    },
+    {
+      "phase": "applyMs",
+      "ms": 2,
+      "pct": "0.0"
+    }
+  ],
+  "profile": {
+    "chunkCount": 138,
+    "lineCount": 240604,
+    "nonemptyLineCount": 240604,
+    "yieldCount": 120,
+    "inflateOrReadMs": 56.64789999999995,
+    "zipReadMs": 0,
+    "inflateMs": 0,
+    "decodeMs": 17.225399999999837,
+    "splitMs": 25.592800000005056,
+    "feedLineMs": 8762.746800000014,
+    "feedParseMs": 531.2599000002301,
+    "feedDerivedMs": 2840.740899999737,
+    "feedSeriesMs": 1981.4931000000056,
+    "feedForensicsMs": 1592.2997000001928,
+    "feedStatsMs": 1642.0027000001592,
+    "progressMs": 0.10809999999756315,
+    "yieldWaitMs": 816.4577999999976,
+    "applyMs": 1.7394999999996799,
+    "bytes": 36113717
+  },
+  "rowCount": 240603,
+  "alarmCount": 9366,
+  "derivedAlarmCount": 9366,
+  "formatId": "lfp-cell-array"
+}

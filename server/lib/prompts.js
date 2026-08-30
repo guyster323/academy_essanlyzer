@@ -137,9 +137,25 @@ ${priorCase || '없음'}${referenceSection}
 cell-array 포맷이면 claimLimit에 반드시 “Cell N 경로의 유효 직렬저항 증가” 수준까지만 입증 가능하고 전기화학적 열화·커넥터·부식·정확한 반품 원인은 확정할 수 없다는 제한을 명시하라. 그 물리 원인을 확정하는 문장을 name/actualObservation/evidence에 쓰지 마라. 반증·누락 신호를 생략하지 마라.`;
 }
 
+function attributionConflictPromptBlock(conflict) {
+  if (!conflict || conflict.status !== 'conflict') return '';
+  const v = conflict.voltageResidual || {};
+  const r = conflict.eventResistance || {};
+  const share = Number.isFinite(v.share) ? `${(Math.round(v.share * 1000) / 10).toFixed(1).replace(/\.0$/, '')}%` : '—';
+  const count = Number.isFinite(v.count) ? v.count : '—';
+  const total = Number.isFinite(v.total) ? v.total : '—';
+  return `
+[교차 지목 사실 — 전압 잔차 vs 이벤트 저항]
+- 전압 잔차(Vdev, 파생 이상 행 outlierCell 집계): ${v.cell || '—'}, ${count}/${total}건 (${share})
+- 이벤트 저항(B-F1): ${r.cell || '—'}, deltaR=${r.deltaR ?? '—'}, matchedCount=${r.matchedCount ?? '—'}, droppedEvents=${r.droppedEvents ?? '—'}, eventCount=${r.eventCount ?? '—'}
+- 전압 잔차는 저항이 아니다. 이벤트 저항은 전류 전이 이벤트가 포착된 구간에만 존재한다.
+- 이 블록은 사실 기록이다. 어느 셀을 채택하라는 결론을 지시하지 않는다.
+`;
+}
+
 export function buildDraftReportPrompt({
   issueStructured, anomalyWindows, confirmedHyp, finalSeverity, finalSeverityReason,
-  sourceProfiles, sourceFormats, figureCatalog, evidenceLedger
+  sourceProfiles, sourceFormats, figureCatalog, evidenceLedger, attributionConflict
 }) {
   const profiles = normalizeProfiles(sourceProfiles, sourceFormats);
   const cellArray = profiles.some(profile => profile.formatId === 'lfp-cell-array');
@@ -160,7 +176,7 @@ ${sourceProfileText(sourceProfiles, sourceFormats)}
 ${JSON.stringify(figureCatalog || [])}
 [Evidence ledger 요약]
 ${JSON.stringify(evidenceLedger || [])}
-
+${attributionConflictPromptBlock(attributionConflict)}
 작업: 위 내용을 종합하여 분석 보고서 초안과 CS 회신 메일 초안을 작성하라.
 - headline은 제목이 아니라 결론형 한 문장이다. "분석 결과" 같은 제목 금지.
 - Observed 사실, Derived 파생지표, Inferred 가설을 문장 수준에서 구분하고, evidence가 부족하면 “추가 확인 필요”로 표기하라.

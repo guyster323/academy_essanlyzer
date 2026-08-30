@@ -1,6 +1,7 @@
 import { state, session, STEPS, CS_TEMPLATES, HYPOTHESIS_DOMAINS, isHumanReviewComplete, describeLoadingProgress } from './state.js';
 import { formatBytes, MAX_SELECTED_SOURCES } from './log-engine.js';
 import { paintFigureCanvases } from './charts.js';
+import { detectAttributionConflict, describeAttributionConflict } from './attribution-conflict.js';
 
 export function esc(s) {
   if (s === undefined || s === null) return '';
@@ -348,6 +349,37 @@ function currentFigures() {
   return Array.isArray(state.figureSpecs) ? state.figureSpecs : [];
 }
 
+function currentAttributionConflict() {
+  if (state.attributionConflict) return state.attributionConflict;
+  return detectAttributionConflict({
+    blocks: (state.logSources || []).filter(s => s.selected && s.status === 'ready'),
+    figures: currentFigures()
+  });
+}
+
+function renderAttributionConflictBanner(conflict) {
+  const desc = describeAttributionConflict(conflict);
+  if (!desc) return '';
+  const sides = desc.sides.map(side => `<div class="attribution-conflict-side">
+      <div class="attribution-conflict-method">${esc(side.method)}</div>
+      <div class="attribution-conflict-cell">${esc(side.cell)}</div>
+      <div class="attribution-conflict-stats">${esc(side.stats)}</div>
+      <div class="ev-block" style="margin-top:8px;">
+        <div class="ev-label">말할 수 있는 것</div>
+        <div class="ev-text">${esc(side.canProve)}</div>
+      </div>
+      <div class="ev-block" style="margin-top:8px;">
+        <div class="ev-label">말할 수 없는 것</div>
+        <div class="ev-text">${esc(side.cannotProve)}</div>
+      </div>
+    </div>`).join('');
+  return `<section class="attribution-conflict-banner" data-attribution-status="conflict">
+    <div class="attribution-conflict-title">${esc(desc.title)}</div>
+    <div class="attribution-conflict-caution">${esc(desc.caution)}</div>
+    <div class="attribution-conflict-sides">${sides}</div>
+  </section>`;
+}
+
 function renderAnomalyView() {
   document.getElementById('pageTitle').textContent = '이상 구간 탐지 결과';
   document.getElementById('pageDesc').textContent = 'AI가 로그를 스캔해 이상 구간을 자동 식별했습니다. 필요 시 원인 가설 생성 단계로 진행하십시오.';
@@ -357,12 +389,13 @@ function renderAnomalyView() {
   if (state.error && state.error.stage === 'anomaly') out += renderError();
 
   const t = state.lastTruncation;
-  if (t && (t.excludedSources || t.excludedGroups || t.excludedAlarmContexts || t.droppedResistanceEvents || t.textTruncatedChars)) {
+  if (t && (t.excludedSources || t.excludedGroups || t.excludedAlarmContexts || t.droppedResistanceEvents || t.droppedAnomalyWindows || t.textTruncatedChars)) {
     const parts = [];
     if (t.excludedSources) parts.push(`출처 파일 ${t.excludedSources}개 미포함`);
     if (t.excludedGroups) parts.push(`엔티티 그룹 ${t.excludedGroups}개 상세 생략`);
     if (t.excludedAlarmContexts) parts.push(`알람 컨텍스트 ${t.excludedAlarmContexts}건 생략`);
     if (t.droppedResistanceEvents) parts.push(`저항 이벤트 ${t.droppedResistanceEvents.toLocaleString()}건 생략(초기 기준선+최근 창 유지)`);
+    if (t.droppedAnomalyWindows) parts.push(`이상 구간 ${t.droppedAnomalyWindows.toLocaleString()}건 생략(상한 16)`);
     if (t.textTruncatedChars) parts.push(`텍스트 ${t.textTruncatedChars.toLocaleString()}자 절단`);
     out += `<div class="skipped-note" style="color:var(--amber);margin-bottom:12px;">⚠ 프롬프트 규모 제한으로 일부가 생략된 상태로 분석되었습니다: ${parts.join(', ')}.</div>`;
   }
@@ -378,6 +411,7 @@ function renderAnomalyView() {
   </div>`;
 
   const figs = currentFigures();
+  out += renderAttributionConflictBanner(currentAttributionConflict());
   if (figs.length) {
     out += `<div class="panel">
       <div class="panel-head"><div class="panel-tag"></div><div class="panel-title">근거 그래프</div></div>
@@ -433,6 +467,7 @@ function renderHypothesisView() {
     <span>◈</span>
     <span><b>사람 검토 체크포인트</b> — AI가 제시한 가설은 초안입니다. 방향이 맞는지 확인 후 유력 가설을 선택하고 심각도를 최종 확정해 주세요.</span>
   </div>`;
+  out += renderAttributionConflictBanner(currentAttributionConflict());
 
   state.hypotheses.forEach(h => {
     const selected = h.id === state.selectedHypId;

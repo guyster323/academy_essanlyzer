@@ -41,6 +41,33 @@ test('detect-anomaly response accepts a rich, multi-instance derived-metric obse
   assert.equal(result.anomalyWindows[0].observedValue, richText);
 });
 
+test('detect-anomaly response truncates anomalyWindows above the Case B gold-run cap of 16 and records the drop', () => {
+  const window = {
+    timestamp: 't', sourceFile: 'f', parameter: 'p', observedValue: 'v',
+    normalRange: 'n', deviation: 'd', alarmCode: 'a', level: '고', evidenceTier: 'Derived'
+  };
+  const result = parseStructuredResult('detect-anomaly', {
+    issueStructured: { issueType: 't', facility: 'f', occurredAt: 'o', priorHistory: 'p' },
+    anomalyWindows: Array.from({ length: 18 }, () => ({ ...window }))
+  });
+  assert.equal(result.anomalyWindows.length, 16);
+  assert.equal(result.truncation.droppedAnomalyWindows, 2);
+  assert.equal(result.truncation.kept, 16);
+});
+
+test('detect-anomaly response of exactly 16 windows is not truncated', () => {
+  const window = {
+    timestamp: 't', sourceFile: 'f', parameter: 'p', observedValue: 'v',
+    normalRange: 'n', deviation: 'd', alarmCode: 'a', level: '고', evidenceTier: 'Derived'
+  };
+  const result = parseStructuredResult('detect-anomaly', {
+    issueStructured: { issueType: 't', facility: 'f', occurredAt: 'o', priorHistory: 'p' },
+    anomalyWindows: Array.from({ length: 16 }, () => ({ ...window }))
+  });
+  assert.equal(result.anomalyWindows.length, 16);
+  assert.equal(result.truncation, undefined);
+});
+
 test('detect-anomaly response still rejects an observedValue beyond the 800-char bound', () => {
   assert.throws(() => parseStructuredResult('detect-anomaly', {
     issueStructured: { issueType: 't', facility: 'f', occurredAt: 'o', priorHistory: 'p' },
@@ -159,6 +186,29 @@ test('valid requests and responses pass through unchanged', () => {
     email: { to: 'CS', subject: 's', body: 'b' }
   });
   assert.equal(res.report.headline, 'h');
+});
+
+test('draft-report request accepts an optional attributionConflict payload', () => {
+  const req = parseRequest('draft-report', {
+    issueStructured: { issueType: 't', facility: 'f', occurredAt: 'o', priorHistory: 'p' },
+    anomalyWindows: [],
+    confirmedHyp: {
+      name: 'Cell 경로 유효 직렬저항 증가 후보', domain: 'Cell/Pack',
+      expectedSignature: 'e', actualObservation: 'a', evidence: 'ev',
+      evidenceTier: 'Inferred', disconfirmingEvidence: 'd', missingSignals: 'm', claimLimit: 'c'
+    },
+    finalSeverity: '상',
+    finalSeverityReason: '엔지니어 확정 사유',
+    attributionConflict: {
+      status: 'conflict',
+      conflict: true,
+      voltageResidual: { cell: 'Cell 8', count: 9271, total: 9366, share: 0.99, counts: { 'Cell 8': 9271 } },
+      eventResistance: { cell: 'Cell 5', deltaR: 0.012, matchedCount: 1330, droppedEvents: 51677, eventCount: 4000 },
+      missing: []
+    }
+  });
+  assert.equal(req.attributionConflict.voltageResidual.cell, 'Cell 8');
+  assert.equal(req.attributionConflict.eventResistance.cell, 'Cell 5');
 });
 
 function fullReport(overrides = {}) {

@@ -93,7 +93,13 @@ function pct(part, total) {
 function report(label, profile, wallMs) {
   // zipReadMs/inflateMs are a breakdown of inflateOrReadMs (time spent
   // waiting on the byte iterable), so they are not added into accounted.
-  const phases = ['inflateOrReadMs', 'zipReadMs', 'inflateMs', 'decodeMs', 'splitMs', 'feedLineMs', 'progressMs', 'yieldWaitMs', 'applyMs'];
+  // feedParseMs/feedDerivedMs/feedSeriesMs/feedForensicsMs/feedStatsMs
+  // likewise break down feedLineMs.
+  const phases = [
+    'inflateOrReadMs', 'zipReadMs', 'inflateMs', 'decodeMs', 'splitMs',
+    'feedLineMs', 'feedParseMs', 'feedDerivedMs', 'feedSeriesMs', 'feedForensicsMs', 'feedStatsMs',
+    'progressMs', 'yieldWaitMs', 'applyMs'
+  ];
   const accountedKeys = ['inflateOrReadMs', 'decodeMs', 'splitMs', 'feedLineMs', 'progressMs', 'yieldWaitMs', 'applyMs'];
   const accounted = accountedKeys.reduce((s, k) => s + (profile[k] || 0), 0);
   const rows = phases.map(k => ({
@@ -136,6 +142,7 @@ if (args.csv) {
   rec = report(args.label || `csv-${path.basename(csvPath)}-yield${args.yieldMs}`, profile, performance.now() - wall0);
   rec.rowCount = src.rowCount;
   rec.alarmCount = src.alarmCount;
+  rec.derivedAlarmCount = src.derived?.alarmCount || 0;
   rec.formatId = format.id;
 } else if (args.zip) {
   const zipPath = path.resolve(args.zip);
@@ -147,6 +154,7 @@ if (args.csv) {
     rec = report(args.label || `zip-${args.entry.replace(/[\\/]/g, '_')}-yield${args.yieldMs}`, profile, performance.now() - wall0);
     rec.rowCount = src.rowCount;
     rec.alarmCount = src.alarmCount;
+    rec.derivedAlarmCount = src.derived?.alarmCount || 0;
     rec.formatId = format.id;
     rec.zipBytes = blob.size;
   } finally {
