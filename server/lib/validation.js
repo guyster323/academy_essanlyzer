@@ -124,7 +124,27 @@ const REQUEST_SCHEMAS = {
       supports: z.string().max(400).optional(),
       contradicts: z.string().max(400).optional(),
       confidence: z.string().max(40).optional()
-    })).max(80).optional()
+    })).max(80).optional(),
+    attributionConflict: z.object({
+      status: z.enum(['conflict', 'agreement', 'cross-check-unavailable']),
+      conflict: z.boolean(),
+      voltageResidual: z.object({
+        cell: z.string().max(40).nullable(),
+        count: z.number().nonnegative(),
+        total: z.number().nonnegative(),
+        share: z.number().nullable(),
+        counts: z.record(z.string(), z.number()).optional(),
+        tie: z.array(z.string().max(40)).optional()
+      }).optional(),
+      eventResistance: z.object({
+        cell: z.string().max(40).nullable(),
+        deltaR: z.number().nullable().optional(),
+        matchedCount: z.number().nullable().optional(),
+        droppedEvents: z.number().nullable().optional(),
+        eventCount: z.number().nullable().optional()
+      }).optional(),
+      missing: z.array(z.string().max(40)).optional()
+    }).optional()
   }).strict(),
 
   'compare-published': z.object({

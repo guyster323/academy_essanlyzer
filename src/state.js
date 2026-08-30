@@ -15,6 +15,7 @@ export function freshState() {
     priorCase: '',
     logSources: [],
     figureSpecs: [],
+    attributionConflict: null,
     evidenceLedger: [],
     publishedComparison: null,
     zipScanning: false,

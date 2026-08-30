@@ -9,6 +9,7 @@ import { detectFormat, detectDelimiter } from './formats.js';
 import { freezeSeries } from './series-engine.js';
 import { normalizeResistanceEvents, resistanceEventsDroppedCount } from './forensics/lfp.js';
 import { buildFigures, figureCatalog } from './figures.js';
+import { detectAttributionConflict } from './attribution-conflict.js';
 import { buildEvidenceLedger, catalogEvidence } from './evidence-ledger.js';
 import JSZip from 'jszip';
 import { extractHtmlText, extractPptxText, capDocText, buildReferenceDocsBlock } from './reference-docs.js';
@@ -393,6 +394,10 @@ export async function runAnomalyDetection() {
     console.warn('figure build failed', e);
     state.figureSpecs = [];
   }
+  state.attributionConflict = detectAttributionConflict({
+    blocks: allBlocks,
+    figures: state.figureSpecs
+  });
 
   try {
     const json = await detectAnomalyApi({
@@ -501,7 +506,8 @@ export async function runReportGeneration() {
       finalSeverityReason: state.finalSeverityReason,
       sourceProfiles: state.sourceProfiles || [],
       figureCatalog: figureCatalog(state.figureSpecs || []),
-      evidenceLedger: catalogEvidence(state.evidenceLedger || [])
+      evidenceLedger: catalogEvidence(state.evidenceLedger || []),
+      ...(state.attributionConflict ? { attributionConflict: state.attributionConflict } : {})
     });
     state.report = json.report || {};
     state.email = json.email || {};

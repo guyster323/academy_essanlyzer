@@ -48,3 +48,45 @@ test('cell-array prompts force data-driven peer-cell analysis and root-cause lim
   assert.match(report, /확정 원인이 아닌 미확인 대안/);
   assert.match(report, /Vdev/);
 });
+
+test('draft-report prompt records an attribution conflict as fact and does not pick a cell', () => {
+  const profile = {
+    sourceFile: 'data_sys_6.csv', formatId: 'lfp-cell-array',
+    formatLabel: 'LFP cell-array 필드 데이터', entityColumn: null,
+    rowCount: 20, derivedAlarmCount: 2
+  };
+  const report = buildDraftReportPrompt({
+    issueStructured: {}, anomalyWindows: [], confirmedHyp: { claimLimit: 'limit' },
+    finalSeverity: '중', finalSeverityReason: 'reason', sourceProfiles: [profile],
+    attributionConflict: {
+      status: 'conflict',
+      conflict: true,
+      voltageResidual: { cell: 'Cell 8', count: 9271, total: 9366, share: 9271 / 9366 },
+      eventResistance: { cell: 'Cell 5', deltaR: 0.012, matchedCount: 1330, droppedEvents: 51677, eventCount: 4000 }
+    }
+  });
+  assert.match(report, /교차 지목 사실/);
+  assert.match(report, /Cell 8/);
+  assert.match(report, /Cell 5/);
+  assert.match(report, /9271\/9366/);
+  assert.match(report, /matchedCount=1330/);
+  assert.match(report, /droppedEvents=51677/);
+  assert.match(report, /결론을 지시하지 않는다/);
+  assert.doesNotMatch(report, /Cell 8을 채택/);
+  assert.doesNotMatch(report, /Cell 5가 맞다/);
+});
+
+test('draft-report prompt omits the conflict block when a side is missing', () => {
+  const report = buildDraftReportPrompt({
+    issueStructured: {}, anomalyWindows: [], confirmedHyp: { claimLimit: 'limit' },
+    finalSeverity: '중', finalSeverityReason: 'reason',
+    attributionConflict: {
+      status: 'cross-check-unavailable',
+      conflict: false,
+      voltageResidual: { cell: 'Cell 8', count: 10, total: 10, share: 1 },
+      eventResistance: { cell: null },
+      missing: ['eventResistance']
+    }
+  });
+  assert.doesNotMatch(report, /교차 지목 사실/);
+});

@@ -161,6 +161,29 @@ test('valid requests and responses pass through unchanged', () => {
   assert.equal(res.report.headline, 'h');
 });
 
+test('draft-report request accepts an optional attributionConflict payload', () => {
+  const req = parseRequest('draft-report', {
+    issueStructured: { issueType: 't', facility: 'f', occurredAt: 'o', priorHistory: 'p' },
+    anomalyWindows: [],
+    confirmedHyp: {
+      name: 'Cell 경로 유효 직렬저항 증가 후보', domain: 'Cell/Pack',
+      expectedSignature: 'e', actualObservation: 'a', evidence: 'ev',
+      evidenceTier: 'Inferred', disconfirmingEvidence: 'd', missingSignals: 'm', claimLimit: 'c'
+    },
+    finalSeverity: '상',
+    finalSeverityReason: '엔지니어 확정 사유',
+    attributionConflict: {
+      status: 'conflict',
+      conflict: true,
+      voltageResidual: { cell: 'Cell 8', count: 9271, total: 9366, share: 0.99, counts: { 'Cell 8': 9271 } },
+      eventResistance: { cell: 'Cell 5', deltaR: 0.012, matchedCount: 1330, droppedEvents: 51677, eventCount: 4000 },
+      missing: []
+    }
+  });
+  assert.equal(req.attributionConflict.voltageResidual.cell, 'Cell 8');
+  assert.equal(req.attributionConflict.eventResistance.cell, 'Cell 5');
+});
+
 function fullReport(overrides = {}) {
   return {
     headline: '셀 과전압이 관측됨',
