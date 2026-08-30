@@ -208,8 +208,13 @@ function recordDerivedResult(bucket, fmt, result) {
   });
 }
 
-function feedRowIntoBucket(acc, bucket, cells) {
+function markProfile(profile, key, startedAt) {
+  if (profile) profile[key] += performance.now() - startedAt;
+}
+
+function feedRowIntoBucket(acc, bucket, cells, profile) {
   const fmt = acc.format;
+  const tRest = profile ? performance.now() : 0;
   const rowObj = {};
   acc.columns.forEach((c, i) => {
     const val = cells[i] !== undefined ? cells[i] : '';
@@ -225,19 +230,29 @@ function feedRowIntoBucket(acc, bucket, cells) {
       s.sum += v; s.count++;
     }
   });
+  markProfile(profile, 'feedStatsMs', tRest);
 
+  const tDerived = profile ? performance.now() : 0;
   const derivedResult = typeof fmt.computeDerivedAlarm === 'function'
     ? fmt.computeDerivedAlarm(rowObj, acc, bucket)
     : null;
   recordDerivedResult(bucket, fmt, derivedResult);
+  markProfile(profile, 'feedDerivedMs', tDerived);
 
+  const tSeries = profile ? performance.now() : 0;
   const entityKey = acc.entityColumn ? (rowObj[acc.entityColumn] || '_entity') : (acc.entityFilter || '_file');
   const seriesBuf = attachSeries(acc, bucket, entityKey);
   if (seriesBuf && typeof fmt.extractSeriesSample === 'function') {
     const sample = fmt.extractSeriesSample(rowObj, acc, bucket);
     if (sample && Number.isFinite(sample.t)) pushSample(seriesBuf, entityKey, sample.t, sample.values);
   }
+  markProfile(profile, 'feedSeriesMs', tSeries);
+
+  const tForensics = profile ? performance.now() : 0;
   if (typeof fmt.collectForensics === 'function') fmt.collectForensics(rowObj, bucket);
+  markProfile(profile, 'feedForensicsMs', tForensics);
+
+  const tRest2 = profile ? performance.now() : 0;
   // Keep a file-level derived summary as well as the per-entity summary. The
   // hook is invoked only once for the target bucket, so grouped streams do
   // not accidentally share rolling baselines across physical entities.
@@ -275,10 +290,11 @@ function feedRowIntoBucket(acc, bucket, cells) {
       bucket.alarmAnnotations.push(annotations);
     }
   }
+  markProfile(profile, 'feedStatsMs', tRest2);
   return isAlarm;
 }
 
-export function feedLine(acc, line) {
+export function feedLine(acc, line, profile) {
   if (!line) return;
   const fmt = acc.format;
 
@@ -298,7 +314,9 @@ export function feedLine(acc, line) {
 
   if (!acc.columns || !fmt.isDataRow(line, acc)) return; // stray line — ignore defensively
 
+  const tParse = profile ? performance.now() : 0;
   const rawCells = fmt.parseDataRow(line, acc);
+  markProfile(profile, 'feedParseMs', tParse);
   if (rawCells === null) {
     // Malformed row (e.g. an unterminated quoted field) — counted, not
     // silently dropped, so the UI can surface it instead of quietly
@@ -321,7 +339,7 @@ export function feedLine(acc, line) {
     ? (acc.groups[entityValue] || (acc.groups[entityValue] = makeBucket()))
     : acc;
 
-  const isAlarm = feedRowIntoBucket(acc, target, cells);
+  const isAlarm = feedRowIntoBucket(acc, target, cells, profile);
   if (target !== acc) {
     acc.rowCount++;
     if (isAlarm) acc.alarmCount++;
@@ -340,6 +358,11 @@ function emptyStreamProfile() {
     decodeMs: 0,
     splitMs: 0,
     feedLineMs: 0,
+    feedParseMs: 0,
+    feedDerivedMs: 0,
+    feedSeriesMs: 0,
+    feedForensicsMs: 0,
+    feedStatsMs: 0,
     progressMs: 0,
     yieldWaitMs: 0,
     applyMs: 0,
@@ -350,10 +373,11 @@ function emptyStreamProfile() {
 /**
  * Optional 4th argument `{ profile }` accumulates per-phase wall time in
  * milliseconds (inflate/read, TextDecoder, split, feedLine, yield wait,
- * applyAccumulator). Callers that omit it keep the original path; the
- * profiler is for the 6-4 ZIP-stream investigation in
- * Report/latency-root-cause-and-plan.md and must not change default
- * scheduling. `yieldDelayMs` overrides the setTimeout delay (default 0).
+ * applyAccumulator). When set, feedLine also splits into parse / derived /
+ * series / forensics / stats. Callers that omit it keep the original path;
+ * the profiler is for the 6-4 ZIP-stream investigation and the later
+ * feedLine breakdown in Report/latency-stream-profiles/. `yieldDelayMs`
+ * overrides the setTimeout delay (default 0).
  */
 export async function streamIntoSource(src, byteChunkIterable, onProgress, options) {
   const profile = options && options.profile ? options.profile : null;
@@ -403,7 +427,7 @@ export async function streamIntoSource(src, byteChunkIterable, onProgress, optio
         if (profile) {
           profile.nonemptyLineCount += 1;
           const tFeed = performance.now();
-          feedLine(acc, line);
+          feedLine(acc, line, profile);
           profile.feedLineMs += performance.now() - tFeed;
         } else {
           feedLine(acc, line);
@@ -420,7 +444,7 @@ export async function streamIntoSource(src, byteChunkIterable, onProgress, optio
   if (finalCombined.trim()) {
     if (profile) {
       const tFeed = performance.now();
-      feedLine(acc, finalCombined);
+      feedLine(acc, finalCombined, profile);
       profile.feedLineMs += performance.now() - tFeed;
       profile.nonemptyLineCount += 1;
     } else {
