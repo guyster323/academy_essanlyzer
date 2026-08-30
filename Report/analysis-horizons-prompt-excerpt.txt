@@ -1,0 +1,161 @@
+--- sourceProfiles ---
+[
+  {
+    "sourceFile": "data_sys_6_stride80.csv",
+    "formatId": "lfp-cell-array",
+    "formatLabel": "LFP cell-array 필드 데이터",
+    "entityColumn": null,
+    "rowCount": 240603,
+    "derivedAlarmCount": 9366,
+    "dataTimeRange": {
+      "minMs": 1524908705000,
+      "maxMs": 1641798900000,
+      "min": "2018-04-28T09:45:05.000Z",
+      "max": "2022-01-10T07:15:00.000Z"
+    },
+    "evidenceTimeRange": {
+      "minMs": 1539127910000,
+      "maxMs": 1641798900000,
+      "min": "2018-10-09T23:31:50.000Z",
+      "max": "2022-01-10T07:15:00.000Z"
+    },
+    "timeCoverageRatio": 0.8783541682003354,
+    "alarmDroppedCount": 9326,
+    "alarmSampleTimeDistribution": [
+      {
+        "startMs": 1524908705000,
+        "endMs": 1539519979375,
+        "start": "2018-04-28T09:45:05.000Z",
+        "end": "2018-10-14T12:26:19.375Z",
+        "count": 1
+      },
+      {
+        "startMs": 1539519979375,
+        "endMs": 1554131253750,
+        "start": "2018-10-14T12:26:19.375Z",
+        "end": "2019-04-01T15:07:33.750Z",
+        "count": 6
+      },
+      {
+        "startMs": 1554131253750,
+        "endMs": 1568742528125,
+        "start": "2019-04-01T15:07:33.750Z",
+        "end": "2019-09-17T17:48:48.125Z",
+        "count": 7
+      },
+      {
+        "startMs": 1568742528125,
+        "endMs": 1583353802500,
+        "start": "2019-09-17T17:48:48.125Z",
+        "end": "2020-03-04T20:30:02.500Z",
+        "count": 6
+      },
+      {
+        "startMs": 1583353802500,
+        "endMs": 1597965076875,
+        "start": "2020-03-04T20:30:02.500Z",
+        "end": "2020-08-20T23:11:16.875Z",
+        "count": 7
+      },
+      {
+        "startMs": 1597965076875,
+        "endMs": 1612576351250,
+        "start": "2020-08-20T23:11:16.875Z",
+        "end": "2021-02-06T01:52:31.250Z",
+        "count": 3
+      },
+      {
+        "startMs": 1612576351250,
+        "endMs": 1627187625625,
+        "start": "2021-02-06T01:52:31.250Z",
+        "end": "2021-07-25T04:33:45.625Z",
+        "count": 5
+      },
+      {
+        "startMs": 1627187625625,
+        "endMs": 1641798900000,
+        "start": "2021-07-25T04:33:45.625Z",
+        "end": "2022-01-10T07:15:00.000Z",
+        "count": 5
+      }
+    ]
+  }
+]
+
+--- combinedLogText head ---
+[참고: 데이터 규모 제한으로 일부가 생략된 상태입니다 — 저항 이벤트 51,677건 생략(초기 기준선+최근 창 유지). 생략된 부분에 대한 판단은 "추가 확인 필요"로 명시하십시오.]
+
+### 출처 파일: data_sys_6_stride80.csv
+- 감지 포맷: LFP cell-array 필드 데이터
+- 총 행 수(스트리밍 집계): 240603 / 알람·이상코드 발생 행: 9366건 / 컬럼: Timestamp, U_Battery, I_Battery, SOC_Battery, Temperature_1, Temperature_2, Temperature_3, Temperature_4, U_CR, I_CR, U_Cell_1, I_CNV_Cell_1, U_Cell_2, I_CNV_Cell_2, U_Cell_3, I_CNV_Cell_3, U_Cell_4, I_CNV_Cell_4, U_Cell_5, I_CNV_Cell_5, U_Cell_6, I_CNV_Cell_6, U_Cell_7, I_CNV_Cell_7, U_Cell_8, I_CNV_Cell_8
+- 데이터 시간 범위: 2018-04-28 ~ 2022-01-10
+- 알람 근거 시간 범위: 2018-10-09 ~ 2022-01-10 (커버리지 87.8%)
+- 유지된 알람 샘플 시간 분포: 2018-04-28:1, 2018-10-14:6, 2019-04-01:7, 2019-09-17:6, 2020-03-04:7, 2020-08-20:3, 2021-02-06:5, 2021-07-25:5
+- 알람 컨텍스트 생략: 9,326건 (시간 계층화 유지)
+- 수치 컬럼 통계 (전체 행 기준 running min/max/avg):
+  - U_Battery: min=23.001, max=29.507, avg=26.92
+  - I_Battery: min=-192.191390991211, max=143.735153198242, avg=0.18
+  - SOC_Battery: min=28.4, max=100, avg=95.16
+  - Temperature_1: min=4, max=47, avg=26.28
+  - Temperature_2: min=4, max=47, avg=26.47
+  - Temperature_3: min=4, max=47, avg=26.04
+  - Temperature_4: min=2, max=53, avg=23.66
+  - U_CR: min=0, max=30.717, avg=0.58
+  - I_CR: min=-0.247, max=0.262, avg=0.00
+  - U_Cell_1: min=2.857, max=3.71, avg=3.37
+  - I_CNV_Cell_1: min=-0.53, max=0.523, avg=0.00
+  - U_Cell_2: min=2.872, max=3.716, avg=3.36
+  - I_CNV_Cell_2: min=-0.851, max=0.38, avg=0.00
+  - U_Cell_3: min=2.902, max=3.705, avg=3.37
+  - I_CNV_Cell_3: min=-1.122, max=0.975, avg=0.00
+  - U_Cell_4: min=2.9, max=3.706, avg=3.37
+  - I_CNV_Cell_4: min=-0.763, max=0.5, avg=0.00
+  - U_Cell_5: min=2.898, max=3.701, avg=3.37
+  - I_CNV_Cell_5: min=-0.501, max=0.852, avg=0.00
+  - U_Cell_6: min=2.883, max=3.708, avg=3.37
+  - I_CNV_Cell_6: min=-0.441, max=0.396, avg=0.00
+  - U_Cell_7: min=2.865, max=3.718, avg=3.36
+  - I_CNV_Cell_7: min=-0.789, max=0.469, avg=0.00
+  - U_Cell_8: min=2.74, max=3.94, avg=3.36
+  - I_CNV_Cell_8: min=-1.617, max=1.645, avg=0.00
+- 파생 탐지 방식: cross-cell Vdev / robust z-score / voltage closure 파생탐지
+- 파생 이상 행 수: 9366건
+- 파생 지표 통계 (bounded running summary):
+  - maxAbsVdev: min=0.0009999999999998899, max=0.4249999999999998, avg=0.01
+  - maxRobustZ: min=0.19999999999997797, max=46.315032150726765, avg=1.42
+  - voltageRange: min=0.0009999999999998899, max=0.46599999999999975, avg=0.01
+  - vdevCell1: min=-0.06699999999999973, max=0.05500000000000016, avg=0.00
+  - vdevCell2: min=-0.04499999999999993, max=0.06700000000000017, avg=-0.00
+  - vdevCell3: min=-0.13999999999999968, max=0.054999999999999716, avg=0.00
+  - vdevCell4: min=-0.06899999999999995, max=0.03200000000000003, avg=0.00
+  - vdevCell5: min=-0.125, max=0.06499999999999995, avg=0.00
+  - vdevCell6: min=-0.02499999999999991, max=0.053999999999999826, avg=-0.00
+  - vdevCell7: min=-0.018000000000000238, max=0.06999999999999984, avg=-0.00
+  - vdevCell8: min=-0.35299999999999976, max=0.4249999999999998, avg=-0.00
+  - voltageClosureError: min=-0.010000000000001563, max=0.013999999999999346, avg=0.00
+- 파생 이상 사유 집계:
+  - cross-cell Vdev anomaly: 9366건
+- 파생 범주 집계:
+  - outlierCell=Cell 8: 9271건
+  - outlierCell=Cell 7: 4건
+  - outlierCell=Cell 3: 45건
+  - outlierCell=Cell 1: 40건
+  - outlierCell=Cell 5: 6건
+- 파생 범주 시간 분포 (outlierCell):
+  - 2018-10-09 ~ 2018-12-12: Cell 8 60건
+  - 2018-12-12 ~ 2019-02-14: Cell 8 46건
+  - 2019-02-14 ~ 2019-04-19: Cell 8 25건, Cell 7 1건
+  - 2019-04-19 ~ 2019-06-22: Cell 8 22건
+  - 2019-06-22 ~ 2019-08-25: Cell 8 11건
+  - 2019-08-25 ~ 2019-10-28: Cell 8 16건
+  - 2019-10-28 ~ 2019-12-31: Cell 8 37건
+  - 2019-12-31 ~ 2020-03-04: Cell 8 37건, Cell 7 2건
+  - 2020-03-04 ~ 2020-05-07: Cell 8 30건
+  - 2020-05-07 ~ 2020-07-10: Cell 8 106건
+  - 2020-07-10 ~ 2020-09-12: Cell 8 161건
+  - 2020-09-12 ~ 2020-11-15: Cell 8 85건, Cell 7 1건
+  - 2020-11-15 ~ 2021-01-18: Cell 8 182건
+  - 2021-01-18 ~ 2021-03-23: Cell 8 115건
+  - 2021-03-23 ~ 2021-05-26: Cell 8 394건, Cell 3 9건, Cell 1 5건
+  - 2021-05-26 ~ 2021-07-29: Cell 8 1080건, Cell 3 9건, Cell 1 4건
+  - 2021-07-29
