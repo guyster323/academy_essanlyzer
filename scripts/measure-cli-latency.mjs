@@ -14,13 +14,17 @@ import os from 'node:os';
 import path from 'node:path';
 import { fileURLToPath } from 'node:url';
 
-import { PERSONA, buildHypothesesPrompt, buildDraftReportPrompt } from '../server/lib/prompts.js';
+import { PERSONA, buildDetectAnomalyPrompt, buildHypothesesPrompt, buildDraftReportPrompt } from '../server/lib/prompts.js';
 import { detectAnomalyTool, hypothesesTool, draftReportTool } from '../server/lib/schemas.js';
+import { makeAccumulator, feedLine, applyAccumulatorToSource } from '../src/log-engine.js';
+import { detectFormat } from '../src/formats.js';
+import { blocksToPromptText } from '../src/pipeline.js';
 
 const __dirname = path.dirname(fileURLToPath(import.meta.url));
 const ROOT = path.resolve(__dirname, '..');
 const RAW_DIR = path.join(ROOT, 'tmp', 'latency-runs');
 const OUT_DIR = path.join(ROOT, 'Report', 'latency-effort-outputs');
+const REAL_OUT_DIR = path.join(ROOT, 'Report', 'latency-effort-real-outputs');
 const CLI_BIN = process.env.CLAUDE_CLI_PATH || 'claude';
 const CLI_TIMEOUT_MS = Number(process.env.CLAUDE_CLI_TIMEOUT_MS) || 1_200_000;
 
@@ -36,7 +40,10 @@ const TOOLS = {
 };
 
 function parseArgs(argv) {
-  const out = { suite: null, stage: 'detect-anomaly', effort: null, repeat: 1, fromDetect: null, label: null };
+  const out = {
+    suite: null, stage: 'detect-anomaly', effort: null, repeat: 1,
+    fromDetect: null, label: null, realCsv: null, outDir: null
+  };
   for (let i = 0; i < argv.length; i++) {
     const a = argv[i];
     const next = () => argv[++i];
@@ -46,9 +53,64 @@ function parseArgs(argv) {
     else if (a === '--repeat') out.repeat = Number(next());
     else if (a === '--from-detect') out.fromDetect = next();
     else if (a === '--label') out.label = next();
+    else if (a === '--real-csv') out.realCsv = next();
+    else if (a === '--out-dir') out.outDir = next();
     else throw new Error(`unknown arg: ${a}`);
   }
   return out;
+}
+
+function accumulateCsvBlock(csvPath) {
+  const text = fs.readFileSync(csvPath, 'utf8');
+  const lines = text.split(/\r?\n/);
+  const first = lines.filter(l => l.trim()).slice(0, 4);
+  const format = detectFormat(first);
+  const acc = makeAccumulator(format);
+  for (const line of lines) {
+    if (line.trim()) feedLine(acc, line);
+  }
+  const src = { name: path.basename(csvPath) };
+  applyAccumulatorToSource(src, acc);
+  return {
+    label: src.name,
+    columns: src.columns,
+    delimiter: src.delimiter,
+    rowCount: src.rowCount,
+    alarmCount: src.alarmCount,
+    headSample: src.headSample,
+    alarmSamples: src.alarmSamples,
+    alarmAnnotations: src.alarmAnnotations,
+    stats: src.stats,
+    groups: src.groups,
+    formatId: format.id,
+    formatLabel: format.label,
+    entityColumn: src.entityColumn || null,
+    derived: src.derived,
+    seriesByEntity: src.seriesByEntity || {},
+    resistanceEventsByEntity: src.resistanceEventsByEntity || {},
+    droppedResistanceEvents: src.droppedResistanceEvents || 0
+  };
+}
+
+function buildRealDetectPrompt(csvPath) {
+  const block = accumulateCsvBlock(csvPath);
+  const { text, totalRows, count, sourceProfiles } = blocksToPromptText([block]);
+  const prompt = buildDetectAnomalyPrompt({
+    csText: '공개 LFP System 6 로그의 셀 전압 편차와 저항 이벤트를 확인해 주세요.',
+    priorCase: '',
+    combinedLogText: text,
+    totalRows,
+    sourceCount: count,
+    sourceProfiles
+  });
+  return { prompt, totalRows, sourceCount: count, promptChars: prompt.length, derivedAlarmCount: block.derived?.alarmCount || 0 };
+}
+
+function isValidDetectResult(so) {
+  if (!so || !Array.isArray(so.anomalyWindows) || so.anomalyWindows.length === 0) return false;
+  const blob = JSON.stringify(so);
+  if (/원본 로그가 첨부되지\s*않|로그가 첨부되지\s*않/.test(blob)) return false;
+  return true;
 }
 
 function runClaudeCli(args, stdinText) {
@@ -135,7 +197,7 @@ function summarizeEnvelope(envelope, wallMs) {
   };
 }
 
-async function callStage({ stage, effort, prompt, label }) {
+async function callStage({ stage, effort, prompt, label, outDir }) {
   const tool = TOOLS[stage];
   if (!tool) throw new Error(`unknown stage ${stage}`);
   const args = [
@@ -152,8 +214,9 @@ async function callStage({ stage, effort, prompt, label }) {
   if (effort) args.push('--effort', effort);
   args.push('--system-prompt', PERSONA);
 
+  const destDir = outDir || OUT_DIR;
   fs.mkdirSync(RAW_DIR, { recursive: true });
-  fs.mkdirSync(OUT_DIR, { recursive: true });
+  fs.mkdirSync(destDir, { recursive: true });
 
   const started = Date.now();
   const stamp = new Date(started).toISOString().replace(/[:.]/g, '-');
@@ -188,7 +251,7 @@ async function callStage({ stage, effort, prompt, label }) {
   const rec = { ok: !envelope.is_error && envelope.subtype === 'success' && Boolean(envelope.structured_output), stage, effort, label: base, code, summary };
   fs.writeFileSync(path.join(RAW_DIR, `${base}.summary.json`), JSON.stringify({ ...rec, usage_raw: envelope.usage || null, modelUsage: envelope.modelUsage || null }, null, 2));
   if (envelope.structured_output) {
-    fs.writeFileSync(path.join(OUT_DIR, `${base}.structured.json`), JSON.stringify(envelope.structured_output, null, 2));
+    fs.writeFileSync(path.join(destDir, `${base}.structured.json`), JSON.stringify(envelope.structured_output, null, 2));
   }
   // Keep a stripped envelope (no huge result string) for later inspection.
   const stripped = { ...envelope, result: typeof envelope.result === 'string' ? `[len ${envelope.result.length}]` : envelope.result };
@@ -238,21 +301,28 @@ function draftPromptFromDetectAndHyp(detectSo, hypSo) {
   });
 }
 
-async function runEffortSuite() {
+async function runEffortSuite({ prompt, outDir, prefix } = {}) {
   // Interleave levels so cache-warmup from the first call does not land
   // entirely on one effort bucket (the original n=1 table had this bias).
   const levels = ['low', 'medium', 'high'];
   const results = [];
+  const promptText = prompt || DETECT_PROMPT;
+  const destDir = outDir || OUT_DIR;
+  const labelPrefix = prefix || 'detect-anomaly';
   for (let i = 1; i <= 3; i++) {
     for (const effort of levels) {
       const rec = await callStage({
         stage: 'detect-anomaly',
         effort,
-        prompt: DETECT_PROMPT,
-        label: `detect-anomaly-${effort}-${i}`
+        prompt: promptText,
+        label: `${labelPrefix}-${effort}-${i}`,
+        outDir: destDir
       });
+      rec.validDetect = isValidDetectResult(rec.structured_output);
       results.push(rec);
-      fs.writeFileSync(path.join(RAW_DIR, 'effort-progress.json'), JSON.stringify(results.map(r => ({ label: r.label, ok: r.ok, summary: r.summary })), null, 2));
+      fs.writeFileSync(path.join(destDir, 'effort-progress.json'), JSON.stringify(results.map(r => ({
+        label: r.label, ok: r.ok, validDetect: r.validDetect, summary: r.summary
+      })), null, 2));
     }
   }
   return results;
@@ -293,7 +363,85 @@ const args = parseArgs(process.argv.slice(2));
 fs.mkdirSync(RAW_DIR, { recursive: true });
 fs.mkdirSync(OUT_DIR, { recursive: true });
 
-if (args.suite === 'effort' || args.suite === 'all') {
+if (args.suite === 'effort-real') {
+  const csvPath = path.resolve(args.realCsv || path.join(ROOT, 'Log_sample/extracted/data_sys_6_stride80.csv'));
+  console.log(`[prompt] building real detect prompt from ${csvPath}`);
+  const built = buildRealDetectPrompt(csvPath);
+  fs.mkdirSync(REAL_OUT_DIR, { recursive: true });
+  fs.writeFileSync(path.join(REAL_OUT_DIR, 'detect-anomaly-real-prompt.txt'), built.prompt);
+  fs.writeFileSync(path.join(REAL_OUT_DIR, 'detect-anomaly-real-prompt.meta.json'), JSON.stringify({
+    csvPath, promptChars: built.promptChars, totalRows: built.totalRows,
+    sourceCount: built.sourceCount, derivedAlarmCount: built.derivedAlarmCount
+  }, null, 2));
+  console.log(`[prompt] ${built.promptChars} chars, rows=${built.totalRows}, derivedAlarms=${built.derivedAlarmCount}`);
+
+  const results = await runEffortSuite({
+    prompt: built.prompt,
+    outDir: REAL_OUT_DIR,
+    prefix: 'real-detect'
+  });
+  const valid = results.filter(r => r.validDetect);
+  const excluded = results.filter(r => !r.validDetect);
+  const byEffort = {};
+  for (const effort of ['low', 'medium', 'high']) {
+    const runs = valid.filter(r => r.effort === effort);
+    const walls = runs.map(r => r.summary?.wall_s).filter(n => Number.isFinite(n));
+    byEffort[effort] = {
+      valid: runs.length,
+      excluded: results.filter(r => r.effort === effort && !r.validDetect).length,
+      wall_s: walls,
+      mean_s: walls.length ? Math.round((walls.reduce((a, b) => a + b, 0) / walls.length) * 10) / 10 : null
+    };
+  }
+  const suite = {
+    promptChars: built.promptChars,
+    totalRows: built.totalRows,
+    derivedAlarmCount: built.derivedAlarmCount,
+    n_attempted: results.length,
+    n_valid: valid.length,
+    n_excluded: excluded.length,
+    excluded_labels: excluded.map(r => ({
+      label: r.label,
+      ok: r.ok,
+      windows: r.summary?.structured_output_summary?.anomalyWindows ?? 0,
+      is_error: r.summary?.is_error,
+      error: r.error || null
+    })),
+    byEffort,
+    runs: results.map(r => ({
+      label: r.label, ok: r.ok, validDetect: r.validDetect, effort: r.effort, summary: r.summary
+    }))
+  };
+  fs.writeFileSync(path.join(REAL_OUT_DIR, 'effort-suite.json'), JSON.stringify(suite, null, 2));
+  console.log(`[suite] valid=${valid.length}/${results.length} excluded=${excluded.length}`);
+
+  const pick = valid.find(r => r.label.includes('-high-')) || valid[0];
+  if (pick?.structured_output) {
+    console.log(`[hypotheses] chaining from ${pick.label}`);
+    try {
+      const hyp = await callStage({
+        stage: 'generate-hypotheses',
+        effort: null,
+        prompt: hypothesesPromptFromDetect(pick.structured_output),
+        label: 'real-generate-hypotheses-1',
+        outDir: REAL_OUT_DIR
+      });
+      fs.writeFileSync(path.join(REAL_OUT_DIR, 'generate-hypotheses.json'), JSON.stringify({
+        ok: hyp.ok, summary: hyp.summary, error: hyp.error || null
+      }, null, 2));
+      if (/429|session limit|rate limit/i.test(JSON.stringify(hyp))) {
+        console.log('[hypotheses] 429 or session limit — recorded, not retried');
+      }
+    } catch (e) {
+      const msg = String(e);
+      fs.writeFileSync(path.join(REAL_OUT_DIR, 'generate-hypotheses.json'), JSON.stringify({ ok: false, error: msg }, null, 2));
+      console.log(`[hypotheses] failed: ${msg}`);
+    }
+  } else {
+    console.log('[hypotheses] skipped — no valid detect-anomaly structured_output');
+  }
+  process.exit(0);
+} else if (args.suite === 'effort' || args.suite === 'all') {
   const results = await runEffortSuite();
   fs.writeFileSync(path.join(RAW_DIR, 'effort-suite.json'), JSON.stringify(results.map(r => ({ label: r.label, ok: r.ok, summary: r.summary })), null, 2));
   if (args.suite === 'effort') process.exit(results.every(r => r.ok) ? 0 : 1);

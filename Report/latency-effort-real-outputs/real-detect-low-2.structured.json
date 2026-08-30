@@ -1,0 +1,186 @@
+{
+  "issueStructured": {
+    "issueType": "셀 전압 편차(cross-cell Vdev) 및 저항 이벤트 점검 요청 — Cell 8 경로 유효 직렬저항 증가 의심(확정 아님)",
+    "facility": "공개 LFP System 6 (data_sys_6_stride80.csv, 8-Cell 직렬 LFP 팩, U_Battery 23.0~29.5V, SOC 28.4~100%)",
+    "occurredAt": "2018-10-10 08:31:50 ~ 2018-11-30 22:09:50 (제공된 파생 이상 알람 컨텍스트 40건 구간). 전체 로그는 2018-04-28부터 시작, 총 240,603행이며 로그 종료 시각은 미제공(추가 확인 필요)",
+    "priorHistory": "참고 유사 케이스: 없음. 저항 이벤트(B-F1) 51,677건은 이번 요약에서 초기 기준선+최근 창만 유지하고 생략됨 — 상세 내역 및 해당 Cell 귀속 여부 추가 확인 필요"
+  },
+  "anomalyWindows": [
+    {
+      "timestamp": "2018-10-10 08:31:50",
+      "sourceFile": "data_sys_6_stride80.csv",
+      "parameter": "cross-cell Vdev (U_Cell_8)",
+      "observedValue": "U_Cell_8=3.580V; 타 7개 Cell=3.533~3.573V(median≈3.542V); I_Battery=29.07A(충전)",
+      "normalRange": "|Vdev|≤약0.01V(전체평균 maxAbsVdev=0.01), robust z<~3.0(표본 기준 추정 임계)",
+      "deviation": "Vdev=+0.038V, robust z=3.02 (최초 검출 사례, Cell 8 고전압 방향)",
+      "alarmCode": "cross-cell Vdev anomaly (outlierCell=Cell 8)",
+      "level": "저",
+      "evidenceTier": "Derived"
+    },
+    {
+      "timestamp": "2018-10-24 09:48:35",
+      "sourceFile": "data_sys_6_stride80.csv",
+      "parameter": "cross-cell Vdev (U_Cell_8)",
+      "observedValue": "U_Cell_8=2.996V; 타 Cell=3.036~3.054V(median≈3.0395V); I_Battery=-156.30A(급방전)",
+      "normalRange": "|Vdev|≤약0.01V, robust z<~3.0(추정)",
+      "deviation": "Vdev=-0.045V, robust z=4.67 (급방전 중 Cell 8 저전압 sag)",
+      "alarmCode": "cross-cell Vdev anomaly (outlierCell=Cell 8)",
+      "level": "중",
+      "evidenceTier": "Derived"
+    },
+    {
+      "timestamp": "2018-11-14 09:03:10",
+      "sourceFile": "data_sys_6_stride80.csv",
+      "parameter": "cross-cell Vdev (U_Cell_8)",
+      "observedValue": "U_Cell_8=2.921V; 타 Cell=2.963~2.991V; I_Battery=-176.65A(급방전)",
+      "normalRange": "|Vdev|≤약0.01V, robust z<~3.0(추정)",
+      "deviation": "Vdev=-0.051V, robust z=3.44",
+      "alarmCode": "cross-cell Vdev anomaly (outlierCell=Cell 8)",
+      "level": "저",
+      "evidenceTier": "Derived"
+    },
+    {
+      "timestamp": "2018-11-15 09:43:10",
+      "sourceFile": "data_sys_6_stride80.csv",
+      "parameter": "cross-cell Vdev (U_Cell_8)",
+      "observedValue": "U_Cell_8=3.632V; 타 Cell=3.567~3.598V; I_Battery=20.09A(충전); voltageClosureError=0.009V",
+      "normalRange": "|Vdev|≤약0.01V, robust z<~3.0(추정)",
+      "deviation": "Vdev=+0.049V, robust z=3.67",
+      "alarmCode": "cross-cell Vdev anomaly (outlierCell=Cell 8)",
+      "level": "중",
+      "evidenceTier": "Derived"
+    },
+    {
+      "timestamp": "2018-11-15 09:43:10",
+      "sourceFile": "data_sys_6_stride80.csv",
+      "parameter": "I_CNV_Cell_8 (동일 행 내 타 Cell 대비 비교)",
+      "observedValue": "I_CNV_Cell_8=-0.409A; 동일 행 타 Cell I_CNV=0.013~0.192A; U_CR=28.692V,I_CR=0.015A(비0=회로 활성)",
+      "normalRange": "타 Cell I_CNV 대비 유사 크기(0 부근, 전체 평균 0.00A)",
+      "deviation": "동일 행 내 절대값 최대, 부호도 반대(음수) — U_CR 활성 구간과 동시 발생",
+      "alarmCode": "N/A (파이프라인 미분류, 원시 컬럼 직접 비교)",
+      "level": "중",
+      "evidenceTier": "Observed"
+    },
+    {
+      "timestamp": "2018-11-15 20:49:50",
+      "sourceFile": "data_sys_6_stride80.csv",
+      "parameter": "cross-cell Vdev (U_Cell_8)",
+      "observedValue": "U_Cell_8=3.642V; 타 Cell=3.572~3.607V; I_Battery=14.36A(충전)",
+      "normalRange": "|Vdev|≤약0.01V, robust z<~3.0(추정)",
+      "deviation": "Vdev=+0.061V(표본 중 최대 절대 Vdev), robust z=3.58",
+      "alarmCode": "cross-cell Vdev anomaly (outlierCell=Cell 8)",
+      "level": "중",
+      "evidenceTier": "Derived"
+    },
+    {
+      "timestamp": "2018-11-16 12:16:30",
+      "sourceFile": "data_sys_6_stride80.csv",
+      "parameter": "I_CNV_Cell_8 (U_CR 활성 구간, 반증 사례)",
+      "observedValue": "U_CR=24.718V,I_CR=0.03A(회로 활성)이지만 I_CNV_Cell_8=0.0A(타 Cell도 대부분 0, Cell2만 -0.001)",
+      "normalRange": "0 부근",
+      "deviation": "U_CR 활성이 항상 Cell 8 대전류를 동반하지 않음을 보여주는 반증 사례",
+      "alarmCode": "N/A (알람#9 컨텍스트 내 비-anchor 행, 참고용)",
+      "level": "저",
+      "evidenceTier": "Observed"
+    },
+    {
+      "timestamp": "2018-11-16 12:29:50",
+      "sourceFile": "data_sys_6_stride80.csv",
+      "parameter": "cross-cell Vdev (U_Cell_8)",
+      "observedValue": "U_Cell_8=3.130V; 타 Cell=3.158~3.182V; I_Battery=-171.82A(급방전)",
+      "normalRange": "|Vdev|≤약0.01V, robust z<~3.0(추정)",
+      "deviation": "Vdev=-0.038V, robust z=3.20",
+      "alarmCode": "cross-cell Vdev anomaly (outlierCell=Cell 8)",
+      "level": "저",
+      "evidenceTier": "Derived"
+    },
+    {
+      "timestamp": "2018-11-16 22:56:30",
+      "sourceFile": "data_sys_6_stride80.csv",
+      "parameter": "cross-cell Vdev (U_Cell_8)",
+      "observedValue": "U_Cell_8=3.513V; 타 Cell=3.468~3.485V; I_Battery=52.14A(충전)",
+      "normalRange": "|Vdev|≤약0.01V, robust z<~3.0(추정)",
+      "deviation": "Vdev=+0.033V, robust z=6.36 (제공 표본 중 최고 z)",
+      "alarmCode": "cross-cell Vdev anomaly (outlierCell=Cell 8)",
+      "level": "고",
+      "evidenceTier": "Derived"
+    },
+    {
+      "timestamp": "2018-11-17 21:09:50",
+      "sourceFile": "data_sys_6_stride80.csv",
+      "parameter": "cross-cell Vdev (U_Cell_8)",
+      "observedValue": "U_Cell_8=3.503V; 타 Cell=3.466~3.477V; I_Battery=44.48A(충전)",
+      "normalRange": "|Vdev|≤약0.01V, robust z<~3.0(추정)",
+      "deviation": "Vdev=+0.030V, robust z=5.06",
+      "alarmCode": "cross-cell Vdev anomaly (outlierCell=Cell 8)",
+      "level": "고",
+      "evidenceTier": "Derived"
+    },
+    {
+      "timestamp": "2018-11-19 23:03:10",
+      "sourceFile": "data_sys_6_stride80.csv",
+      "parameter": "cross-cell Vdev (U_Cell_8)",
+      "observedValue": "U_Cell_8=3.502V; 타 Cell=3.465~3.481V; I_Battery=53.69A(충전)",
+      "normalRange": "|Vdev|≤약0.01V, robust z<~3.0(추정)",
+      "deviation": "Vdev=+0.031V, robust z=4.65",
+      "alarmCode": "cross-cell Vdev anomaly (outlierCell=Cell 8)",
+      "level": "중",
+      "evidenceTier": "Derived"
+    },
+    {
+      "timestamp": "2018-11-23 21:09:50",
+      "sourceFile": "data_sys_6_stride80.csv",
+      "parameter": "cross-cell Vdev (U_Cell_8)",
+      "observedValue": "U_Cell_8=3.551V; 타 Cell=3.504~3.519V; I_Battery=35.93A(충전)",
+      "normalRange": "|Vdev|≤약0.01V, robust z<~3.0(추정)",
+      "deviation": "Vdev=+0.034V, robust z=5.10",
+      "alarmCode": "cross-cell Vdev anomaly (outlierCell=Cell 8)",
+      "level": "고",
+      "evidenceTier": "Derived"
+    },
+    {
+      "timestamp": "2018-11-28 11:29:50",
+      "sourceFile": "data_sys_6_stride80.csv",
+      "parameter": "I_CNV_Cell_8 (동일 행 내 타 Cell 대비 비교)",
+      "observedValue": "I_CNV_Cell_8=-0.523A(표본 중 최대); 동일 행 타 Cell I_CNV=-0.113~0.285A; U_CR=28.137V,I_CR=0.015A",
+      "normalRange": "타 Cell I_CNV 대비 유사 크기; 전체 컬럼 범위는 -1.617~1.645A(이 값은 그 범위의 약 32%로 전체 극값 아님)",
+      "deviation": "표본 내 최대 절대값이나 전체 로그 극값(-1.617/+1.645)은 미제공 구간에 존재 — 추가 확인 필요",
+      "alarmCode": "N/A (파이프라인 미분류, 원시 컬럼 직접 비교)",
+      "level": "중",
+      "evidenceTier": "Observed"
+    },
+    {
+      "timestamp": "2018-11-28 11:49:50",
+      "sourceFile": "data_sys_6_stride80.csv",
+      "parameter": "cross-cell Vdev (U_Cell_8)",
+      "observedValue": "U_Cell_8=3.126V; 타 Cell=3.155~3.179V; I_Battery=-161.56A(급방전)",
+      "normalRange": "|Vdev|≤약0.01V, robust z<~3.0(추정)",
+      "deviation": "Vdev=-0.039V, robust z=3.09 — 20분 전 I_CNV_Cell_8 대전류 관측과 같은 컨텍스트 창 내 위치(인과관계 미확정)",
+      "alarmCode": "cross-cell Vdev anomaly (outlierCell=Cell 8)",
+      "level": "저",
+      "evidenceTier": "Derived"
+    },
+    {
+      "timestamp": "2018-11-30 22:09:50",
+      "sourceFile": "data_sys_6_stride80.csv",
+      "parameter": "cross-cell Vdev (U_Cell_8)",
+      "observedValue": "U_Cell_8=3.526V; 타 Cell=3.484~3.495V; I_Battery=40.29A(충전)",
+      "normalRange": "|Vdev|≤약0.01V, robust z<~3.0(추정)",
+      "deviation": "Vdev=+0.035V, robust z=5.90(표본 중 2위)",
+      "alarmCode": "cross-cell Vdev anomaly (outlierCell=Cell 8)",
+      "level": "고",
+      "evidenceTier": "Derived"
+    },
+    {
+      "timestamp": "전체 로그 기간(2018-04-28~로그 종료, 개별 시각 미상)",
+      "sourceFile": "data_sys_6_stride80.csv",
+      "parameter": "outlierCell 분포 및 maxRobustZ (파일 전체 파생 집계)",
+      "observedValue": "outlierCell 분포: Cell8=9271건(99.0%), Cell3=45건, Cell1=40건, Cell5=6건, Cell7=4건(합 9366); Cell2/4/6은 전무; maxRobustZ 전체범위=0.1999~46.315",
+      "normalRange": "해당 없음(집계 통계, 개별 정상범위 비교 대상 아님)",
+      "deviation": "제공된 상세 표본 40건은 모두 z=3.02~6.36 범위로 전체 최대치(46.3)에 크게 못 미침 → 미제공 9,326건 중 더 심각한 사례 및 Cell1/3/5/7 outlier 95건의 원인은 확인 불가",
+      "alarmCode": "파생 범주 집계 (개별 알람 아님)",
+      "level": "중",
+      "evidenceTier": "Derived"
+    }
+  ]
+}
