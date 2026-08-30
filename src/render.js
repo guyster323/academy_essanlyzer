@@ -389,12 +389,13 @@ function renderAnomalyView() {
   if (state.error && state.error.stage === 'anomaly') out += renderError();
 
   const t = state.lastTruncation;
-  if (t && (t.excludedSources || t.excludedGroups || t.excludedAlarmContexts || t.droppedResistanceEvents || t.textTruncatedChars)) {
+  if (t && (t.excludedSources || t.excludedGroups || t.excludedAlarmContexts || t.droppedResistanceEvents || t.droppedAnomalyWindows || t.textTruncatedChars)) {
     const parts = [];
     if (t.excludedSources) parts.push(`출처 파일 ${t.excludedSources}개 미포함`);
     if (t.excludedGroups) parts.push(`엔티티 그룹 ${t.excludedGroups}개 상세 생략`);
     if (t.excludedAlarmContexts) parts.push(`알람 컨텍스트 ${t.excludedAlarmContexts}건 생략`);
     if (t.droppedResistanceEvents) parts.push(`저항 이벤트 ${t.droppedResistanceEvents.toLocaleString()}건 생략(초기 기준선+최근 창 유지)`);
+    if (t.droppedAnomalyWindows) parts.push(`이상 구간 ${t.droppedAnomalyWindows.toLocaleString()}건 생략(상한 16)`);
     if (t.textTruncatedChars) parts.push(`텍스트 ${t.textTruncatedChars.toLocaleString()}자 절단`);
     out += `<div class="skipped-note" style="color:var(--amber);margin-bottom:12px;">⚠ 프롬프트 규모 제한으로 일부가 생략된 상태로 분석되었습니다: ${parts.join(', ')}.</div>`;
   }

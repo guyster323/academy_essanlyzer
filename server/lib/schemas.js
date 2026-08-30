@@ -74,6 +74,11 @@ export const detectAnomalyTool = {
       },
       anomalyWindows: {
         type: 'array',
+        // Case B gold run produced 16 windows. Not the 700s latency cause
+        // (see latency-root-cause-and-plan.md) — consistency with the other
+        // capped arrays in this file. Overflow is truncated with a note,
+        // never silently (server/lib/validation.js).
+        maxItems: 16,
         items: {
           type: 'object',
           additionalProperties: false,

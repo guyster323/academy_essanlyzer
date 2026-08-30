@@ -36,6 +36,8 @@ test('A-F4 classifies synchronized MW drops as common-mode', () => {
   const af4 = figures.find(f => f.id === 'A-F4');
   assert.equal(af4.summaryStats.mode, 'common-mode');
   assert.match(af4.claim, /동조/);
+  assert.equal(af4.available, true);
+  assert.equal(af4.unavailableReason, null);
 });
 
 test('A-F4 classifies a lone MW drop as local', () => {

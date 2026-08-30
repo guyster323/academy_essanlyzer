@@ -15,6 +15,10 @@ function xySeries(frozen, signal, name, color, which = 'mean', withBand = true) 
   return s;
 }
 
+function unavailableReasonWhen(available, reason) {
+  return available ? null : reason;
+}
+
 function emptyFigure(id, claim, reason, extra = {}) {
   return {
     id, claim, available: false, unavailableReason: reason,
@@ -62,7 +66,7 @@ function aemoFigures(seriesByEntity, focusHint) {
     id: 'A-F1',
     claim: `${focusId} 출력은 당일 정상 운전 범위를 이탈하는 구간이 있다`,
     available: focus.bins.length >= 2,
-    unavailableReason: focus.bins.length >= 2 ? null : '포인트 부족',
+    unavailableReason: unavailableReasonWhen(focus.bins.length >= 2, '포인트 부족'),
     evidenceTier: 'Derived',
     xLabel: '시간', yLabel: 'MW',
     series: [xySeries(focus, 'mw', focusId, CHART_PALETTE[0])],
@@ -79,7 +83,7 @@ function aemoFigures(seriesByEntity, focusHint) {
     id: 'A-F2',
     claim: '주요 변화는 수 분 단위 사건으로 집중된다',
     available: zoom.length >= 3,
-    unavailableReason: zoom.length >= 3 ? null : '이벤트 창에 점이 부족합니다',
+    unavailableReason: unavailableReasonWhen(zoom.length >= 3, '이벤트 창에 점이 부족합니다'),
     evidenceTier: 'Derived',
     xLabel: '시간', yLabel: '정규화 ΔP',
     series: [{ name: focusId, color: CHART_PALETTE[0], t: zoom.map(p => p.t), y: zoom.map(p => p.y) }],
@@ -101,7 +105,7 @@ function aemoFigures(seriesByEntity, focusHint) {
     id: 'A-F3',
     claim: `출력 변화율은 당일 중앙값 대비 크다 (p95=${dP.p95.toFixed(1)} MW/h)`,
     available: rateT.length >= 2,
-    unavailableReason: rateT.length >= 2 ? null : 'dP/dt를 계산할 구간이 없습니다',
+    unavailableReason: unavailableReasonWhen(rateT.length >= 2, 'dP/dt를 계산할 구간이 없습니다'),
     evidenceTier: 'Derived',
     xLabel: '시간', yLabel: '|dP/dt| MW/h',
     series: [{ name: '|dP/dt|', color: CHART_PALETTE[1], t: rateT, y: rateY }],
@@ -123,7 +127,7 @@ function aemoFigures(seriesByEntity, focusHint) {
         ? '포커스 설비만 급변한다 — Local fault branch가 상대적으로 강함'
         : '타 설비와 동시 반응 여부를 이 로그만으로 닫을 수 없다'),
     available: af4Available,
-    unavailableReason: af4Available ? null : (peerSeries.length ? cm.reason : '비교할 타 설비 시계열이 없습니다'),
+    unavailableReason: unavailableReasonWhen(af4Available, peerSeries.length ? cm.reason : '비교할 타 설비 시계열이 없습니다'),
     evidenceTier: 'Derived',
     xLabel: '시간', yLabel: '정규화 ΔP',
     series: peerSeries,
@@ -143,7 +147,7 @@ function aemoFigures(seriesByEntity, focusHint) {
       ? '이벤트 시각에 telemetry 품질이 함께 저하되어 물리적 출력으로 즉시 해석하면 안 된다'
       : '품질 플래그 저하 없이 출력 변화가 관측된다',
     available: qSeries.length > 0,
-    unavailableReason: qSeries.length ? null : 'MW 시계열 없음',
+    unavailableReason: unavailableReasonWhen(qSeries.length, 'MW 시계열 없음'),
     evidenceTier: 'Derived',
     xLabel: '시간', yLabel: 'MW',
     series: qSeries,
@@ -182,7 +186,7 @@ function lfpFigures(seriesByEntity, resistanceEvents) {
       ? `Cell ${rOut.cell} 경로의 유효 직렬저항이 동료 셀과 분리된다 (전기화학/커넥터/부식은 미확정)`
       : '셀 경로 저항 시계열 — 이벤트 전류 전이가 있으면 발산 셀을 표시한다',
     available: rSeries.length > 0,
-    unavailableReason: rSeries.length ? null : '전류 전이 이벤트가 부족해 저항을 추정하지 못했습니다',
+    unavailableReason: unavailableReasonWhen(rSeries.length, '전류 전이 이벤트가 부족해 저항을 추정하지 못했습니다'),
     evidenceTier: 'Derived',
     xLabel: '시간', yLabel: 'R (상대, V/A)',
     series: rSeries,
@@ -201,7 +205,7 @@ function lfpFigures(seriesByEntity, resistanceEvents) {
     id: 'B-F2',
     claim: '저항 분리가 SOC/T/I 매칭 후에도 남는가',
     available: rSeriesMatched.length > 0,
-    unavailableReason: rSeriesMatched.length ? null : '운영점 매칭을 통과한 저항 이벤트가 없습니다',
+    unavailableReason: unavailableReasonWhen(rSeriesMatched.length, '운영점 매칭을 통과한 저항 이벤트가 없습니다'),
     evidenceTier: 'Derived',
     xLabel: '시간', yLabel: 'R (matched)',
     series: rSeriesMatched,
@@ -216,7 +220,7 @@ function lfpFigures(seriesByEntity, resistanceEvents) {
     id: 'B-F3',
     claim: 'Cell 전압 분산이 장기적으로 확대되는가 (전압 잔차 — 저항이 아님)',
     available: b3Available,
-    unavailableReason: b3Available ? null : '전압 분산 시계열이 없습니다',
+    unavailableReason: unavailableReasonWhen(b3Available, '전압 분산 시계열이 없습니다'),
     evidenceTier: 'Derived',
     xLabel: '시간', yLabel: vSignal || 'V',
     series: b3Available ? [xySeries(frozen, vSignal, vSignal, CHART_PALETTE[2])] : [],
@@ -232,7 +236,7 @@ function lfpFigures(seriesByEntity, resistanceEvents) {
       ? `Resistance knee가 ${new Date(knee.t).toISOString().slice(0, 10)} 부근에서 독립 탐지됨`
       : 'Resistance knee를 이 데이터에서 독립 탐지하지 못함',
     available: Boolean(knee.available && focusPts.length),
-    unavailableReason: knee.available ? null : (knee.reason || 'knee 불일치 또는 시계열 부족'),
+    unavailableReason: unavailableReasonWhen(knee.available, knee.reason || 'knee 불일치 또는 시계열 부족'),
     evidenceTier: 'Derived',
     xLabel: '시간', yLabel: 'R',
     series: focusPts.length
@@ -265,7 +269,7 @@ function lfpFigures(seriesByEntity, resistanceEvents) {
       ? `Balancing 부담이 Cell ${ah.indexOf(maxAh) + 1}에 치우치는가 (열/밸런싱이 저항 발산을 설명하는지)`
       : 'Balancing·Temperature가 특정 Cell 이상을 설명하는가',
     available: maxAh > 0,
-    unavailableReason: maxAh > 0 ? null : 'balancing current 컬럼이 없어 B-F6를 그릴 수 없습니다',
+    unavailableReason: unavailableReasonWhen(maxAh > 0, 'balancing current 컬럼이 없어 B-F6를 그릴 수 없습니다'),
     evidenceTier: 'Derived',
     xLabel: 'Cell', yLabel: '|balancing| Ah',
     series: maxAh > 0

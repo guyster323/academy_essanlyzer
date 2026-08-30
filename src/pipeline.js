@@ -126,6 +126,7 @@ function buildTruncationNote(truncation) {
   if (truncation.excludedGroups) parts.push(`엔티티 그룹 ${truncation.excludedGroups}개 상세 생략`);
   if (truncation.excludedAlarmContexts) parts.push(`알람 컨텍스트 ${truncation.excludedAlarmContexts}건 생략`);
   if (truncation.droppedResistanceEvents) parts.push(`저항 이벤트 ${truncation.droppedResistanceEvents.toLocaleString()}건 생략(초기 기준선+최근 창 유지)`);
+  if (truncation.droppedAnomalyWindows) parts.push(`이상 구간 ${truncation.droppedAnomalyWindows.toLocaleString()}건 생략(상한 16, Case B 골드런 16건)`);
   if (truncation.textTruncatedChars) parts.push(`텍스트 ${truncation.textTruncatedChars.toLocaleString()}자 절단`);
   return `[참고: 데이터 규모 제한으로 일부가 생략된 상태입니다 — ${parts.join(', ')}. 생략된 부분에 대한 판단은 "추가 확인 필요"로 명시하십시오.]`;
 }
@@ -406,6 +407,12 @@ export async function runAnomalyDetection() {
     });
     state.issueStructured = json.issueStructured || {};
     state.anomalyWindows = json.anomalyWindows || [];
+    if (json.truncation?.droppedAnomalyWindows) {
+      state.lastTruncation = {
+        ...(state.lastTruncation || {}),
+        droppedAnomalyWindows: json.truncation.droppedAnomalyWindows
+      };
+    }
     const af4 = (state.figureSpecs || []).find(f => f.id === 'A-F4');
     state.evidenceLedger = buildEvidenceLedger({
       blocks: allBlocks,
@@ -461,24 +468,38 @@ export async function runHypothesisGeneration() {
   render();
 }
 
-function stripBucketHeavy(bucket) {
-  if (!bucket || typeof bucket !== 'object') return bucket;
-  const { series, resistanceEvents, recentWindow, _lfpPrev, _seriesPrevMw, ...rest } = bucket;
-  return rest;
+// Single place for snapshot omit-lists. stripBucketHeavy and the
+// logSources.map destructure used to each have their own blocklist and
+// silently drifted when a new heavy field was added.
+const SNAPSHOT_DROP_FROM_SOURCE = ['_ref', 'format', 'seriesByEntity', 'resistanceEventsByEntity'];
+const SNAPSHOT_DROP_FROM_BUCKET = ['series', 'resistanceEvents', 'recentWindow', '_lfpPrev', '_seriesPrevMw'];
+
+function omitFields(obj, keys) {
+  if (!obj || typeof obj !== 'object') return obj;
+  const copy = { ...obj };
+  for (const key of keys) delete copy[key];
+  return copy;
 }
 
-function snapshotState(s) {
+function stripBucketHeavy(bucket) {
+  return omitFields(bucket, SNAPSHOT_DROP_FROM_BUCKET);
+}
+
+export function snapshotState(s) {
   // Drop non-serializable / heavy fields (File handles, JSZip entries, format
   // adapter functions, downsampled series, PNG specs) before the JSON round-trip.
   const clone = {
     ...s,
     figureSpecs: undefined,
-    logSources: s.logSources.map(({ _ref, format, seriesByEntity, resistanceEventsByEntity, groups, ...rest }) => ({
-      ...rest,
-      groups: groups
-        ? Object.fromEntries(Object.entries(groups).map(([id, bucket]) => [id, stripBucketHeavy(bucket)]))
-        : groups
-    }))
+    logSources: s.logSources.map((src) => {
+      const rest = omitFields(src, SNAPSHOT_DROP_FROM_SOURCE);
+      return {
+        ...rest,
+        groups: src.groups
+          ? Object.fromEntries(Object.entries(src.groups).map(([id, bucket]) => [id, stripBucketHeavy(bucket)]))
+          : src.groups
+      };
+    })
   };
   return JSON.parse(JSON.stringify(clone));
 }

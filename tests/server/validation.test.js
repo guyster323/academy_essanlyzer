@@ -41,6 +41,33 @@ test('detect-anomaly response accepts a rich, multi-instance derived-metric obse
   assert.equal(result.anomalyWindows[0].observedValue, richText);
 });
 
+test('detect-anomaly response truncates anomalyWindows above the Case B gold-run cap of 16 and records the drop', () => {
+  const window = {
+    timestamp: 't', sourceFile: 'f', parameter: 'p', observedValue: 'v',
+    normalRange: 'n', deviation: 'd', alarmCode: 'a', level: '고', evidenceTier: 'Derived'
+  };
+  const result = parseStructuredResult('detect-anomaly', {
+    issueStructured: { issueType: 't', facility: 'f', occurredAt: 'o', priorHistory: 'p' },
+    anomalyWindows: Array.from({ length: 18 }, () => ({ ...window }))
+  });
+  assert.equal(result.anomalyWindows.length, 16);
+  assert.equal(result.truncation.droppedAnomalyWindows, 2);
+  assert.equal(result.truncation.kept, 16);
+});
+
+test('detect-anomaly response of exactly 16 windows is not truncated', () => {
+  const window = {
+    timestamp: 't', sourceFile: 'f', parameter: 'p', observedValue: 'v',
+    normalRange: 'n', deviation: 'd', alarmCode: 'a', level: '고', evidenceTier: 'Derived'
+  };
+  const result = parseStructuredResult('detect-anomaly', {
+    issueStructured: { issueType: 't', facility: 'f', occurredAt: 'o', priorHistory: 'p' },
+    anomalyWindows: Array.from({ length: 16 }, () => ({ ...window }))
+  });
+  assert.equal(result.anomalyWindows.length, 16);
+  assert.equal(result.truncation, undefined);
+});
+
 test('detect-anomaly response still rejects an observedValue beyond the 800-char bound', () => {
   assert.throws(() => parseStructuredResult('detect-anomaly', {
     issueStructured: { issueType: 't', facility: 'f', occurredAt: 'o', priorHistory: 'p' },
