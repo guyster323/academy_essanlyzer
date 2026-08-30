@@ -19,5 +19,8 @@
 | `latency-findings.md` | 2026-08-30: 6-1 timeout 20min; 6-2 cli still ignores maxTokens (thinking 4k–21k); 6-3 --effort not adopted (n=3, spread > gap); 6-4 per-chunk yield removed (yieldWait 29%→8% on System 6). |
 | `latency-effort-outputs/` | Raw `--effort` structured outputs + COMPARISON.md for human quality judgment. |
 | `latency-stream-profiles/` | Node phase profiles for stride80 CSV and System 6 ZIP, before/after yield change. |
+| `evidence-conflict-and-cleanup-plan.md` | 2026-08-30: Cell 8 (voltage residual) vs Cell 5 (event resistance) must be a structural UI warning, plus follow-up profiling/docs/cleanup. |
+| `evidence-conflict-step2.png` / `evidence-conflict-step4.png` | Live UI: the Cell 8 vs Cell 5 split on anomaly view (Step 2) and at the hypothesis decision point (Step 4). |
+| `evidence-conflict-no-false-positive.png` | Same banner absent on generic CSV with no conflict. |
 
 PR: https://github.com/guyster323/academy_essanlyzer/pull/2
