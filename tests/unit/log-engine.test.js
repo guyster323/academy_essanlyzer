@@ -133,13 +133,20 @@ test('LFP stream past MAX_RESISTANCE_EVENTS keeps recent events and reports the 
   applyAccumulatorToSource(src, acc);
   const events = Object.values(src.resistanceEventsByEntity)[0];
   assert.ok(events);
-  assert.equal(events.length, MAX_RESISTANCE_EVENTS);
-  assert.equal(src.droppedResistanceEvents, extra);
+  assert.ok(events.length <= MAX_RESISTANCE_EVENTS);
+  const qualifying = rows - 1; // first curr is row 1
+  assert.equal(src.droppedResistanceEvents, qualifying - events.length);
   const lastT = events[events.length - 1].t;
   const expectedLast = t0 + (rows - 1) * 86400000;
   assert.equal(lastT, expectedLast);
   const firstT = events[0].t;
   assert.equal(firstT, t0 + 1 * 86400000); // first qualifying event is curr of row 1
+  for (let i = 1; i < events.length; i++) assert.ok(events[i].t >= events[i - 1].t);
+  const years = src.resistanceEventYearCounts;
+  assert.ok(years['2017'] > 0);
+  assert.ok(years['2018'] > 0);
+  assert.ok(src.resistanceEventTimeDistribution.length > 0);
+  assert.ok(src.resistanceEventTimeDistribution.some(b => b.count > 0));
 });
 
 test('streamIntoSource profile records per-phase timings without changing row counts', async () => {

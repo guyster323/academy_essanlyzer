@@ -29,7 +29,12 @@ function sourceProfileText(sourceProfiles, sourceFormats) {
         : '';
       time = `, 데이터 ${formatProfileTimeRange(profile.dataTimeRange)} / 알람 근거 ${formatProfileTimeRange(profile.evidenceTimeRange)}${pct}`;
     }
-    return `- ${name}: ${id}${label}${entity}${derived}${time}`;
+    const yearCounts = profile.resistanceEventYearCounts || {};
+    const years = Object.keys(yearCounts).sort();
+    const resistance = years.length
+      ? `, 저항 유지 ${years.map(y => `${y}:${yearCounts[y]}`).join(' ')}`
+      : '';
+    return `- ${name}: ${id}${label}${entity}${derived}${time}${resistance}`;
   }).join('\n');
 }
 

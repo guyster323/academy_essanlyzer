@@ -66,6 +66,15 @@ const sourceProfileSchema = z.object({
     startMs: z.number(),
     endMs: z.number(),
     count: z.number().int().nonnegative()
+  }).strict()).max(16).optional(),
+  droppedResistanceEvents: z.number().int().nonnegative().optional(),
+  resistanceEventYearCounts: z.record(z.string().max(8), z.number().int().nonnegative()).optional(),
+  resistanceEventTimeDistribution: z.array(z.object({
+    start: z.string().max(40),
+    end: z.string().max(40),
+    startMs: z.number(),
+    endMs: z.number(),
+    count: z.number().int().nonnegative()
   }).strict()).max(16).optional()
 }).strict();
 

@@ -6,7 +6,7 @@ import {
 } from './forensics/aemo.js';
 import {
   resistanceSeriesByCell, binMatch, detectKnee, outlierCellByResistance, balancingBurden,
-  normalizeResistanceEvents, resistanceEventsDroppedCount
+  normalizeResistanceEvents, resistanceEventsDroppedCount, resistanceEventYearCounts
 } from './forensics/lfp.js';
 
 function xySeries(frozen, signal, name, color, which = 'mean', withBand = true) {
@@ -192,7 +192,13 @@ function lfpFigures(seriesByEntity, resistanceEvents) {
     xLabel: '시간', yLabel: 'R (상대, V/A)',
     series: rSeries,
     markers: [],
-    summaryStats: { outlierCell: rOut.cell, deltaR: rOut.score, eventCount: events.length, matchedCount: matched.length, droppedEvents }
+    summaryStats: {
+      outlierCell: rOut.cell, deltaR: rOut.score,
+      eventCount: events.length, matchedCount: matched.length, droppedEvents,
+      yearCounts: resistanceEventYearCounts(events),
+      firstEventT: events[0]?.t ?? null,
+      lastEventT: events.length ? events[events.length - 1].t : null
+    }
   });
 
   const matchedSeries = resistanceSeriesByCell(matched);

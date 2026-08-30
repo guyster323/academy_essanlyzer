@@ -12,10 +12,12 @@ import {
   MAX_SERIES_BUFFERS, MAX_SERIES_POINTS, createSeriesBuffer, pushSample, freezeSeries,
   parseTimestampMs
 } from './series-engine.js';
-import { normalizeResistanceEvents, resistanceEventsDroppedCount } from './forensics/lfp.js';
+import {
+  normalizeResistanceEvents, resistanceEventsDroppedCount, resistanceEventYearCounts
+} from './forensics/lfp.js';
 import {
   extendTimeRange, considerAlarmSample, finalizeBucketTime, rollupGroupTime,
-  recordCategoryTime
+  recordCategoryTime, histogramTimes
 } from './time-coverage.js';
 
 export const LOG_EXT_ALLOW = ['csv', 'txt', 'log', 'tsv', 'dat'];
@@ -125,6 +127,8 @@ function makeBucket() {
     evidenceTimeRange: null,
     timeCoverageRatio: null,
     alarmSampleTimeDistribution: [],
+    resistanceEventTimeDistribution: [],
+    resistanceEventYearCounts: {},
     recentWindow: [],
     stats: {},
     derived: {
@@ -487,6 +491,28 @@ function freezeBucketEvidence(bucket, entityId) {
   };
 }
 
+function mergeResistanceRetention(lists, dataRange) {
+  const yearCounts = {};
+  const times = [];
+  let dropped = 0;
+  for (const list of lists) {
+    if (!Array.isArray(list) || !list.length) continue;
+    dropped += resistanceEventsDroppedCount(list);
+    const yc = list.yearCounts || resistanceEventYearCounts(list);
+    for (const [year, n] of Object.entries(yc)) {
+      yearCounts[year] = (yearCounts[year] || 0) + n;
+    }
+    for (const ev of list) {
+      if (Number.isFinite(ev?.t)) times.push(ev.t);
+    }
+  }
+  return {
+    dropped,
+    yearCounts,
+    timeDistribution: histogramTimes(times, dataRange)
+  };
+}
+
 export function finalizeAccumulator(acc) {
   if (!acc) return acc;
   if (acc.groups) rollupGroupTime(acc);
@@ -502,6 +528,8 @@ export function applyAccumulatorToSource(src, acc) {
   src.alarmCount = acc.alarmCount;
   src.malformedRowCount = acc.malformedRowCount || 0;
   src.droppedResistanceEvents = 0;
+  src.resistanceEventYearCounts = {};
+  src.resistanceEventTimeDistribution = [];
   src.entityColumn = acc.entityColumn;
   src.timestampColumn = acc.timestampColumn;
   src.dataTimeRange = acc.dataTimeRange || null;
@@ -515,6 +543,7 @@ export function applyAccumulatorToSource(src, acc) {
   src.alarmSampleTimes = acc.alarmSampleTimes || [];
   src.seriesByEntity = {};
   src.resistanceEventsByEntity = {};
+  const resistanceLists = [];
   if (acc.groups) {
     src.headSample = [];
     src.alarmSamples = [];
@@ -522,8 +551,10 @@ export function applyAccumulatorToSource(src, acc) {
     Object.entries(acc.groups).forEach(([id, bucket]) => {
       const ev = freezeBucketEvidence(bucket, id);
       if (ev.series) src.seriesByEntity[id] = ev.series;
-      if (ev.resistanceEvents.length) src.resistanceEventsByEntity[id] = ev.resistanceEvents;
-      src.droppedResistanceEvents += resistanceEventsDroppedCount(ev.resistanceEvents);
+      if (ev.resistanceEvents.length) {
+        src.resistanceEventsByEntity[id] = ev.resistanceEvents;
+        resistanceLists.push(ev.resistanceEvents);
+      }
     });
   } else {
     src.headSample = acc.headSample;
@@ -531,9 +562,15 @@ export function applyAccumulatorToSource(src, acc) {
     src.stats = acc.stats;
     const ev = freezeBucketEvidence(acc, src.name || '_file');
     if (ev.series) src.seriesByEntity[ev.series.entityId] = ev.series;
-    if (ev.resistanceEvents.length) src.resistanceEventsByEntity[ev.series?.entityId || '_file'] = ev.resistanceEvents;
-    src.droppedResistanceEvents += resistanceEventsDroppedCount(ev.resistanceEvents);
+    if (ev.resistanceEvents.length) {
+      src.resistanceEventsByEntity[ev.series?.entityId || '_file'] = ev.resistanceEvents;
+      resistanceLists.push(ev.resistanceEvents);
+    }
   }
+  const retention = mergeResistanceRetention(resistanceLists, src.dataTimeRange);
+  src.droppedResistanceEvents = retention.dropped;
+  src.resistanceEventYearCounts = retention.yearCounts;
+  src.resistanceEventTimeDistribution = retention.timeDistribution;
   src.score = scoreSource(src.name, src.columns.join(src.delimiter));
   src.status = 'ready';
 }

@@ -189,6 +189,8 @@ function sys6FromState() {
         alarmCount: src.alarmCount,
         derivedAlarmCount,
         droppedResistanceEvents: src.droppedResistanceEvents,
+        resistanceEventYearCounts: src.resistanceEventYearCounts,
+        resistanceEventTimeDistribution: src.resistanceEventTimeDistribution,
         alarmDroppedCount: src.alarmDroppedCount,
         malformedRowCount: src.malformedRowCount,
         dataTimeRange: src.dataTimeRange,

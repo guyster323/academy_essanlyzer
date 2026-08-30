@@ -5,7 +5,9 @@ import { fileURLToPath } from 'node:url';
 import path from 'node:path';
 import {
   considerResistanceEvent, detectKnee, outlierCellByResistance, eventResistance,
-  normalizeResistanceEvents, RESISTANCE_BASELINE_KEEP
+  normalizeResistanceEvents, resistanceEventYearCounts, formatResistanceDropNote,
+  RESISTANCE_BASELINE_KEEP, RESISTANCE_PER_BIN,
+  RESISTANCE_RETENTION_POLICY
 } from '../../src/forensics/lfp.js';
 import { MAX_RESISTANCE_EVENTS } from '../../src/series-engine.js';
 
@@ -85,30 +87,100 @@ test('resistance event list stays within the cap', () => {
   assert.ok(events.length <= MAX_RESISTANCE_EVENTS);
 });
 
-test('overflow past 4000 keeps the early baseline and the most recent events, and counts drops', () => {
-  const events = [];
+function feedResistanceEvents(events, times) {
   const cells = Array(8).fill(3.3);
-  const extra = 250;
-  const total = MAX_RESISTANCE_EVENTS + extra;
-  for (let i = 0; i < total; i++) {
+  for (const t of times) {
     considerResistanceEvent(
-      { t: i * 1000, i: -4, cells, soc: 50, tMean: 20, bal: null },
-      { t: i * 1000 + 10, i: -20, cells, soc: 50, tMean: 20, bal: null },
+      { t: t - 10, i: -4, cells, soc: 50, tMean: 20, bal: null },
+      { t, i: -20, cells, soc: 50, tMean: 20, bal: null },
       events
     );
   }
+  return events;
+}
+
+function largestInternalGap(events) {
+  let gap = 0;
+  let from = null;
+  let to = null;
+  for (let i = 1; i < events.length; i++) {
+    const dt = events[i].t - events[i - 1].t;
+    if (dt > gap) {
+      gap = dt;
+      from = events[i - 1].t;
+      to = events[i].t;
+    }
+  }
+  return { gap, from, to };
+}
+
+test('events under the cap stay complete, ordered, and drop nothing', () => {
+  const events = [];
+  const n = 120;
+  feedResistanceEvents(events, Array.from({ length: n }, (_, i) => i * 1000 + 10));
+  assert.equal(events.length, n);
+  assert.equal(events.droppedCount || 0, 0);
   normalizeResistanceEvents(events);
-  assert.equal(events.length, MAX_RESISTANCE_EVENTS);
-  assert.equal(events.droppedCount, extra);
-  // Early baseline (first half) is preserved.
+  assert.equal(events.length, n);
+  assert.equal(events.droppedCount || 0, 0);
   assert.equal(events[0].t, 10);
-  assert.equal(events[RESISTANCE_BASELINE_KEEP - 1].t, (RESISTANCE_BASELINE_KEEP - 1) * 1000 + 10);
-  // Most recent events survive — this is the late-stage knee window.
-  const last = events[events.length - 1];
-  assert.equal(last.t, (total - 1) * 1000 + 10);
+  assert.equal(events[n - 1].t, (n - 1) * 1000 + 10);
+  for (let i = 1; i < events.length; i++) assert.ok(events[i].t >= events[i - 1].t);
+});
+
+test('overflow past 4000 keeps a small early baseline, the newest event, and counts drops', () => {
+  const events = [];
+  const extra = 250;
+  const total = MAX_RESISTANCE_EVENTS + extra;
+  feedResistanceEvents(events, Array.from({ length: total }, (_, i) => i * 1000 + 10));
+  normalizeResistanceEvents(events);
+  assert.ok(events.length <= MAX_RESISTANCE_EVENTS);
+  assert.equal(events.droppedCount, total - events.length);
+  assert.equal(events[0].t, 10);
   const times = new Set(events.map(e => e.t));
-  assert.equal(times.has((total - 1) * 1000 + 10), true);
-  assert.equal(times.has((total - extra) * 1000 + 10), true);
-  // The first overflow victim (oldest of the original recent half) is gone.
-  assert.equal(times.has(RESISTANCE_BASELINE_KEEP * 1000 + 10), false);
+  for (let i = 0; i < RESISTANCE_BASELINE_KEEP; i++) {
+    assert.equal(times.has(i * 1000 + 10), true, `baseline event ${i} was dropped`);
+  }
+  assert.equal(events[events.length - 1].t, (total - 1) * 1000 + 10);
+  for (let i = 1; i < events.length; i++) assert.ok(events[i].t >= events[i - 1].t);
+});
+
+test('full-resolution Case B shape keeps every year and a sane max gap', () => {
+  // 579,026 qualifying events over 2018-04-28..2022-01-10. The old
+  // baseline+recent cap kept {2018:2000, 2022:2000} with a 1,344-day hole.
+  const t0 = Date.UTC(2018, 3, 28);
+  const t1 = Date.UTC(2022, 0, 10);
+  const n = 579_026;
+  const events = [];
+  const times = new Array(n);
+  const span = t1 - t0;
+  for (let i = 0; i < n; i++) times[i] = t0 + Math.round((span * i) / (n - 1));
+  feedResistanceEvents(events, times);
+  normalizeResistanceEvents(events);
+
+  assert.ok(events.length <= MAX_RESISTANCE_EVENTS);
+  assert.ok(events.length >= RESISTANCE_BASELINE_KEEP + 8 * RESISTANCE_PER_BIN);
+  assert.equal(events.droppedCount, n - events.length);
+  assert.equal(events[0].t, t0);
+  assert.equal(events[events.length - 1].t, t1);
+  for (let i = 1; i < events.length; i++) assert.ok(events[i].t >= events[i - 1].t);
+
+  const years = events.yearCounts || resistanceEventYearCounts(events);
+  for (const y of ['2018', '2019', '2020', '2021', '2022']) {
+    assert.ok(years[y] > 0, `${y} retained 0 events (old cap left 2019-2021 empty)`);
+  }
+  const { gap } = largestInternalGap(events);
+  const gapDays = gap / 86400000;
+  const spanDays = span / 86400000;
+  assert.ok(
+    gap / span < 0.10,
+    `largest gap ${gapDays.toFixed(1)} days is ${(100 * gap / span).toFixed(1)}% of ${spanDays.toFixed(1)}-day span`
+  );
+
+  assert.ok(events.yearCounts);
+  assert.deepEqual(events.yearCounts, years);
+  const note = formatResistanceDropNote(events.droppedCount, events.yearCounts);
+  assert.equal(note.includes(RESISTANCE_RETENTION_POLICY), true);
+  assert.equal(note.includes('2019:'), true);
+  assert.equal(note.includes('2021:'), true);
 });

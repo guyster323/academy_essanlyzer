@@ -1,0 +1,159 @@
+{
+  "capturedAt": "2026-08-30T14:09:17.781Z",
+  "wallMs": 10937,
+  "wallMin": 0.2,
+  "rowCount": 240603,
+  "derivedAlarmCount": 9366,
+  "outlierCellVdev": {
+    "Cell 8": 9271,
+    "Cell 7": 4,
+    "Cell 3": 45,
+    "Cell 1": 40,
+    "Cell 5": 6
+  },
+  "droppedResistanceEvents": 53353,
+  "resistanceEventYearCounts": {
+    "2018": 382,
+    "2019": 660,
+    "2020": 667,
+    "2021": 609,
+    "2022": 6
+  },
+  "resistanceEventTimeDistribution": [
+    {
+      "startMs": 1524908705000,
+      "endMs": 1539519979375,
+      "start": "2018-04-28T09:45:05.000Z",
+      "end": "2018-10-14T12:26:19.375Z",
+      "count": 4
+    },
+    {
+      "startMs": 1539519979375,
+      "endMs": 1554131253750,
+      "start": "2018-10-14T12:26:19.375Z",
+      "end": "2019-04-01T15:07:33.750Z",
+      "count": 545
+    },
+    {
+      "startMs": 1554131253750,
+      "endMs": 1568742528125,
+      "start": "2019-04-01T15:07:33.750Z",
+      "end": "2019-09-17T17:48:48.125Z",
+      "count": 305
+    },
+    {
+      "startMs": 1568742528125,
+      "endMs": 1583353802500,
+      "start": "2019-09-17T17:48:48.125Z",
+      "end": "2020-03-04T20:30:02.500Z",
+      "count": 303
+    },
+    {
+      "startMs": 1583353802500,
+      "endMs": 1597965076875,
+      "start": "2020-03-04T20:30:02.500Z",
+      "end": "2020-08-20T23:11:16.875Z",
+      "count": 320
+    },
+    {
+      "startMs": 1597965076875,
+      "endMs": 1612576351250,
+      "start": "2020-08-20T23:11:16.875Z",
+      "end": "2021-02-06T01:52:31.250Z",
+      "count": 318
+    },
+    {
+      "startMs": 1612576351250,
+      "endMs": 1627187625625,
+      "start": "2021-02-06T01:52:31.250Z",
+      "end": "2021-07-25T04:33:45.625Z",
+      "count": 290
+    },
+    {
+      "startMs": 1627187625625,
+      "endMs": 1641798900000,
+      "start": "2021-07-25T04:33:45.625Z",
+      "end": "2022-01-10T07:15:00.000Z",
+      "count": 239
+    }
+  ],
+  "eventCount": 2324,
+  "firstEventT": "2018-10-09T23:26:05.000Z",
+  "lastEventT": "2022-01-06T12:33:00.000Z",
+  "dataTimeRange": {
+    "minMs": 1524908705000,
+    "maxMs": 1641798900000,
+    "min": "2018-04-28T09:45:05.000Z",
+    "max": "2022-01-10T07:15:00.000Z"
+  },
+  "spanDays": 1352.895775462963,
+  "largestGap": {
+    "gapMs": 4969680000,
+    "gapDays": 57.519444444444446,
+    "from": "2021-11-09T20:05:00.000Z",
+    "to": "2022-01-06T08:33:00.000Z"
+  },
+  "gapFractionOfSpan": 0.04251579869466383,
+  "bf1": {
+    "available": true,
+    "claim": "Cell 5 경로의 유효 직렬저항이 동료 셀과 분리된다 (전기화학/커넥터/부식은 미확정)",
+    "summaryStats": {
+      "outlierCell": 5,
+      "deltaR": -0.000030030814861192745,
+      "eventCount": 2324,
+      "matchedCount": 723,
+      "droppedEvents": 53353,
+      "yearCounts": {
+        "2018": 382,
+        "2019": 660,
+        "2020": 667,
+        "2021": 609,
+        "2022": 6
+      },
+      "firstEventT": 1539127565000,
+      "lastEventT": 1641472380000
+    }
+  },
+  "bf4": {
+    "available": true,
+    "unavailableReason": null,
+    "claim": "Resistance knee가 2019-02-11 부근에서 독립 탐지됨",
+    "summaryStats": {
+      "cell": 5,
+      "kneeT": 1549897200000,
+      "piecewiseT": 1550156400000,
+      "kneedleT": 1549638000000,
+      "available": true,
+      "droppedEvents": 53353,
+      "firstEventT": 1539127565000,
+      "lastEventT": 1641472380000
+    }
+  },
+  "bf5": {
+    "available": false,
+    "unavailableReason": "GP/BattGP는 이번 범위에서 미구현 — Unknown으로 남깁니다"
+  },
+  "attributionConflict": {
+    "status": "conflict",
+    "voltageResidual": {
+      "cell": "Cell 8",
+      "count": 9271,
+      "total": 9366,
+      "share": 0.9898569293188128,
+      "counts": {
+        "Cell 8": 9271,
+        "Cell 7": 4,
+        "Cell 3": 45,
+        "Cell 1": 40,
+        "Cell 5": 6
+      }
+    },
+    "eventResistance": {
+      "cell": "Cell 5",
+      "deltaR": -0.000030030814861192745,
+      "matchedCount": 723,
+      "droppedEvents": 53353,
+      "eventCount": 2324
+    }
+  }
+}

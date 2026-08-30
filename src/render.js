@@ -1,6 +1,7 @@
 import { state, session, STEPS, CS_TEMPLATES, HYPOTHESIS_DOMAINS, isHumanReviewComplete, describeLoadingProgress } from './state.js';
 import { formatBytes, MAX_SELECTED_SOURCES } from './log-engine.js';
 import { formatTimeRange, formatCoveragePct, isLowTimeCoverage } from './time-coverage.js';
+import { formatResistanceDropNote, formatResistanceYearCounts } from './forensics/lfp.js';
 import { paintFigureCanvases } from './charts.js';
 import { detectAttributionConflict, describeAttributionConflict } from './attribution-conflict.js';
 
@@ -279,10 +280,16 @@ function renderTimeCoverage(s) {
   const dist = Array.isArray(s.alarmSampleTimeDistribution) && s.alarmSampleTimeDistribution.length
     ? s.alarmSampleTimeDistribution.map(b => `${esc((b.start || '').slice(0, 10))}:${b.count}`).join(' · ')
     : '';
+  const rYears = formatResistanceYearCounts(s.resistanceEventYearCounts);
+  const rDist = Array.isArray(s.resistanceEventTimeDistribution) && s.resistanceEventTimeDistribution.length
+    ? s.resistanceEventTimeDistribution.map(b => `${esc((b.start || '').slice(0, 10))}:${b.count}`).join(' · ')
+    : '';
   return `<div class="time-coverage${warn ? ' warn' : ''}" data-time-coverage="${warn ? 'low' : 'ok'}">
     <div>데이터 구간 ${esc(formatTimeRange(s.dataTimeRange))}</div>
     <div>알람 근거 구간 ${esc(formatTimeRange(s.evidenceTimeRange))} · 커버리지 ${esc(pct)}${warn ? ' — 전체 구간의 일부만 덮음' : ''}</div>
     ${dist ? `<div data-alarm-time-dist="1">유지 샘플 분포 ${dist}</div>` : ''}
+    ${rYears ? `<div data-resistance-year-dist="1">저항 유지 연도 ${esc(rYears)}</div>` : ''}
+    ${rDist ? `<div data-resistance-time-dist="1">저항 유지 분포 ${rDist}</div>` : ''}
     ${renderCategoryTime(s.derived)}
   </div>`;
 }
@@ -295,10 +302,16 @@ function renderSourceProfilesCoverage(profiles) {
     const dist = Array.isArray(p.alarmSampleTimeDistribution) && p.alarmSampleTimeDistribution.length
       ? p.alarmSampleTimeDistribution.map(b => `${esc((b.start || '').slice(0, 10))}:${b.count}`).join(' · ')
       : '';
+    const rYears = formatResistanceYearCounts(p.resistanceEventYearCounts);
+    const rDist = Array.isArray(p.resistanceEventTimeDistribution) && p.resistanceEventTimeDistribution.length
+      ? p.resistanceEventTimeDistribution.map(b => `${esc((b.start || '').slice(0, 10))}:${b.count}`).join(' · ')
+      : '';
     return `<div class="time-coverage${warn ? ' warn' : ''}" data-time-coverage="${warn ? 'low' : 'ok'}">
       <div>${esc(p.sourceFile || '출처')}</div>
       <div>데이터 ${esc(formatTimeRange(p.dataTimeRange))} · 알람 근거 ${esc(formatTimeRange(p.evidenceTimeRange))} · 커버리지 ${esc(formatCoveragePct(p.timeCoverageRatio))}${warn ? ' — 전체 구간의 일부만 덮음' : ''}</div>
       ${dist ? `<div data-alarm-time-dist="1">유지 샘플 분포 ${dist}</div>` : ''}
+      ${rYears ? `<div data-resistance-year-dist="1">저항 유지 연도 ${esc(rYears)}</div>` : ''}
+      ${rDist ? `<div data-resistance-time-dist="1">저항 유지 분포 ${rDist}</div>` : ''}
     </div>`;
   }).join('');
   const categoryBlocks = (state.logSources || [])
@@ -350,7 +363,7 @@ function renderSourceItem(s) {
     const previewRows = s.headSample.length
       ? s.headSample.slice(0, 5).map(r => s.columns.map(c => r[c]).join(' | ')).join('\n')
       : (s.groups ? Object.entries(s.groups).slice(0, 3).map(([k, g]) => `[${k}] ` + (g.headSample[0] ? s.columns.map(c => g.headSample[0][c]).join(' | ') : '')).join('\n') : '');
-    statusLine = `<span class="source-sub">${esc(s.sizeLabel)} · ${s.rowCount.toLocaleString()}행 · 알람 ${s.alarmCount}건 · 파생 이상 ${derivedAlarmCount}건${s.malformedRowCount ? ` · <span style="color:var(--amber)">손상 행 ${s.malformedRowCount}건(파싱 제외)</span>` : ''}${s.droppedResistanceEvents ? ` · <span style="color:var(--amber)">저항 이벤트 ${s.droppedResistanceEvents.toLocaleString()}건 생략(초기 기준선+최근 창 유지)</span>` : ''}${s.alarmDroppedCount ? ` · <span style="color:var(--amber)">알람 컨텍스트 ${s.alarmDroppedCount.toLocaleString()}건 생략(시간 계층화 유지)</span>` : ''} · 구분자 '${dispDelim}'</span>
+    statusLine = `<span class="source-sub">${esc(s.sizeLabel)} · ${s.rowCount.toLocaleString()}행 · 알람 ${s.alarmCount}건 · 파생 이상 ${derivedAlarmCount}건${s.malformedRowCount ? ` · <span style="color:var(--amber)">손상 행 ${s.malformedRowCount}건(파싱 제외)</span>` : ''}${s.droppedResistanceEvents ? ` · <span style="color:var(--amber)">${esc(formatResistanceDropNote(s.droppedResistanceEvents, s.resistanceEventYearCounts))}</span>` : ''}${s.alarmDroppedCount ? ` · <span style="color:var(--amber)">알람 컨텍스트 ${s.alarmDroppedCount.toLocaleString()}건 생략(시간 계층화 유지)</span>` : ''} · 구분자 '${dispDelim}'</span>
       <select class="enc-select" onchange="setSourceEncoding('${s.id}', this.value)">
         <option value="utf-8" ${s.encoding === 'utf-8' ? 'selected' : ''}>UTF-8</option>
         <option value="euc-kr" ${s.encoding === 'euc-kr' ? 'selected' : ''}>EUC-KR</option>
@@ -453,7 +466,7 @@ function renderAnomalyView() {
     if (t.excludedSources) parts.push(`출처 파일 ${t.excludedSources}개 미포함`);
     if (t.excludedGroups) parts.push(`엔티티 그룹 ${t.excludedGroups}개 상세 생략`);
     if (t.excludedAlarmContexts) parts.push(`알람 컨텍스트 ${t.excludedAlarmContexts}건 생략`);
-    if (t.droppedResistanceEvents) parts.push(`저항 이벤트 ${t.droppedResistanceEvents.toLocaleString()}건 생략(초기 기준선+최근 창 유지)`);
+    if (t.droppedResistanceEvents) parts.push(formatResistanceDropNote(t.droppedResistanceEvents, t.resistanceEventYearCounts));
     if (t.droppedAnomalyWindows) parts.push(`이상 구간 ${t.droppedAnomalyWindows.toLocaleString()}건 생략(상한 16)`);
     if (t.textTruncatedChars) parts.push(`텍스트 ${t.textTruncatedChars.toLocaleString()}자 절단`);
     out += `<div class="skipped-note" style="color:var(--amber);margin-bottom:12px;">⚠ 프롬프트 규모 제한으로 일부가 생략된 상태로 분석되었습니다: ${parts.join(', ')}.</div>`;
