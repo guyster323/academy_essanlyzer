@@ -17,8 +17,8 @@ fine if you've never used a terminal before.
 
 Upload a battery (ESS) log file, and the AI finds unusual segments and suggests a few
 candidate causes. **The AI never makes the final call** — which cause is correct and how
-severe it is always gets confirmed by a human engineer at the end. The AI only produces a
-draft to save time.
+severe it is always gets confirmed by a human engineer at the end. When evidence conflicts,
+the app does not pick a side. It makes sure the engineer sees every basis for deciding.
 
 Your log files never leave your computer (the browser). Only a statistical summary and a
 handful of sample lines are ever sent to the server — the raw file itself is never
@@ -103,15 +103,15 @@ If you have your own CSV/TXT/LOG file or a ZIP archive:
 
 ## 🎬 Demo video — analyzing the Darmstadt (Case B) battery field dataset
 
-A real run against the real public LFP battery field dataset (`data_sys_28.csv`): upload →
-anomaly detection → hypothesis generation → human review → report draft, start to finish
-(including 3 real Claude responses).
+Upload → anomaly detection → hypothesis generation → human review → report draft against
+the public LFP field dataset. Gold Case B really takes about 29–36 minutes; the clip below
+has waits cut.
 
 <p align="center">
   <img src="assets/demo-case-b-hero.gif" alt="Case B analysis demo highlight" width="720">
 </p>
 
-▶️ [Watch the full demo (MP4, 38s)](assets/demo-case-b.mp4)
+▶️ [Watch the full demo (MP4, 38s edit — real elapsed ~29–36 min, waits compressed)](assets/demo-case-b.mp4)
 
 ## FAQ
 

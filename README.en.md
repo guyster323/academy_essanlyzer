@@ -19,8 +19,9 @@
 </p>
 
 <p align="center">
-  ▶️ <a href="docs/assets/demo-case-b.mp4">Watch the full demo (MP4, 38s)</a> — a real run against
-  real public data, upload through anomaly detection, hypothesis, human review, and report
+  ▶️ <a href="docs/assets/demo-case-b.mp4">Watch the full demo (MP4, 38s edit)</a> —
+  upload through anomaly detection, hypothesis, human review, and report. Real elapsed time is
+  ~15 min on the built-in sample and ~29–36 min on gold Case B; waits in this clip are cut.
 </p>
 
 ---
@@ -31,7 +32,10 @@ A semi-automated workstation for LG Energy Solution's ESS Analysis team, built a
 CS-request-driven BMS/EMS issue analysis. A human makes every consequential call (which
 hypothesis, what severity); the AI only ever produces drafts (anomaly window detection →
 root-cause hypotheses → report/email). That human-review checkpoint is never skipped, no
-matter what feature gets added on top.
+matter what feature gets added on top. When two methods disagree (for example voltage
+residual pointing at Cell 8 while event resistance points at Cell 5), the app does not
+pick a winner. It does not decide for the engineer — it makes sure the engineer sees every
+basis for deciding.
 
 > This document is the technical reference for developers already familiar with the
 > project structure. If this is your first time here, read the
