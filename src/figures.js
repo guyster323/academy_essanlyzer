@@ -1,4 +1,5 @@
 import { binsToXY, pickTopEntities, MAX_SERIES_ENTITIES, primaryRange } from './series-engine.js';
+import { figureCoveredTimeRange } from './time-coverage.js';
 import { CHART_PALETTE } from './charts.js';
 import {
   classifyCommonMode, maxAbsDeltaAnchor, dpDtPercentile, qualityOverlap, eventStates, windowedNormalized
@@ -329,6 +330,7 @@ export function figureCatalog(figures) {
     available: Boolean(fig.available),
     unavailableReason: fig.unavailableReason || '',
     evidenceTier: fig.evidenceTier || 'Derived',
-    summaryStats: fig.summaryStats || {}
+    summaryStats: fig.summaryStats || {},
+    timeRange: figureCoveredTimeRange(fig)
   }));
 }

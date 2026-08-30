@@ -2,7 +2,7 @@ import { state, session, resetState, isHumanReviewComplete, CS_TEMPLATES, SAMPLE
 import { render, showToast, copyText, refreshConfirmButtonState, refreshCompleteButtonState } from './render.js';
 import { detectIssuesApi, detectAnomalyApi, generateHypothesesApi, draftReportApi, comparePublishedApi } from './api.js';
 import {
-  CONTEXT_WINDOW, avgOf, makeAccumulator, feedLine,
+  CONTEXT_WINDOW, avgOf, makeAccumulator, feedLine, finalizeAccumulator,
   MAX_SELECTED_SOURCES, MAX_GROUPS_PER_SOURCE_IN_PROMPT, MAX_TOTAL_ALARM_CONTEXTS, MAX_LOG_TEXT_CHARS
 } from './log-engine.js';
 import { detectFormat, detectDelimiter } from './formats.js';
@@ -13,6 +13,9 @@ import { detectAttributionConflict } from './attribution-conflict.js';
 import { buildEvidenceLedger, catalogEvidence } from './evidence-ledger.js';
 import JSZip from 'jszip';
 import { extractHtmlText, extractPptxText, capDocText, buildReferenceDocsBlock } from './reference-docs.js';
+import {
+  formatTimeRange, formatCoveragePct, isLowTimeCoverage, buildTimeCoverageNote
+} from './time-coverage.js';
 
 /* =========================================================
    LOG BLOCK COLLECTION — turns selected sources (+ optional pasted text)
@@ -32,6 +35,7 @@ export function collectActiveLogBlocks() {
     const pasteFormat = detectFormat(firstLines);
     const acc = makeAccumulator(pasteFormat);
     pastedText.split(/\r?\n/).forEach(line => { if (line.trim()) feedLine(acc, line); });
+    finalizeAccumulator(acc);
     const seriesByEntity = {};
     const resistanceEventsByEntity = {};
     let droppedResistanceEvents = 0;
@@ -60,7 +64,13 @@ export function collectActiveLogBlocks() {
       stats: acc.stats, groups: acc.groups, formatId: pasteFormat.id,
       formatLabel: pasteFormat.label, entityColumn: acc.entityColumn || null, derived: acc.derived,
       seriesByEntity, resistanceEventsByEntity, entityFilter: null,
-      droppedResistanceEvents
+      droppedResistanceEvents,
+      dataTimeRange: acc.dataTimeRange || null,
+      evidenceTimeRange: acc.evidenceTimeRange || null,
+      timeCoverageRatio: Number.isFinite(acc.timeCoverageRatio) ? acc.timeCoverageRatio : null,
+      alarmDroppedCount: acc.alarmDroppedCount || 0,
+      alarmSampleTimeDistribution: acc.alarmSampleTimeDistribution || [],
+      alarmSampleTimes: acc.alarmSampleTimes || []
     };
   }
 
@@ -74,7 +84,13 @@ export function collectActiveLogBlocks() {
     seriesByEntity: s.seriesByEntity || {},
     resistanceEventsByEntity: s.resistanceEventsByEntity || {},
     entityFilter: s.entityFilter || null,
-    droppedResistanceEvents: s.droppedResistanceEvents || 0
+    droppedResistanceEvents: s.droppedResistanceEvents || 0,
+    dataTimeRange: s.dataTimeRange || null,
+    evidenceTimeRange: s.evidenceTimeRange || null,
+    timeCoverageRatio: Number.isFinite(s.timeCoverageRatio) ? s.timeCoverageRatio : null,
+    alarmDroppedCount: s.alarmDroppedCount || 0,
+    alarmSampleTimeDistribution: s.alarmSampleTimeDistribution || [],
+    alarmSampleTimes: s.alarmSampleTimes || []
   })).concat(pastedSummary ? [pastedSummary] : []);
 }
 
@@ -98,12 +114,23 @@ function formatDerivedDetails(derived) {
   const categoryText = categoryEntries.length
     ? `\n- 파생 범주 집계:\n  - ${categoryEntries.slice(0, 8).join('\n  - ')}`
     : '';
+  const timeBuckets = Array.isArray(derived.categoryTimeBuckets) ? derived.categoryTimeBuckets : [];
+  const outlierOverTime = timeBuckets.map(bucket => {
+    const oc = bucket.counts?.outlierCell;
+    if (!oc) return null;
+    const top = Object.entries(oc).sort((a, b) => b[1] - a[1]).slice(0, 3)
+      .map(([cell, count]) => `${cell} ${count}건`).join(', ');
+    return `  - ${(bucket.start || '').slice(0, 10)} ~ ${(bucket.end || '').slice(0, 10)}: ${top}`;
+  }).filter(Boolean);
+  const categoryTimeText = outlierOverTime.length
+    ? `\n- 파생 범주 시간 분포 (outlierCell):\n${outlierOverTime.join('\n')}`
+    : '';
   return `- 파생 탐지 방식: ${derived.label}
 - 파생 이상 행 수: ${derived.alarmCount || 0}건
 - 파생 지표 통계 (bounded running summary):
 ${metricText}
 - 파생 이상 사유 집계:
-${reasonText}${reasonRest}${categoryText}`;
+${reasonText}${reasonRest}${categoryText}${categoryTimeText}`;
 }
 
 function formatAlarmAnnotations(annotations) {
@@ -120,6 +147,14 @@ function formatAlarmAnnotations(annotations) {
   }).join(' | ');
 }
 
+function hasSizeTruncation(truncation) {
+  return Boolean(
+    truncation.excludedSources || truncation.excludedGroups
+      || truncation.excludedAlarmContexts || truncation.droppedResistanceEvents
+      || truncation.droppedAnomalyWindows || truncation.textTruncatedChars
+  );
+}
+
 function buildTruncationNote(truncation) {
   const parts = [];
   if (truncation.excludedSources) parts.push(`출처 파일 ${truncation.excludedSources}개 미포함`);
@@ -129,6 +164,49 @@ function buildTruncationNote(truncation) {
   if (truncation.droppedAnomalyWindows) parts.push(`이상 구간 ${truncation.droppedAnomalyWindows.toLocaleString()}건 생략(상한 16, Case B 골드런 16건)`);
   if (truncation.textTruncatedChars) parts.push(`텍스트 ${truncation.textTruncatedChars.toLocaleString()}자 절단`);
   return `[참고: 데이터 규모 제한으로 일부가 생략된 상태입니다 — ${parts.join(', ')}. 생략된 부분에 대한 판단은 "추가 확인 필요"로 명시하십시오.]`;
+}
+
+function buildPromptPrefixNotes(truncation) {
+  const notes = [];
+  if (hasSizeTruncation(truncation)) notes.push(buildTruncationNote(truncation));
+  if (truncation.lowTimeCoverage) notes.push(buildTimeCoverageNote(truncation.timeCoverageDetails));
+  return notes.join('\n\n');
+}
+
+function formatTimeCoverageLines(block) {
+  if (!block.dataTimeRange && !block.evidenceTimeRange) return '';
+  const ratio = block.timeCoverageRatio;
+  const pct = Number.isFinite(ratio) ? ` (커버리지 ${formatCoveragePct(ratio)})` : '';
+  const dist = Array.isArray(block.alarmSampleTimeDistribution) && block.alarmSampleTimeDistribution.length
+    ? `\n- 유지된 알람 샘플 시간 분포: ${block.alarmSampleTimeDistribution.map(b => `${(b.start || '').slice(0, 10)}:${b.count}`).join(', ')}`
+    : '';
+  const dropped = block.alarmDroppedCount
+    ? `\n- 알람 컨텍스트 생략: ${Number(block.alarmDroppedCount).toLocaleString()}건 (시간 계층화 유지)`
+    : '';
+  return `- 데이터 시간 범위: ${formatTimeRange(block.dataTimeRange)}
+- 알람 근거 시간 범위: ${formatTimeRange(block.evidenceTimeRange)}${pct}${dist}${dropped}
+`;
+}
+
+function buildSourceProfile(block) {
+  const derivedAlarmCount = block.groups
+    ? Object.values(block.groups).reduce((sum, group) => sum + (group.derived?.alarmCount || 0), 0)
+    : (block.derived?.alarmCount || 0);
+  return {
+    sourceFile: block.label,
+    formatId: block.formatId || 'generic',
+    formatLabel: block.formatLabel || '일반 CSV/TSV',
+    entityColumn: block.entityColumn || null,
+    rowCount: Number.isInteger(block.rowCount) ? block.rowCount : 0,
+    derivedAlarmCount,
+    dataTimeRange: block.dataTimeRange || null,
+    evidenceTimeRange: block.evidenceTimeRange || null,
+    timeCoverageRatio: Number.isFinite(block.timeCoverageRatio) ? block.timeCoverageRatio : null,
+    alarmDroppedCount: Number.isInteger(block.alarmDroppedCount) ? block.alarmDroppedCount : 0,
+    alarmSampleTimeDistribution: Array.isArray(block.alarmSampleTimeDistribution)
+      ? block.alarmSampleTimeDistribution
+      : []
+  };
 }
 
 // alarmBudget: how many more alarm-context windows this call is allowed to
@@ -150,10 +228,11 @@ function renderFlatBlock(block, alarmBudget) {
     }).join('\n')
     : (available ? '  (요청 전체 알람 컨텍스트 예산 초과로 이 출처 분은 생략됨)' : '  (알람 코드 발생 행 없음)');
   const derivedText = formatDerivedDetails(block.derived);
+  const timeText = formatTimeCoverageLines(block);
   const text = `### 출처 파일: ${block.label}
 - 감지 포맷: ${block.formatLabel || block.formatId || '일반 CSV/TSV'}
 - 총 행 수(스트리밍 집계): ${block.rowCount} / 알람·이상코드 발생 행: ${block.alarmCount}건 / 컬럼: ${block.columns.join(', ')}
-- 수치 컬럼 통계 (전체 행 기준 running min/max/avg):
+${timeText}- 수치 컬럼 통계 (전체 행 기준 running min/max/avg):
 ${statsText}
 ${derivedText ? derivedText + '\n' : ''}- 파일 시작부 샘플:
 ${d}${block.columns.join(d)}
@@ -171,7 +250,8 @@ function renderGroupedBlock(src, alarmBudget) {
   const restRowSum = rest.reduce((a, [, g]) => a + g.rowCount, 0);
   const restAlarmSum = rest.reduce((a, [, g]) => a + g.alarmCount, 0);
 
-  const entityHeader = `### 출처 파일: ${src.label} (엔티티별 그룹 집계 · 총 ${entries.length}개 엔티티${rest.length ? `, 상위 ${top.length}개만 상세 표시` : ''})`;
+  const entityHeader = `### 출처 파일: ${src.label} (엔티티별 그룹 집계 · 총 ${entries.length}개 엔티티${rest.length ? `, 상위 ${top.length}개만 상세 표시` : ''})
+${formatTimeCoverageLines(src)}`.trimEnd();
   let remainingBudget = alarmBudget;
   let used = 0;
   let available = 0;
@@ -211,23 +291,22 @@ export function blocksToPromptText(allBlocks) {
     excludedGroups: 0,
     excludedAlarmContexts: 0,
     droppedResistanceEvents: 0,
-    textTruncatedChars: 0
+    textTruncatedChars: 0,
+    lowTimeCoverage: false,
+    timeCoverageDetails: []
   };
 
   const includedBlocks = allBlocks.slice(0, MAX_SELECTED_SOURCES);
-  const sourceProfiles = includedBlocks.map(block => {
-    const derivedAlarmCount = block.groups
-      ? Object.values(block.groups).reduce((sum, group) => sum + (group.derived?.alarmCount || 0), 0)
-      : (block.derived?.alarmCount || 0);
-    return {
-      sourceFile: block.label,
-      formatId: block.formatId || 'generic',
-      formatLabel: block.formatLabel || '일반 CSV/TSV',
-      entityColumn: block.entityColumn || null,
-      rowCount: Number.isInteger(block.rowCount) ? block.rowCount : 0,
-      derivedAlarmCount
-    };
-  });
+  const sourceProfiles = includedBlocks.map(buildSourceProfile);
+  truncation.timeCoverageDetails = sourceProfiles
+    .filter(profile => isLowTimeCoverage(profile.timeCoverageRatio))
+    .map(profile => ({
+      sourceFile: profile.sourceFile,
+      ratio: profile.timeCoverageRatio,
+      dataTimeRange: profile.dataTimeRange,
+      evidenceTimeRange: profile.evidenceTimeRange
+    }));
+  truncation.lowTimeCoverage = truncation.timeCoverageDetails.length > 0;
   let totalRows = 0;
   let alarmBudget = MAX_TOTAL_ALARM_CONTEXTS;
   let alarmAvailableTotal = 0;
@@ -268,26 +347,27 @@ export function blocksToPromptText(allBlocks) {
   );
   let text = rawText;
 
-  // Reserve room for the omission notice itself. The client and server share
-  // MAX_LOG_TEXT_CHARS, so the serialized combinedLogText must remain within
-  // that exact limit even when a truncation note is required.
-  if (hasStructuralTruncation || rawText.length > MAX_LOG_TEXT_CHARS) {
+  // Reserve room for the omission / time-coverage notices themselves. The
+  // client and server share MAX_LOG_TEXT_CHARS, so the serialized
+  // combinedLogText must remain within that exact limit even when a note
+  // is required. Time-coverage divergence is never silent either.
+  if (hasStructuralTruncation || truncation.lowTimeCoverage || rawText.length > MAX_LOG_TEXT_CHARS) {
     let contentLimit = Math.min(rawText.length, MAX_LOG_TEXT_CHARS);
     let note = '';
     for (let i = 0; i < 20; i++) {
       truncation.textTruncatedChars = Math.max(0, rawText.length - contentLimit);
-      note = buildTruncationNote(truncation);
+      note = buildPromptPrefixNotes(truncation);
       const nextLimit = Math.min(rawText.length, Math.max(0, MAX_LOG_TEXT_CHARS - note.length - 2));
       if (nextLimit === contentLimit) break;
       contentLimit = nextLimit;
     }
     truncation.textTruncatedChars = Math.max(0, rawText.length - contentLimit);
-    note = buildTruncationNote(truncation);
+    note = buildPromptPrefixNotes(truncation);
     const finalLimit = Math.min(contentLimit, Math.max(0, MAX_LOG_TEXT_CHARS - note.length - 2));
     if (finalLimit !== contentLimit) {
       contentLimit = finalLimit;
       truncation.textTruncatedChars = Math.max(0, rawText.length - contentLimit);
-      note = buildTruncationNote(truncation);
+      note = buildPromptPrefixNotes(truncation);
     }
     text = note + '\n\n' + rawText.slice(0, contentLimit);
   }

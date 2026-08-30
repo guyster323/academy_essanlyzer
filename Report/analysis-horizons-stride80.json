@@ -1,0 +1,417 @@
+{
+  "rowCount": 240603,
+  "alarmCount": 9366,
+  "derivedAlarmCount": 9366,
+  "dataTimeRange": {
+    "minMs": 1524908705000,
+    "maxMs": 1641798900000,
+    "min": "2018-04-28T09:45:05.000Z",
+    "max": "2022-01-10T07:15:00.000Z"
+  },
+  "evidenceTimeRange": {
+    "minMs": 1539127910000,
+    "maxMs": 1641798900000,
+    "min": "2018-10-09T23:31:50.000Z",
+    "max": "2022-01-10T07:15:00.000Z"
+  },
+  "timeCoverageRatio": 0.8783541682003354,
+  "alarmDroppedCount": 9326,
+  "keptAlarmSamples": 40,
+  "keptAlarmYears": [
+    2018,
+    2019,
+    2020,
+    2021,
+    2022
+  ],
+  "alarmSampleTimeDistribution": [
+    {
+      "startMs": 1524908705000,
+      "endMs": 1539519979375,
+      "start": "2018-04-28T09:45:05.000Z",
+      "end": "2018-10-14T12:26:19.375Z",
+      "count": 1
+    },
+    {
+      "startMs": 1539519979375,
+      "endMs": 1554131253750,
+      "start": "2018-10-14T12:26:19.375Z",
+      "end": "2019-04-01T15:07:33.750Z",
+      "count": 6
+    },
+    {
+      "startMs": 1554131253750,
+      "endMs": 1568742528125,
+      "start": "2019-04-01T15:07:33.750Z",
+      "end": "2019-09-17T17:48:48.125Z",
+      "count": 7
+    },
+    {
+      "startMs": 1568742528125,
+      "endMs": 1583353802500,
+      "start": "2019-09-17T17:48:48.125Z",
+      "end": "2020-03-04T20:30:02.500Z",
+      "count": 6
+    },
+    {
+      "startMs": 1583353802500,
+      "endMs": 1597965076875,
+      "start": "2020-03-04T20:30:02.500Z",
+      "end": "2020-08-20T23:11:16.875Z",
+      "count": 7
+    },
+    {
+      "startMs": 1597965076875,
+      "endMs": 1612576351250,
+      "start": "2020-08-20T23:11:16.875Z",
+      "end": "2021-02-06T01:52:31.250Z",
+      "count": 3
+    },
+    {
+      "startMs": 1612576351250,
+      "endMs": 1627187625625,
+      "start": "2021-02-06T01:52:31.250Z",
+      "end": "2021-07-25T04:33:45.625Z",
+      "count": 5
+    },
+    {
+      "startMs": 1627187625625,
+      "endMs": 1641798900000,
+      "start": "2021-07-25T04:33:45.625Z",
+      "end": "2022-01-10T07:15:00.000Z",
+      "count": 5
+    }
+  ],
+  "wholeLogOutlierCell": {
+    "Cell 8": 9271,
+    "Cell 7": 4,
+    "Cell 3": 45,
+    "Cell 1": 40,
+    "Cell 5": 6
+  },
+  "outlierCellByTime": [
+    {
+      "start": "2018-10-09",
+      "end": "2018-12-12",
+      "top": "Cell 8",
+      "topCount": 60,
+      "outlierCell": {
+        "Cell 8": 60
+      }
+    },
+    {
+      "start": "2018-12-12",
+      "end": "2019-02-14",
+      "top": "Cell 8",
+      "topCount": 46,
+      "outlierCell": {
+        "Cell 8": 46
+      }
+    },
+    {
+      "start": "2019-02-14",
+      "end": "2019-04-19",
+      "top": "Cell 8",
+      "topCount": 25,
+      "outlierCell": {
+        "Cell 8": 25,
+        "Cell 7": 1
+      }
+    },
+    {
+      "start": "2019-04-19",
+      "end": "2019-06-22",
+      "top": "Cell 8",
+      "topCount": 22,
+      "outlierCell": {
+        "Cell 8": 22
+      }
+    },
+    {
+      "start": "2019-06-22",
+      "end": "2019-08-25",
+      "top": "Cell 8",
+      "topCount": 11,
+      "outlierCell": {
+        "Cell 8": 11
+      }
+    },
+    {
+      "start": "2019-08-25",
+      "end": "2019-10-28",
+      "top": "Cell 8",
+      "topCount": 16,
+      "outlierCell": {
+        "Cell 8": 16
+      }
+    },
+    {
+      "start": "2019-10-28",
+      "end": "2019-12-31",
+      "top": "Cell 8",
+      "topCount": 37,
+      "outlierCell": {
+        "Cell 8": 37
+      }
+    },
+    {
+      "start": "2019-12-31",
+      "end": "2020-03-04",
+      "top": "Cell 8",
+      "topCount": 37,
+      "outlierCell": {
+        "Cell 8": 37,
+        "Cell 7": 2
+      }
+    },
+    {
+      "start": "2020-03-04",
+      "end": "2020-05-07",
+      "top": "Cell 8",
+      "topCount": 30,
+      "outlierCell": {
+        "Cell 8": 30
+      }
+    },
+    {
+      "start": "2020-05-07",
+      "end": "2020-07-10",
+      "top": "Cell 8",
+      "topCount": 106,
+      "outlierCell": {
+        "Cell 8": 106
+      }
+    },
+    {
+      "start": "2020-07-10",
+      "end": "2020-09-12",
+      "top": "Cell 8",
+      "topCount": 161,
+      "outlierCell": {
+        "Cell 8": 161
+      }
+    },
+    {
+      "start": "2020-09-12",
+      "end": "2020-11-15",
+      "top": "Cell 8",
+      "topCount": 85,
+      "outlierCell": {
+        "Cell 8": 85,
+        "Cell 7": 1
+      }
+    },
+    {
+      "start": "2020-11-15",
+      "end": "2021-01-18",
+      "top": "Cell 8",
+      "topCount": 182,
+      "outlierCell": {
+        "Cell 8": 182
+      }
+    },
+    {
+      "start": "2021-01-18",
+      "end": "2021-03-23",
+      "top": "Cell 8",
+      "topCount": 115,
+      "outlierCell": {
+        "Cell 8": 115
+      }
+    },
+    {
+      "start": "2021-03-23",
+      "end": "2021-05-26",
+      "top": "Cell 8",
+      "topCount": 394,
+      "outlierCell": {
+        "Cell 8": 394,
+        "Cell 3": 9,
+        "Cell 1": 5
+      }
+    },
+    {
+      "start": "2021-05-26",
+      "end": "2021-07-29",
+      "top": "Cell 8",
+      "topCount": 1080,
+      "outlierCell": {
+        "Cell 8": 1080,
+        "Cell 1": 4,
+        "Cell 3": 9,
+        "Cell 5": 1
+      }
+    },
+    {
+      "start": "2021-07-29",
+      "end": "2021-10-01",
+      "top": "Cell 8",
+      "topCount": 2262,
+      "outlierCell": {
+        "Cell 8": 2262,
+        "Cell 5": 5,
+        "Cell 3": 23,
+        "Cell 1": 6
+      }
+    },
+    {
+      "start": "2021-10-01",
+      "end": "2021-12-04",
+      "top": "Cell 8",
+      "topCount": 3708,
+      "outlierCell": {
+        "Cell 8": 3708,
+        "Cell 1": 25,
+        "Cell 3": 4
+      }
+    },
+    {
+      "start": "2021-12-04",
+      "end": "2022-02-06",
+      "top": "Cell 8",
+      "topCount": 894,
+      "outlierCell": {
+        "Cell 8": 894
+      }
+    }
+  ],
+  "lowTimeCoverage": false,
+  "promptHasDataRange": true,
+  "promptHasEvidenceRange": true,
+  "promptHasCoverageNote": false,
+  "promptHasOutlierTime": true,
+  "sourceProfiles": [
+    {
+      "sourceFile": "data_sys_6_stride80.csv",
+      "formatId": "lfp-cell-array",
+      "formatLabel": "LFP cell-array 필드 데이터",
+      "entityColumn": null,
+      "rowCount": 240603,
+      "derivedAlarmCount": 9366,
+      "dataTimeRange": {
+        "minMs": 1524908705000,
+        "maxMs": 1641798900000,
+        "min": "2018-04-28T09:45:05.000Z",
+        "max": "2022-01-10T07:15:00.000Z"
+      },
+      "evidenceTimeRange": {
+        "minMs": 1539127910000,
+        "maxMs": 1641798900000,
+        "min": "2018-10-09T23:31:50.000Z",
+        "max": "2022-01-10T07:15:00.000Z"
+      },
+      "timeCoverageRatio": 0.8783541682003354,
+      "alarmDroppedCount": 9326,
+      "alarmSampleTimeDistribution": [
+        {
+          "startMs": 1524908705000,
+          "endMs": 1539519979375,
+          "start": "2018-04-28T09:45:05.000Z",
+          "end": "2018-10-14T12:26:19.375Z",
+          "count": 1
+        },
+        {
+          "startMs": 1539519979375,
+          "endMs": 1554131253750,
+          "start": "2018-10-14T12:26:19.375Z",
+          "end": "2019-04-01T15:07:33.750Z",
+          "count": 6
+        },
+        {
+          "startMs": 1554131253750,
+          "endMs": 1568742528125,
+          "start": "2019-04-01T15:07:33.750Z",
+          "end": "2019-09-17T17:48:48.125Z",
+          "count": 7
+        },
+        {
+          "startMs": 1568742528125,
+          "endMs": 1583353802500,
+          "start": "2019-09-17T17:48:48.125Z",
+          "end": "2020-03-04T20:30:02.500Z",
+          "count": 6
+        },
+        {
+          "startMs": 1583353802500,
+          "endMs": 1597965076875,
+          "start": "2020-03-04T20:30:02.500Z",
+          "end": "2020-08-20T23:11:16.875Z",
+          "count": 7
+        },
+        {
+          "startMs": 1597965076875,
+          "endMs": 1612576351250,
+          "start": "2020-08-20T23:11:16.875Z",
+          "end": "2021-02-06T01:52:31.250Z",
+          "count": 3
+        },
+        {
+          "startMs": 1612576351250,
+          "endMs": 1627187625625,
+          "start": "2021-02-06T01:52:31.250Z",
+          "end": "2021-07-25T04:33:45.625Z",
+          "count": 5
+        },
+        {
+          "startMs": 1627187625625,
+          "endMs": 1641798900000,
+          "start": "2021-07-25T04:33:45.625Z",
+          "end": "2022-01-10T07:15:00.000Z",
+          "count": 5
+        }
+      ]
+    }
+  ],
+  "figureTimeRanges": [
+    {
+      "id": "B-F1",
+      "available": true,
+      "timeRange": {
+        "minMs": 1539128310000,
+        "maxMs": 1641459180000,
+        "min": "2018-10-09T23:38:30.000Z",
+        "max": "2022-01-06T08:53:00.000Z"
+      }
+    },
+    {
+      "id": "B-F2",
+      "available": true,
+      "timeRange": {
+        "minMs": 1539128310000,
+        "maxMs": 1641459180000,
+        "min": "2018-10-09T23:38:30.000Z",
+        "max": "2022-01-06T08:53:00.000Z"
+      }
+    },
+    {
+      "id": "B-F3",
+      "available": true,
+      "timeRange": {
+        "minMs": 1524841200000,
+        "maxMs": 1641740400000,
+        "min": "2018-04-27T15:00:00.000Z",
+        "max": "2022-01-09T15:00:00.000Z"
+      }
+    },
+    {
+      "id": "B-F4",
+      "available": true,
+      "timeRange": {
+        "minMs": 1539128310000,
+        "maxMs": 1641459180000,
+        "min": "2018-10-09T23:38:30.000Z",
+        "max": "2022-01-06T08:53:00.000Z"
+      }
+    },
+    {
+      "id": "B-F5",
+      "available": false,
+      "timeRange": null
+    },
+    {
+      "id": "B-F6",
+      "available": false,
+      "timeRange": null
+    }
+  ]
+}
