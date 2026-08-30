@@ -6,6 +6,13 @@ function normalizeProfiles(sourceProfiles, sourceFormats) {
   return sourceFormats.map(format => typeof format === 'string' ? { formatId: format } : format).filter(Boolean);
 }
 
+function formatProfileTimeRange(range) {
+  if (!range || !range.min || !range.max) return '미상';
+  const a = String(range.min).slice(0, 10);
+  const b = String(range.max).slice(0, 10);
+  return a === b ? a : `${a} ~ ${b}`;
+}
+
 function sourceProfileText(sourceProfiles, sourceFormats) {
   const profiles = normalizeProfiles(sourceProfiles, sourceFormats);
   if (!profiles.length) return '- 감지된 포맷 메타데이터 없음(로그 블록의 포맷/파생 탐지 설명을 우선 확인)';
@@ -15,7 +22,14 @@ function sourceProfileText(sourceProfiles, sourceFormats) {
     const label = profile.formatLabel ? ` (${profile.formatLabel})` : '';
     const entity = profile.entityColumn ? `, entity=${profile.entityColumn}` : ', 파일 1개=단일 시스템/엔티티';
     const derived = Number.isFinite(profile.derivedAlarmCount) ? `, 파생 이상 ${profile.derivedAlarmCount}건` : '';
-    return `- ${name}: ${id}${label}${entity}${derived}`;
+    let time = '';
+    if (profile.dataTimeRange || profile.evidenceTimeRange) {
+      const pct = Number.isFinite(profile.timeCoverageRatio)
+        ? `, 커버리지 ${Math.round(profile.timeCoverageRatio * 1000) / 10}%`
+        : '';
+      time = `, 데이터 ${formatProfileTimeRange(profile.dataTimeRange)} / 알람 근거 ${formatProfileTimeRange(profile.evidenceTimeRange)}${pct}`;
+    }
+    return `- ${name}: ${id}${label}${entity}${derived}${time}`;
   }).join('\n');
 }
 

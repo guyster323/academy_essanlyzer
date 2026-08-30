@@ -9,9 +9,13 @@
 
 import { zipEntryByteChunks, isJsZipUncompressedSizeMismatch } from './zip-stream.js';
 import {
-  MAX_SERIES_BUFFERS, MAX_SERIES_POINTS, createSeriesBuffer, pushSample, freezeSeries
+  MAX_SERIES_BUFFERS, MAX_SERIES_POINTS, createSeriesBuffer, pushSample, freezeSeries,
+  parseTimestampMs
 } from './series-engine.js';
 import { normalizeResistanceEvents, resistanceEventsDroppedCount } from './forensics/lfp.js';
+import {
+  extendTimeRange, considerAlarmSample, finalizeBucketTime, rollupGroupTime
+} from './time-coverage.js';
 
 export const LOG_EXT_ALLOW = ['csv', 'txt', 'log', 'tsv', 'dat'];
 export const LOG_EXT_SKIP_NOTE = ['png', 'jpg', 'jpeg', 'gif', 'pdf', 'xlsx', 'xls', 'docx', 'pptx', 'exe', 'dll', 'bin', 'db'];
@@ -114,6 +118,12 @@ function makeBucket() {
     headSample: [],
     alarmSamples: [],
     alarmAnnotations: [],
+    alarmSampleTimes: [],
+    alarmDroppedCount: 0,
+    dataTimeRange: null,
+    evidenceTimeRange: null,
+    timeCoverageRatio: null,
+    alarmSampleTimeDistribution: [],
     recentWindow: [],
     stats: {},
     derived: {
@@ -258,6 +268,12 @@ function feedRowIntoBucket(acc, bucket, cells, profile) {
   // not accidentally share rolling baselines across physical entities.
   if (bucket !== acc) recordDerivedResult(acc, fmt, derivedResult);
 
+  const tRow = acc.timestampColumn ? parseTimestampMs(rowObj[acc.timestampColumn]) : null;
+  if (Number.isFinite(tRow)) {
+    bucket.dataTimeRange = extendTimeRange(bucket.dataTimeRange, tRow);
+    if (bucket !== acc) acc.dataTimeRange = extendTimeRange(acc.dataTimeRange, tRow);
+  }
+
   bucket.rowCount++;
   if (bucket.headSample.length < HEAD_SAMPLE_CAP) bucket.headSample.push(rowObj);
 
@@ -285,10 +301,7 @@ function feedRowIntoBucket(acc, bucket, cells, profile) {
   }
   if (isAlarm) {
     bucket.alarmCount++;
-    if (bucket.alarmSamples.length < ALARM_SAMPLE_CAP) {
-      bucket.alarmSamples.push([...bucket.recentWindow]);
-      bucket.alarmAnnotations.push(annotations);
-    }
+    considerAlarmSample(bucket, [...bucket.recentWindow], annotations, tRow, ALARM_SAMPLE_CAP);
   }
   markProfile(profile, 'feedStatsMs', tRest2);
   return isAlarm;
@@ -470,7 +483,15 @@ function freezeBucketEvidence(bucket, entityId) {
   };
 }
 
+export function finalizeAccumulator(acc) {
+  if (!acc) return acc;
+  if (acc.groups) rollupGroupTime(acc);
+  else finalizeBucketTime(acc);
+  return acc;
+}
+
 export function applyAccumulatorToSource(src, acc) {
+  finalizeAccumulator(acc);
   src.columns = acc.columns || [];
   src.delimiter = acc.delimiter || ',';
   src.rowCount = acc.rowCount;
@@ -479,9 +500,15 @@ export function applyAccumulatorToSource(src, acc) {
   src.droppedResistanceEvents = 0;
   src.entityColumn = acc.entityColumn;
   src.timestampColumn = acc.timestampColumn;
+  src.dataTimeRange = acc.dataTimeRange || null;
+  src.evidenceTimeRange = acc.evidenceTimeRange || null;
+  src.timeCoverageRatio = Number.isFinite(acc.timeCoverageRatio) ? acc.timeCoverageRatio : null;
+  src.alarmDroppedCount = acc.alarmDroppedCount || 0;
+  src.alarmSampleTimeDistribution = acc.alarmSampleTimeDistribution || [];
   src.groups = acc.groups; // null when the format has no groupable entity column
   src.derived = acc.derived;
   src.alarmAnnotations = acc.alarmAnnotations;
+  src.alarmSampleTimes = acc.alarmSampleTimes || [];
   src.seriesByEntity = {};
   src.resistanceEventsByEntity = {};
   if (acc.groups) {

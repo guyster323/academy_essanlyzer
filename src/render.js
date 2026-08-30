@@ -1,5 +1,6 @@
 import { state, session, STEPS, CS_TEMPLATES, HYPOTHESIS_DOMAINS, isHumanReviewComplete, describeLoadingProgress } from './state.js';
 import { formatBytes, MAX_SELECTED_SOURCES } from './log-engine.js';
+import { formatTimeRange, formatCoveragePct, isLowTimeCoverage } from './time-coverage.js';
 import { paintFigureCanvases } from './charts.js';
 import { detectAttributionConflict, describeAttributionConflict } from './attribution-conflict.js';
 
@@ -257,6 +258,41 @@ function renderEntityFilterRow(s) {
   </div>`;
 }
 
+function renderTimeCoverage(s) {
+  if (!s.dataTimeRange && !s.evidenceTimeRange) return '';
+  const ratio = s.timeCoverageRatio;
+  const warn = isLowTimeCoverage(ratio);
+  const pct = formatCoveragePct(ratio);
+  const dist = Array.isArray(s.alarmSampleTimeDistribution) && s.alarmSampleTimeDistribution.length
+    ? s.alarmSampleTimeDistribution.map(b => `${esc((b.start || '').slice(0, 10))}:${b.count}`).join(' · ')
+    : '';
+  return `<div class="time-coverage${warn ? ' warn' : ''}" data-time-coverage="${warn ? 'low' : 'ok'}">
+    <div>데이터 구간 ${esc(formatTimeRange(s.dataTimeRange))}</div>
+    <div>알람 근거 구간 ${esc(formatTimeRange(s.evidenceTimeRange))} · 커버리지 ${esc(pct)}${warn ? ' — 전체 구간의 일부만 덮음' : ''}</div>
+    ${dist ? `<div data-alarm-time-dist="1">유지 샘플 분포 ${dist}</div>` : ''}
+  </div>`;
+}
+
+function renderSourceProfilesCoverage(profiles) {
+  const list = Array.isArray(profiles) ? profiles.filter(p => p.dataTimeRange || p.evidenceTimeRange) : [];
+  if (!list.length) return '';
+  const cards = list.map(p => {
+    const warn = isLowTimeCoverage(p.timeCoverageRatio);
+    const dist = Array.isArray(p.alarmSampleTimeDistribution) && p.alarmSampleTimeDistribution.length
+      ? p.alarmSampleTimeDistribution.map(b => `${esc((b.start || '').slice(0, 10))}:${b.count}`).join(' · ')
+      : '';
+    return `<div class="time-coverage${warn ? ' warn' : ''}" data-time-coverage="${warn ? 'low' : 'ok'}">
+      <div>${esc(p.sourceFile || '출처')}</div>
+      <div>데이터 ${esc(formatTimeRange(p.dataTimeRange))} · 알람 근거 ${esc(formatTimeRange(p.evidenceTimeRange))} · 커버리지 ${esc(formatCoveragePct(p.timeCoverageRatio))}${warn ? ' — 전체 구간의 일부만 덮음' : ''}</div>
+      ${dist ? `<div data-alarm-time-dist="1">유지 샘플 분포 ${dist}</div>` : ''}
+    </div>`;
+  }).join('');
+  return `<div class="panel" data-time-coverage-panel="1">
+    <div class="panel-head"><div class="panel-tag"></div><div class="panel-title">시간 커버리지</div></div>
+    ${cards}
+  </div>`;
+}
+
 function renderSourceItem(s) {
   const pathParts = s.path.split('/');
   const fileName = pathParts.pop();
@@ -292,7 +328,7 @@ function renderSourceItem(s) {
     const previewRows = s.headSample.length
       ? s.headSample.slice(0, 5).map(r => s.columns.map(c => r[c]).join(' | ')).join('\n')
       : (s.groups ? Object.entries(s.groups).slice(0, 3).map(([k, g]) => `[${k}] ` + (g.headSample[0] ? s.columns.map(c => g.headSample[0][c]).join(' | ') : '')).join('\n') : '');
-    statusLine = `<span class="source-sub">${esc(s.sizeLabel)} · ${s.rowCount.toLocaleString()}행 · 알람 ${s.alarmCount}건 · 파생 이상 ${derivedAlarmCount}건${s.malformedRowCount ? ` · <span style="color:var(--amber)">손상 행 ${s.malformedRowCount}건(파싱 제외)</span>` : ''}${s.droppedResistanceEvents ? ` · <span style="color:var(--amber)">저항 이벤트 ${s.droppedResistanceEvents.toLocaleString()}건 생략(초기 기준선+최근 창 유지)</span>` : ''} · 구분자 '${dispDelim}'</span>
+    statusLine = `<span class="source-sub">${esc(s.sizeLabel)} · ${s.rowCount.toLocaleString()}행 · 알람 ${s.alarmCount}건 · 파생 이상 ${derivedAlarmCount}건${s.malformedRowCount ? ` · <span style="color:var(--amber)">손상 행 ${s.malformedRowCount}건(파싱 제외)</span>` : ''}${s.droppedResistanceEvents ? ` · <span style="color:var(--amber)">저항 이벤트 ${s.droppedResistanceEvents.toLocaleString()}건 생략(초기 기준선+최근 창 유지)</span>` : ''}${s.alarmDroppedCount ? ` · <span style="color:var(--amber)">알람 컨텍스트 ${s.alarmDroppedCount.toLocaleString()}건 생략</span>` : ''} · 구분자 '${dispDelim}'</span>
       <select class="enc-select" onchange="setSourceEncoding('${s.id}', this.value)">
         <option value="utf-8" ${s.encoding === 'utf-8' ? 'selected' : ''}>UTF-8</option>
         <option value="euc-kr" ${s.encoding === 'euc-kr' ? 'selected' : ''}>EUC-KR</option>
@@ -308,6 +344,7 @@ function renderSourceItem(s) {
       <div class="source-path"><span class="folder-part">${esc(folderPart)}</span>${esc(fileName)}</div>
       <div class="source-meta-row">${badge}</div>
       <div class="source-status-line">${statusLine}</div>
+      ${s.status === 'ready' ? renderTimeCoverage(s) : ''}
       ${entityRow}
     </div>
     <button class="source-remove" onclick="removeSource('${s.id}')" title="제거">✕</button>
@@ -399,6 +436,13 @@ function renderAnomalyView() {
     if (t.textTruncatedChars) parts.push(`텍스트 ${t.textTruncatedChars.toLocaleString()}자 절단`);
     out += `<div class="skipped-note" style="color:var(--amber);margin-bottom:12px;">⚠ 프롬프트 규모 제한으로 일부가 생략된 상태로 분석되었습니다: ${parts.join(', ')}.</div>`;
   }
+  if (t && t.lowTimeCoverage && t.timeCoverageDetails?.length) {
+    const bits = t.timeCoverageDetails.map(d =>
+      `${d.sourceFile || '출처'} 근거 ${formatTimeRange(d.evidenceTimeRange)} / 데이터 ${formatTimeRange(d.dataTimeRange)} (${formatCoveragePct(d.ratio)})`
+    );
+    out += `<div class="skipped-note" data-time-coverage="low" style="color:var(--amber);margin-bottom:12px;">⚠ 알람 근거 시간 범위가 데이터 전체 구간의 일부만 덮습니다: ${esc(bits.join('; '))}. 이 구간 밖의 거동은 추가 확인 필요.</div>`;
+  }
+  out += renderSourceProfilesCoverage(state.sourceProfiles);
 
   out += `<div class="panel">
     <div class="panel-head"><div class="panel-tag"></div><div class="panel-title">이슈 구조화 요약</div></div>

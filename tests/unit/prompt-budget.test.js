@@ -80,7 +80,9 @@ test('no truncation occurs (and no truncation note is prefixed) for a small, wel
   assert.equal(truncation.excludedAlarmContexts, 0);
   assert.equal(truncation.droppedResistanceEvents, 0);
   assert.equal(truncation.textTruncatedChars, 0);
+  assert.equal(truncation.lowTimeCoverage, false);
   assert.doesNotMatch(text, /데이터 규모 제한으로/);
+  assert.doesNotMatch(text, /알람 근거 시간 범위가 데이터 전체 구간의 일부만 덮습니다/);
 });
 
 test('dropped resistance events are reported in truncation, never silently', () => {

@@ -195,6 +195,19 @@ textarea::placeholder,input::placeholder{color:var(--text-muted);font-family:var
 }
 .source-preview.show{display:block;}
 .source-status-line{display:flex;align-items:center;gap:8px;flex-wrap:wrap;margin-top:4px;}
+.time-coverage{
+  margin-top:6px;font-family:var(--font-mono);font-size:9.5px;color:var(--text-secondary);
+  background:var(--bg-panel);border:1px solid var(--border-soft);border-radius:3px;padding:7px 9px;
+  display:flex;flex-direction:column;gap:2px;line-height:1.45;
+}
+.time-coverage.warn{
+  color:var(--amber);border-color:rgba(255,171,46,0.45);background:var(--amber-dim);
+}
+.category-time{
+  margin-top:6px;font-family:var(--font-mono);font-size:9.5px;color:var(--text-secondary);
+  background:var(--bg-panel);border:1px solid var(--border-soft);border-radius:3px;padding:7px 9px;
+  display:flex;flex-direction:column;gap:2px;line-height:1.45;
+}
 .source-entity-row{display:flex;align-items:center;gap:7px;flex-wrap:wrap;margin-top:5px;}
 .source-entity-row label{font-size:9.5px;color:var(--text-muted);font-family:var(--font-mono);}
 .source-entity-row input[type=text]{width:120px;padding:3px 7px;font-size:9.5px;}

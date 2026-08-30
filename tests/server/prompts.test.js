@@ -11,6 +11,22 @@ const base = {
   entityColumn: 'FPP_UNITID', rowCount: 10, derivedAlarmCount: 1
 };
 
+test('source profile text includes data vs alarm-evidence time ranges when present', () => {
+  const profile = {
+    ...base,
+    dataTimeRange: { min: '2018-04-28T00:00:00.000Z', max: '2021-09-15T00:00:00.000Z', minMs: 1, maxMs: 2 },
+    evidenceTimeRange: { min: '2018-10-10T00:00:00.000Z', max: '2018-12-01T00:00:00.000Z', minMs: 1, maxMs: 2 },
+    timeCoverageRatio: 0.04
+  };
+  const anomaly = buildDetectAnomalyPrompt({
+    csText: '출력 이상을 확인해 주세요', priorCase: '', combinedLogText: 'log',
+    totalRows: 10, sourceCount: 1, sourceProfiles: [profile]
+  });
+  assert.match(anomaly, /데이터 2018-04-28 ~ 2021-09-15/);
+  assert.match(anomaly, /알람 근거 2018-10-10 ~ 2018-12-01/);
+  assert.match(anomaly, /커버리지 4%/);
+});
+
 test('AEMO prompts require independent MEASURED_MW evidence and grid-domain hypotheses', () => {
   const anomaly = buildDetectAnomalyPrompt({
     csText: '출력 이상을 확인해 주세요', priorCase: '', combinedLogText: 'MEASURED_MW robust z',

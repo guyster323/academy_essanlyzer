@@ -42,13 +42,31 @@ const issueStructuredSchema = z.object({
   priorHistory: z.string().max(2000)
 }).strict();
 
+const timeRangeSchema = z.object({
+  min: z.string().max(40),
+  max: z.string().max(40),
+  minMs: z.number(),
+  maxMs: z.number()
+}).strict();
+
 const sourceProfileSchema = z.object({
   sourceFile: z.string().min(1).max(500),
   formatId: FORMAT_ID_ENUM,
   formatLabel: z.string().max(200),
   entityColumn: z.string().max(200).nullable(),
   rowCount: z.number().int().nonnegative(),
-  derivedAlarmCount: z.number().int().nonnegative()
+  derivedAlarmCount: z.number().int().nonnegative(),
+  dataTimeRange: timeRangeSchema.nullable().optional(),
+  evidenceTimeRange: timeRangeSchema.nullable().optional(),
+  timeCoverageRatio: z.number().min(0).max(1).nullable().optional(),
+  alarmDroppedCount: z.number().int().nonnegative().optional(),
+  alarmSampleTimeDistribution: z.array(z.object({
+    start: z.string().max(40),
+    end: z.string().max(40),
+    startMs: z.number(),
+    endMs: z.number(),
+    count: z.number().int().nonnegative()
+  }).strict()).max(16).optional()
 }).strict();
 
 const sourceProfilesSchema = z.array(sourceProfileSchema).max(10);
@@ -119,7 +137,8 @@ const REQUEST_SCHEMAS = {
       available: z.boolean(),
       unavailableReason: z.string().max(500).optional(),
       evidenceTier: EVIDENCE_TIER_ENUM.optional(),
-      summaryStats: z.any().optional()
+      summaryStats: z.any().optional(),
+      timeRange: timeRangeSchema.nullable().optional()
     })).max(16).optional(),
     evidenceLedger: z.array(z.object({
       id: z.string().max(20),
