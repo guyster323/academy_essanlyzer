@@ -1,19 +1,38 @@
 {
-  "headline": "2025/08/18 WDBESS1 공개 AEMO FPPMW telemetry에서 유효전력이 일 평균 편차 0 부근을 유지한 채 비정상 진폭·변화율로 양방향 진동하고 디스패치 스케줄 상·하한을 순간 1.88~5.95 MW 침범한 사실은 입증되나, 원인의 PCS 폐루프 제어 헌팅 국소 확정은 내부 PCS·DC·제어기 신호와 피어 시각정렬 부재로 불가하며 계통 공통요인도 배제할 수 없다.",
-  "hyp": "WDBESS1 PCS 유효전력 폐루프 제어 불안정(헌팅) 의심 — 출력 진동 및 디스패치 엔벌로프 순간 침범",
+  "headline": "WDBESS1은 2025-08-18 저녁 22:47~23:21 UTC경 품질플래그 저하 없이 포커스 설비 단독으로 급격한 출력 변화(ΔP≈-241MW, A-F1·A-F2·A-F4·A-F5)를 보였으나, 같은 거래일 WDBESS1·HBESS1·CHBESS1의 SCHEDULED_MW가 공통으로 대칭 구조로 전환된 정황은 별개 신호이며, Dispatch Target 데이터 부재(A-F6 unavailable)로 두 현상의 인과관계는 확정할 수 없다.",
+  "hyp": "다수 설비 공통 스케줄(입찰밴드) 대칭 확장 이벤트 — Dispatch/시장운영 변경 가능성(설비 결함 아닐 수 있음)",
   "severity": "중",
   "figures": [
-    {"id": "A-F1", "available": true, "claim": "WDBESS1 출력은 당일 정상 운전 범위를 이탈하는 구간이 있다"},
-    {"id": "A-F2", "available": true, "claim": "주요 변화는 수 분 단위 사건으로 집중된다"},
-    {"id": "A-F3", "available": true, "claim": "출력 변화율은 당일 중앙값 대비 크다 (p95=2835.2 MW/h)"},
-    {"id": "A-F4", "available": false, "claim": "포커스 설비만 급변한다 — Local fault branch가 상대적으로 강함", "unavailableReason": "타 설비와 상관 없음 — 포커스 단독 급변"},
-    {"id": "A-F5", "available": true, "claim": "품질 플래그 저하 없이 출력 변화가 관측된다"},
+    {"id": "A-F1", "available": true, "claim": "WDBESS1 출력은 당일 정상 운전 범위를 이탈하는 구간이 있다", "summaryStats": {"entity": "WDBESS1", "rangeMw": 513.185639, "eventDeltaMw": -240.86627304349614, "eventT": 1755558260000}},
+    {"id": "A-F2", "available": true, "claim": "주요 변화는 수 분 단위 사건으로 집중된다", "summaryStats": {"entity": "WDBESS1", "windowPoints": 5, "states": ["Normal", "Precursor", "Main", "Recovery"]}},
+    {"id": "A-F3", "available": true, "claim": "출력 변화율은 당일 중앙값 대비 크다 (p95=3206.3 MW/h)", "summaryStats": {"p50": 584.7615281250013, "p95": 3206.2955400000005, "max": 9987.24348, "eventMax": 9987.24348}},
+    {"id": "A-F4", "available": true, "claim": "포커스 설비만 급변한다 — Local fault branch가 상대적으로 강함", "summaryStats": {"mode": "local", "score": 0, "peerCount": 5, "reason": "타 설비와 상관 없음 — 포커스 단독 급변", "supportingCount": 0}},
+    {"id": "A-F5", "available": true, "claim": "품질 플래그 저하 없이 출력 변화가 관측된다", "summaryStats": {"qualityDegradedAtEvent": false, "eventQuality": 1}},
     {"id": "A-F6", "available": false, "claim": "Actual–Target 오차가 어느 신호에서 먼저 시작됐는가", "unavailableReason": "이 소스에 Dispatch Target 컬럼이 없어 A-F6는 그릴 수 없습니다 — Unknown으로 남깁니다"}
   ],
   "findings": [
-    "ULPBESS1 텔레메트리는 약 1시간 중첩 구간 974행 전체가 소수점 8자리까지 완전 불변(MEASURED_MW=-0.49399555, rollingStd≈0)이면서 MW_QUALITY_FLAG=2와 고정 +0.506 MW 편차를 동반한다. 이는 WDBESS1의 진동과 성격이 전혀 다른 데이터 동결/무결성 신호로, 본 건과 분리해 SCADA·RTU 포인트 점검이 필요하다.",
-    "WDBESS1의 엔벌로프 침범은 비대칭적이다 — 상한 초과분(~5.95 MW)이 하한 초과분(~1.88 MW)의 약 3.2배다. 다만 두 침범 모두 당일 운영 레인지(약 334 MW, A-F1)의 각각 약 1.8%·0.6% 수준으로 크기 자체는 경미하므로, 규정 비준수로 단정하기 전 침범의 크기·지속시간·빈도 정량화가 선행되어야 한다.",
-    "피어 비교가 가능한 중첩창(11:25:04~약 12:30)은 WDBESS1 약 12시간 기록의 10% 미만에 불과하다. 따라서 '피어 무상관·포커스 단독 급변'(A-F4)이라는 판단은 WDBESS1 이상 534행 전체로 일반화할 수 없고, 나머지 약 11시간 구간의 공통요인 가능성은 미검증 상태다."
+    "WDBESS1의 3일차(File3) 알람행은 통계 규칙 기준 515건으로 2일차(534건)보다 오히려 적으나 전체 알람행은 1243건으로 급증해 728행의 차이가 있다(Derived, E006) — robustZ·rampScore 급등만으로는 설명되지 않는 별도 규칙 기여 가능성을 시사한다.",
+    "서로 다른 참여자(WDOWBESS·HBESS·CSENERGY) 소유의 WDBESS1·HBESS1·CHBESS1 3개 설비 모두 1~2일차의 비대칭 SCHEDULED_MW 범위에서 3일차에 각자 설비 정격 수준의 대칭 범위(±255/±150/±100MW)로 동시 전환되었다(Derived, E004·E006·E008·E010·E016·E018) — 개별 설비의 우연이라기보다 상위(시장/디스패치) 공통 변경 가능성을 시사한다(Inferred).",
+    "TARBESS1은 WDBESS1 스파이크가 발생한 3일차(File3)를 포함해 1·3일차에 MEASURED_MW=0 고정과 MW_QUALITY_FLAG=2가 10800/10800행 전부에서 나타나는 반면 2일차만 정상 범위(-153~152MW)로 활성화되어(Observed, E011·E012·E013), WDBESS1 스파이크와는 무관한 별도의 간헐적 텔레메트리 정체 패턴이 동일 피드 내 존재한다."
   ],
-  "source": "Orca live run 2026-08-27, WDBESS1_peers_20250819.csv, 15670 rows / 6 BESS entities after auto filter"
+  "source": "Orca live run 2026-08-31, nested zip Log_sample/case_a_PUBLIC_NEXT_DAY_FPPMW_20250817.zip (520,040,023 bytes), streamed publication days 20250818/19/20 (BESS filter, 64,800 rows × 3, 6 entities)",
+  "daysStreamed": ["20250818", "20250819", "20250820"],
+  "incidentFile": "PUBLIC_NEXT_DAY_FPPMW_20250820_0000000477089848.CSV",
+  "timeCoverage": {
+    "20250818": {"data": "2025-08-16T19:00:04.000Z .. 2025-08-17T07:00:00.000Z", "evidence": "same", "ratio": 1, "rows": 64800, "derivedAlarms": 879},
+    "20250819": {"data": "2025-08-17T19:00:04.000Z .. 2025-08-18T07:00:00.000Z", "evidence": "same", "ratio": 1, "rows": 64800, "derivedAlarms": 901},
+    "20250820": {"data": "2025-08-18T19:00:04.000Z .. 2025-08-19T07:00:00.000Z", "evidence": "same", "ratio": 1, "rows": 64800, "derivedAlarms": 915}
+  },
+  "entities": ["CHBESS1", "HBESS1", "PIBESS1", "TARBESS1", "ULPBESS1", "WDBESS1"],
+  "entityFilter": "BESS",
+  "wallClock": {
+    "catalogS": 22,
+    "streamS": [25, 25, 25],
+    "detectAnomalyS": 648,
+    "generateHypothesesS": 493,
+    "humanReviewWaitS": 418,
+    "draftReportS": 1140,
+    "publishedComparisonS": 482,
+    "totalPlaywrightMin": 54.7
+  }
 }
