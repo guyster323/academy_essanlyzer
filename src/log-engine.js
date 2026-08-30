@@ -14,7 +14,8 @@ import {
 } from './series-engine.js';
 import { normalizeResistanceEvents, resistanceEventsDroppedCount } from './forensics/lfp.js';
 import {
-  extendTimeRange, considerAlarmSample, finalizeBucketTime, rollupGroupTime
+  extendTimeRange, considerAlarmSample, finalizeBucketTime, rollupGroupTime,
+  recordCategoryTime
 } from './time-coverage.js';
 
 export const LOG_EXT_ALLOW = ['csv', 'txt', 'log', 'tsv', 'dat'];
@@ -131,7 +132,8 @@ function makeBucket() {
       alarmCount: 0,
       metricStats: {},
       reasonCounts: {},
-      categoryCounts: {}
+      categoryCounts: {},
+      categoryTimeBuckets: []
     },
     resistanceEvents: []
   };
@@ -191,10 +193,11 @@ function updateNumericStats(stats, key, value) {
   s.count++;
 }
 
-function recordDerivedResult(bucket, fmt, result) {
+function recordDerivedResult(bucket, fmt, result, t) {
   if (!result) return;
   const derived = bucket.derived || (bucket.derived = {
-    label: null, alarmCount: 0, metricStats: {}, reasonCounts: {}, categoryCounts: {}
+    label: null, alarmCount: 0, metricStats: {}, reasonCounts: {}, categoryCounts: {},
+    categoryTimeBuckets: []
   });
   if (fmt.derivedLabel) derived.label = fmt.derivedLabel;
 
@@ -216,6 +219,7 @@ function recordDerivedResult(bucket, fmt, result) {
     if (!counts[value] && Object.keys(counts).length >= 20) return;
     counts[value] = (counts[value] || 0) + 1;
   });
+  if (result.categories) recordCategoryTime(derived, t, result.categories);
 }
 
 function markProfile(profile, key, startedAt) {
@@ -242,11 +246,17 @@ function feedRowIntoBucket(acc, bucket, cells, profile) {
   });
   markProfile(profile, 'feedStatsMs', tRest);
 
+  const tRow = acc.timestampColumn ? parseTimestampMs(rowObj[acc.timestampColumn]) : null;
+  if (Number.isFinite(tRow)) {
+    bucket.dataTimeRange = extendTimeRange(bucket.dataTimeRange, tRow);
+    if (bucket !== acc) acc.dataTimeRange = extendTimeRange(acc.dataTimeRange, tRow);
+  }
+
   const tDerived = profile ? performance.now() : 0;
   const derivedResult = typeof fmt.computeDerivedAlarm === 'function'
     ? fmt.computeDerivedAlarm(rowObj, acc, bucket)
     : null;
-  recordDerivedResult(bucket, fmt, derivedResult);
+  recordDerivedResult(bucket, fmt, derivedResult, tRow);
   markProfile(profile, 'feedDerivedMs', tDerived);
 
   const tSeries = profile ? performance.now() : 0;
@@ -266,13 +276,7 @@ function feedRowIntoBucket(acc, bucket, cells, profile) {
   // Keep a file-level derived summary as well as the per-entity summary. The
   // hook is invoked only once for the target bucket, so grouped streams do
   // not accidentally share rolling baselines across physical entities.
-  if (bucket !== acc) recordDerivedResult(acc, fmt, derivedResult);
-
-  const tRow = acc.timestampColumn ? parseTimestampMs(rowObj[acc.timestampColumn]) : null;
-  if (Number.isFinite(tRow)) {
-    bucket.dataTimeRange = extendTimeRange(bucket.dataTimeRange, tRow);
-    if (bucket !== acc) acc.dataTimeRange = extendTimeRange(acc.dataTimeRange, tRow);
-  }
+  if (bucket !== acc) recordDerivedResult(acc, fmt, derivedResult, tRow);
 
   bucket.rowCount++;
   if (bucket.headSample.length < HEAD_SAMPLE_CAP) bucket.headSample.push(rowObj);

@@ -3,11 +3,12 @@ import assert from 'node:assert/strict';
 import {
   makeTimeRange, coverageRatio, isLowTimeCoverage, TIME_COVERAGE_WARN_RATIO,
   considerAlarmSample, histogramTimes, formatCoveragePct,
-  buildTimeCoverageNote, figureCoveredTimeRange
+  buildTimeCoverageNote, figureCoveredTimeRange,
+  MAX_CATEGORY_TIME_BUCKETS, recordCategoryTime, freezeCategoryTimeBuckets
 } from '../../src/time-coverage.js';
 import { ALARM_SAMPLE_CAP as ENGINE_CAP } from '../../src/log-engine.js';
 import { makeAccumulator, feedLine, applyAccumulatorToSource } from '../../src/log-engine.js';
-import { GENERIC_FORMAT } from '../../src/formats.js';
+import { GENERIC_FORMAT, detectFormat } from '../../src/formats.js';
 import { blocksToPromptText } from '../../src/pipeline.js';
 import { figureCatalog } from '../../src/figures.js';
 
@@ -161,6 +162,48 @@ test('early-clustered alarms plus a late tail keep samples from both ends of the
   assert.ok(kept[0] < 50, 'keeps an early-cluster sample');
   assert.ok(kept[kept.length - 1] >= 100000, 'keeps a late-tail sample');
   assert.ok(kept.filter(t => t >= 100000).length >= 1);
+});
+
+test('outlierCell is aggregated per time bucket so a cell shift is visible', () => {
+  const header = 'Timestamp,U_Battery,I_Battery,SOC_Battery,U_Cell_1,U_Cell_2,U_Cell_3,U_Cell_4,U_Cell_5,U_Cell_6,U_Cell_7,U_Cell_8';
+  const lines = [header];
+  const cellRow = (ts, highIndex) => {
+    const cells = Array.from({ length: 8 }, (_, i) => i === highIndex ? '3.80' : '3.30');
+    return `${ts},26.4,0,50,${cells.join(',')}`;
+  };
+  for (let i = 0; i < 8; i++) {
+    lines.push(cellRow(`2018-06-0${i + 1}T00:00:00Z`, 7));
+  }
+  for (let i = 0; i < 8; i++) {
+    lines.push(cellRow(`2021-06-0${i + 1}T00:00:00Z`, 0));
+  }
+  const fmt = detectFormat(lines.slice(0, 3));
+  const acc = makeAccumulator(fmt);
+  lines.forEach(line => { if (line.trim()) feedLine(acc, line); });
+  const src = { name: 'cells.csv', encoding: 'utf-8', format: fmt };
+  applyAccumulatorToSource(src, acc);
+  assert.equal(src.derived.categoryCounts.outlierCell['Cell 8'], 8);
+  assert.equal(src.derived.categoryCounts.outlierCell['Cell 1'], 8);
+  const buckets = src.derived.categoryTimeBuckets;
+  assert.ok(buckets.length >= 2);
+  assert.ok(buckets.length <= MAX_CATEGORY_TIME_BUCKETS);
+  const early = buckets[0].counts.outlierCell;
+  const late = buckets[buckets.length - 1].counts.outlierCell;
+  const earlyTop = Object.entries(early).sort((a, b) => b[1] - a[1])[0][0];
+  const lateTop = Object.entries(late).sort((a, b) => b[1] - a[1])[0][0];
+  assert.equal(earlyTop, 'Cell 8');
+  assert.equal(lateTop, 'Cell 1');
+});
+
+test('category time buckets stay within MAX_CATEGORY_TIME_BUCKETS', () => {
+  const derived = { categoryCounts: {} };
+  const t0 = Date.UTC(2018, 0, 1);
+  for (let i = 0; i < 400; i++) {
+    recordCategoryTime(derived, t0 + i * 86400000, { outlierCell: i % 2 ? 'Cell 8' : 'Cell 3' });
+  }
+  freezeCategoryTimeBuckets(derived);
+  assert.ok(derived.categoryTimeBuckets.length <= MAX_CATEGORY_TIME_BUCKETS);
+  assert.ok(derived.categoryTimeBuckets.length >= 2);
 });
 
 test('buildTimeCoverageNote states coverage as fact', () => {

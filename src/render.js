@@ -258,6 +258,19 @@ function renderEntityFilterRow(s) {
   </div>`;
 }
 
+function renderCategoryTime(derived) {
+  const buckets = derived?.categoryTimeBuckets || [];
+  const rows = buckets.map(b => {
+    const oc = b.counts?.outlierCell;
+    if (!oc) return null;
+    const top = Object.entries(oc).sort((a, c) => c[1] - a[1]).slice(0, 3)
+      .map(([k, v]) => `${k} ${v}건`).join(', ');
+    return `${(b.start || '').slice(0, 10)} ~ ${(b.end || '').slice(0, 10)}: ${top}`;
+  }).filter(Boolean);
+  if (!rows.length) return '';
+  return `<div class="category-time" data-category-time="outlierCell">${rows.map(r => `<div>${esc(r)}</div>`).join('')}</div>`;
+}
+
 function renderTimeCoverage(s) {
   if (!s.dataTimeRange && !s.evidenceTimeRange) return '';
   const ratio = s.timeCoverageRatio;
@@ -270,6 +283,7 @@ function renderTimeCoverage(s) {
     <div>데이터 구간 ${esc(formatTimeRange(s.dataTimeRange))}</div>
     <div>알람 근거 구간 ${esc(formatTimeRange(s.evidenceTimeRange))} · 커버리지 ${esc(pct)}${warn ? ' — 전체 구간의 일부만 덮음' : ''}</div>
     ${dist ? `<div data-alarm-time-dist="1">유지 샘플 분포 ${dist}</div>` : ''}
+    ${renderCategoryTime(s.derived)}
   </div>`;
 }
 
@@ -287,9 +301,17 @@ function renderSourceProfilesCoverage(profiles) {
       ${dist ? `<div data-alarm-time-dist="1">유지 샘플 분포 ${dist}</div>` : ''}
     </div>`;
   }).join('');
+  const categoryBlocks = (state.logSources || [])
+    .filter(s => s.selected && s.status === 'ready' && s.derived?.categoryTimeBuckets?.length)
+    .map(s => `<div data-category-time-source="${esc(s.path || s.name || '')}">
+      <div class="source-sub">${esc(s.path || s.name || '출처')} · outlierCell 시간 분포</div>
+      ${renderCategoryTime(s.derived)}
+    </div>`)
+    .join('');
   return `<div class="panel" data-time-coverage-panel="1">
     <div class="panel-head"><div class="panel-tag"></div><div class="panel-title">시간 커버리지</div></div>
     ${cards}
+    ${categoryBlocks}
   </div>`;
 }
 

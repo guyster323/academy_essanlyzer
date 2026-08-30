@@ -114,12 +114,23 @@ function formatDerivedDetails(derived) {
   const categoryText = categoryEntries.length
     ? `\n- 파생 범주 집계:\n  - ${categoryEntries.slice(0, 8).join('\n  - ')}`
     : '';
+  const timeBuckets = Array.isArray(derived.categoryTimeBuckets) ? derived.categoryTimeBuckets : [];
+  const outlierOverTime = timeBuckets.map(bucket => {
+    const oc = bucket.counts?.outlierCell;
+    if (!oc) return null;
+    const top = Object.entries(oc).sort((a, b) => b[1] - a[1]).slice(0, 3)
+      .map(([cell, count]) => `${cell} ${count}건`).join(', ');
+    return `  - ${(bucket.start || '').slice(0, 10)} ~ ${(bucket.end || '').slice(0, 10)}: ${top}`;
+  }).filter(Boolean);
+  const categoryTimeText = outlierOverTime.length
+    ? `\n- 파생 범주 시간 분포 (outlierCell):\n${outlierOverTime.join('\n')}`
+    : '';
   return `- 파생 탐지 방식: ${derived.label}
 - 파생 이상 행 수: ${derived.alarmCount || 0}건
 - 파생 지표 통계 (bounded running summary):
 ${metricText}
 - 파생 이상 사유 집계:
-${reasonText}${reasonRest}${categoryText}`;
+${reasonText}${reasonRest}${categoryText}${categoryTimeText}`;
 }
 
 function formatAlarmAnnotations(annotations) {

@@ -192,9 +192,101 @@ export function sortAlarmSamplesByTime(bucket) {
   bucket.alarmSampleTimes = order.map(i => times[i]);
 }
 
+function mergeCategoryCountMaps(a, b) {
+  const out = {};
+  for (const src of [a, b]) {
+    if (!src) continue;
+    for (const [key, values] of Object.entries(src)) {
+      if (!out[key]) out[key] = {};
+      for (const [value, n] of Object.entries(values || {})) {
+        out[key][value] = (out[key][value] || 0) + n;
+      }
+    }
+  }
+  return out;
+}
+
+function compactCategoryAxis(axis) {
+  while (axis.buckets.length > MAX_CATEGORY_TIME_BUCKETS) {
+    const merged = [];
+    for (let i = 0; i < axis.buckets.length; i += 2) {
+      merged.push(mergeCategoryCountMaps(axis.buckets[i], axis.buckets[i + 1] || {}));
+    }
+    axis.buckets = merged;
+    axis.width *= 2;
+  }
+}
+
+/** Online, width-doubling category histogram. Bucket count is capped. */
+export function recordCategoryTime(derived, t, categories) {
+  if (!derived || !Number.isFinite(t) || !categories) return;
+  const entries = Object.entries(categories).filter(([, value]) => value !== undefined && value !== null && value !== '');
+  if (!entries.length) return;
+
+  if (!derived._catAxis) {
+    Object.defineProperty(derived, '_catAxis', {
+      value: { origin: t, width: 24 * 3600 * 1000, buckets: [{}] },
+      enumerable: false,
+      writable: true
+    });
+  }
+  const axis = derived._catAxis;
+
+  if (t < axis.origin) {
+    const steps = Math.ceil((axis.origin - t) / axis.width);
+    const prepend = Math.min(Math.max(0, steps), MAX_CATEGORY_TIME_BUCKETS);
+    axis.origin -= prepend * axis.width;
+    for (let i = 0; i < prepend; i++) axis.buckets.unshift({});
+    compactCategoryAxis(axis);
+  }
+
+  let idx = Math.floor((t - axis.origin) / axis.width);
+  if (idx < 0) idx = 0;
+  while (idx >= MAX_CATEGORY_TIME_BUCKETS) {
+    const merged = [];
+    for (let i = 0; i < axis.buckets.length; i += 2) {
+      merged.push(mergeCategoryCountMaps(axis.buckets[i], axis.buckets[i + 1] || {}));
+    }
+    axis.buckets = merged;
+    axis.width *= 2;
+    idx = Math.floor((t - axis.origin) / axis.width);
+    if (idx < 0) idx = 0;
+  }
+  while (axis.buckets.length <= idx) axis.buckets.push({});
+  const slot = axis.buckets[idx];
+  for (const [key, value] of entries) {
+    if (!slot[key] && Object.keys(slot).length >= 20) continue;
+    if (!slot[key]) slot[key] = {};
+    const counts = slot[key];
+    if (!counts[value] && Object.keys(counts).length >= 20) continue;
+    counts[value] = (counts[value] || 0) + 1;
+  }
+}
+
+export function freezeCategoryTimeBuckets(derived) {
+  if (!derived) return;
+  const axis = derived._catAxis;
+  if (!axis) {
+    if (!Array.isArray(derived.categoryTimeBuckets)) derived.categoryTimeBuckets = [];
+    return;
+  }
+  derived.categoryTimeBuckets = axis.buckets.map((counts, i) => {
+    const startMs = axis.origin + i * axis.width;
+    const endMs = startMs + axis.width;
+    return {
+      startMs,
+      endMs,
+      start: isoFromMs(startMs),
+      end: isoFromMs(endMs),
+      counts
+    };
+  }).filter(b => Object.keys(b.counts || {}).length > 0);
+}
+
 export function finalizeBucketTime(bucket) {
   if (!bucket) return;
   sortAlarmSamplesByTime(bucket);
+  freezeCategoryTimeBuckets(bucket.derived);
   bucket.evidenceTimeRange = evidenceRangeFromTimes(bucket.alarmSampleTimes);
   bucket.timeCoverageRatio = coverageRatio(bucket.evidenceTimeRange, bucket.dataTimeRange);
   bucket.alarmSampleTimeDistribution = histogramTimes(bucket.alarmSampleTimes, bucket.dataTimeRange);
@@ -216,6 +308,7 @@ export function rollupGroupTime(acc) {
   acc.alarmDroppedCount = dropped;
   acc.timeCoverageRatio = coverageRatio(acc.evidenceTimeRange, acc.dataTimeRange);
   acc.alarmSampleTimeDistribution = histogramTimes(times, acc.dataTimeRange);
+  freezeCategoryTimeBuckets(acc.derived);
 }
 
 /** Min/max t from a figure whose x-axis is actually time (not Cell index etc.). */
