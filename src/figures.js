@@ -1,4 +1,4 @@
-import { binsToXY, pickTopEntities, MAX_SERIES_ENTITIES, primaryRange } from './series-engine.js';
+import { binsToXY, pickTopEntities, MAX_SERIES_ENTITIES, primaryRange, mergeFrozenSeries } from './series-engine.js';
 import { figureCoveredTimeRange } from './time-coverage.js';
 import { CHART_PALETTE } from './charts.js';
 import {
@@ -156,13 +156,65 @@ function aemoFigures(seriesByEntity, focusHint) {
     summaryStats: q
   });
 
-  figures.push(emptyFigure(
-    'A-F6',
-    'Actual–Target 오차가 어느 신호에서 먼저 시작됐는가',
-    '이 소스에 Dispatch Target 컬럼이 없어 A-F6는 그릴 수 없습니다 — Unknown으로 남깁니다'
-  ));
+  figures.push(aemoDeviationFigure(focus, focusId));
 
   return figures;
+}
+
+function maxAbsLevelAnchor(frozen, signal) {
+  const { t, y } = binsToXY(frozen, signal, 'mean');
+  let best = null;
+  for (let i = 0; i < y.length; i++) {
+    const score = Math.abs(y[i]);
+    if (!best || score > best.score) best = { t: t[i], value: y[i], score };
+  }
+  return best;
+}
+
+function aemoDeviationFigure(focus, focusId) {
+  const claim = 'MEASURED_MW와 SCHEDULED_MW의 편차가 어느 구간에서 커지는가';
+  const hasColumn = (focus?.signals || []).includes('deviationMw');
+  if (!hasColumn) {
+    return emptyFigure(
+      'A-F6',
+      claim,
+      '이 소스에 DEVIATION_MW 컬럼이 없어 A-F6는 그릴 수 없습니다 — Unknown으로 남깁니다'
+    );
+  }
+  const xy = binsToXY(focus, 'deviationMw', 'mean');
+  if (xy.t.length < 2) {
+    return emptyFigure(
+      'A-F6',
+      claim,
+      'DEVIATION_MW 컬럼은 있으나 시계열 값이 부족해 A-F6는 그릴 수 없습니다'
+    );
+  }
+  const anchor = maxAbsLevelAnchor(focus, 'deviationMw');
+  const series = [xySeries(focus, 'deviationMw', `${focusId} DEVIATION_MW`, CHART_PALETTE[0])];
+  if ((focus.signals || []).includes('scheduledMw')) {
+    series.push(xySeries(focus, 'scheduledMw', `${focusId} SCHEDULED_MW`, CHART_PALETTE[1], 'mean', false));
+  }
+  return {
+    id: 'A-F6',
+    claim: anchor
+      ? `${focusId} DEVIATION_MW 최대 |편차| ${anchor.value.toFixed(1)} MW — SCHEDULED_MW 대비 실측 잔차`
+      : claim,
+    available: true,
+    unavailableReason: null,
+    evidenceTier: 'Derived',
+    xLabel: '시간',
+    yLabel: 'MW',
+    series,
+    markers: anchor ? [{ t: anchor.t, label: `dev ${anchor.value.toFixed(1)} MW` }] : [],
+    summaryStats: {
+      entity: focusId,
+      minDeviationMw: Math.min(...xy.y),
+      maxDeviationMw: Math.max(...xy.y),
+      eventDeviationMw: anchor ? anchor.value : null,
+      eventT: anchor ? anchor.t : null,
+      points: xy.t.length
+    }
+  };
 }
 
 function lfpFigures(seriesByEntity, resistanceEvents) {
@@ -299,7 +351,10 @@ export function collectSeriesContext(blocks) {
     formatId = block.formatId || formatId;
     if (block.entityFilter) focusHint = block.entityFilter;
     Object.entries(block.seriesByEntity || {}).forEach(([id, frozen]) => {
-      if (frozen?.bins?.length) seriesByEntity[id] = frozen;
+      if (!frozen?.bins?.length) return;
+      seriesByEntity[id] = seriesByEntity[id]
+        ? mergeFrozenSeries(seriesByEntity[id], frozen)
+        : frozen;
     });
     const scalar = Number(block.droppedResistanceEvents) || 0;
     if (scalar) droppedResistanceEvents += scalar;
