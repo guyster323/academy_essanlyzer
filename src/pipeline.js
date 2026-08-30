@@ -7,7 +7,10 @@ import {
 } from './log-engine.js';
 import { detectFormat, detectDelimiter } from './formats.js';
 import { freezeSeries } from './series-engine.js';
-import { normalizeResistanceEvents, resistanceEventsDroppedCount } from './forensics/lfp.js';
+import {
+  normalizeResistanceEvents, resistanceEventsDroppedCount, resistanceEventYearCounts,
+  formatResistanceDropNote, formatResistanceYearCounts
+} from './forensics/lfp.js';
 import { buildFigures, figureCatalog } from './figures.js';
 import { detectAttributionConflict } from './attribution-conflict.js';
 import { buildEvidenceLedger, catalogEvidence } from './evidence-ledger.js';
@@ -39,13 +42,21 @@ export function collectActiveLogBlocks() {
     const seriesByEntity = {};
     const resistanceEventsByEntity = {};
     let droppedResistanceEvents = 0;
+    const resistanceEventYearCountsMerged = {};
+    function noteResistanceList(list) {
+      droppedResistanceEvents += resistanceEventsDroppedCount(list);
+      const yc = list.yearCounts || resistanceEventYearCounts(list);
+      for (const [year, n] of Object.entries(yc)) {
+        resistanceEventYearCountsMerged[year] = (resistanceEventYearCountsMerged[year] || 0) + n;
+      }
+    }
     if (acc.groups) {
       Object.entries(acc.groups).forEach(([id, bucket]) => {
         if (bucket.series) seriesByEntity[id] = freezeSeries(bucket.series);
         if (bucket.resistanceEvents?.length) {
           normalizeResistanceEvents(bucket.resistanceEvents);
           resistanceEventsByEntity[id] = bucket.resistanceEvents;
-          droppedResistanceEvents += resistanceEventsDroppedCount(bucket.resistanceEvents);
+          noteResistanceList(bucket.resistanceEvents);
         }
       });
     } else if (acc.series) {
@@ -54,7 +65,7 @@ export function collectActiveLogBlocks() {
       if (acc.resistanceEvents?.length) {
         normalizeResistanceEvents(acc.resistanceEvents);
         resistanceEventsByEntity[frozen?.entityId || '_file'] = acc.resistanceEvents;
-        droppedResistanceEvents += resistanceEventsDroppedCount(acc.resistanceEvents);
+        noteResistanceList(acc.resistanceEvents);
       }
     }
     pastedSummary = {
@@ -65,6 +76,10 @@ export function collectActiveLogBlocks() {
       formatLabel: pasteFormat.label, entityColumn: acc.entityColumn || null, derived: acc.derived,
       seriesByEntity, resistanceEventsByEntity, entityFilter: null,
       droppedResistanceEvents,
+      resistanceEventYearCounts: Object.keys(resistanceEventYearCountsMerged).length
+        ? resistanceEventYearCountsMerged
+        : (acc.resistanceEventYearCounts || {}),
+      resistanceEventTimeDistribution: acc.resistanceEventTimeDistribution || [],
       dataTimeRange: acc.dataTimeRange || null,
       evidenceTimeRange: acc.evidenceTimeRange || null,
       timeCoverageRatio: Number.isFinite(acc.timeCoverageRatio) ? acc.timeCoverageRatio : null,
@@ -85,6 +100,8 @@ export function collectActiveLogBlocks() {
     resistanceEventsByEntity: s.resistanceEventsByEntity || {},
     entityFilter: s.entityFilter || null,
     droppedResistanceEvents: s.droppedResistanceEvents || 0,
+    resistanceEventYearCounts: s.resistanceEventYearCounts || {},
+    resistanceEventTimeDistribution: s.resistanceEventTimeDistribution || [],
     dataTimeRange: s.dataTimeRange || null,
     evidenceTimeRange: s.evidenceTimeRange || null,
     timeCoverageRatio: Number.isFinite(s.timeCoverageRatio) ? s.timeCoverageRatio : null,
@@ -160,7 +177,9 @@ function buildTruncationNote(truncation) {
   if (truncation.excludedSources) parts.push(`출처 파일 ${truncation.excludedSources}개 미포함`);
   if (truncation.excludedGroups) parts.push(`엔티티 그룹 ${truncation.excludedGroups}개 상세 생략`);
   if (truncation.excludedAlarmContexts) parts.push(`알람 컨텍스트 ${truncation.excludedAlarmContexts}건 생략`);
-  if (truncation.droppedResistanceEvents) parts.push(`저항 이벤트 ${truncation.droppedResistanceEvents.toLocaleString()}건 생략(초기 기준선+최근 창 유지)`);
+  if (truncation.droppedResistanceEvents) {
+    parts.push(formatResistanceDropNote(truncation.droppedResistanceEvents, truncation.resistanceEventYearCounts));
+  }
   if (truncation.droppedAnomalyWindows) parts.push(`이상 구간 ${truncation.droppedAnomalyWindows.toLocaleString()}건 생략(상한 16, Case B 골드런 16건)`);
   if (truncation.textTruncatedChars) parts.push(`텍스트 ${truncation.textTruncatedChars.toLocaleString()}자 절단`);
   return `[참고: 데이터 규모 제한으로 일부가 생략된 상태입니다 — ${parts.join(', ')}. 생략된 부분에 대한 판단은 "추가 확인 필요"로 명시하십시오.]`;
@@ -183,8 +202,16 @@ function formatTimeCoverageLines(block) {
   const dropped = block.alarmDroppedCount
     ? `\n- 알람 컨텍스트 생략: ${Number(block.alarmDroppedCount).toLocaleString()}건 (시간 계층화 유지)`
     : '';
+  const rYears = formatResistanceYearCounts(block.resistanceEventYearCounts);
+  const rDist = Array.isArray(block.resistanceEventTimeDistribution) && block.resistanceEventTimeDistribution.length
+    ? `\n- 유지된 저항 이벤트 시간 분포: ${block.resistanceEventTimeDistribution.map(b => `${(b.start || '').slice(0, 10)}:${b.count}`).join(', ')}`
+    : '';
+  const rYearLine = rYears ? `\n- 유지된 저항 이벤트 연도 분포: ${rYears}` : '';
+  const rDropped = block.droppedResistanceEvents
+    ? `\n- ${formatResistanceDropNote(block.droppedResistanceEvents, null)}`
+    : '';
   return `- 데이터 시간 범위: ${formatTimeRange(block.dataTimeRange)}
-- 알람 근거 시간 범위: ${formatTimeRange(block.evidenceTimeRange)}${pct}${dist}${dropped}
+- 알람 근거 시간 범위: ${formatTimeRange(block.evidenceTimeRange)}${pct}${dist}${dropped}${rDist}${rYearLine}${rDropped}
 `;
 }
 
@@ -205,6 +232,15 @@ function buildSourceProfile(block) {
     alarmDroppedCount: Number.isInteger(block.alarmDroppedCount) ? block.alarmDroppedCount : 0,
     alarmSampleTimeDistribution: Array.isArray(block.alarmSampleTimeDistribution)
       ? block.alarmSampleTimeDistribution
+      : [],
+    droppedResistanceEvents: Number.isInteger(block.droppedResistanceEvents)
+      ? block.droppedResistanceEvents
+      : 0,
+    resistanceEventYearCounts: block.resistanceEventYearCounts && typeof block.resistanceEventYearCounts === 'object'
+      ? block.resistanceEventYearCounts
+      : {},
+    resistanceEventTimeDistribution: Array.isArray(block.resistanceEventTimeDistribution)
+      ? block.resistanceEventTimeDistribution
       : []
   };
 }
@@ -291,6 +327,7 @@ export function blocksToPromptText(allBlocks) {
     excludedGroups: 0,
     excludedAlarmContexts: 0,
     droppedResistanceEvents: 0,
+    resistanceEventYearCounts: {},
     textTruncatedChars: 0,
     lowTimeCoverage: false,
     timeCoverageDetails: []
@@ -339,6 +376,26 @@ export function blocksToPromptText(allBlocks) {
     n += resistanceEventsDroppedCount(block.resistanceEvents);
     return sum + n;
   }, 0);
+  truncation.resistanceEventYearCounts = includedBlocks.reduce((counts, block) => {
+    const yc = block.resistanceEventYearCounts && typeof block.resistanceEventYearCounts === 'object'
+      ? block.resistanceEventYearCounts
+      : null;
+    if (yc && Object.keys(yc).length) {
+      for (const [year, n] of Object.entries(yc)) counts[year] = (counts[year] || 0) + n;
+      return counts;
+    }
+    const lists = [
+      ...Object.values(block.resistanceEventsByEntity || {}),
+      block.resistanceEvents
+    ];
+    lists.forEach(list => {
+      if (!Array.isArray(list)) return;
+      for (const [year, n] of Object.entries(list.yearCounts || resistanceEventYearCounts(list))) {
+        counts[year] = (counts[year] || 0) + n;
+      }
+    });
+    return counts;
+  }, {});
 
   const rawText = blockTexts.length ? blockTexts.join('\n\n') : '(입력된 로그 데이터 없음)';
   const hasStructuralTruncation = Boolean(

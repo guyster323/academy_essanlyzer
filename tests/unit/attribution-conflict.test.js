@@ -164,6 +164,7 @@ test('stride80 Case B log actually conflicts: voltage residual Cell 8 vs event r
   };
   const figures = buildFigures([block]);
   const result = detectAttributionConflict({ blocks: [block], figures });
+  assert.equal(src.rowCount, 240603);
   assert.equal(src.derived.alarmCount, 9366);
   assert.equal(result.status, ATTRIBUTION_STATUS.CONFLICT);
   assert.equal(result.voltageResidual.cell, 'Cell 8');

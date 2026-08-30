@@ -90,7 +90,24 @@ test('dropped resistance events are reported in truncation, never silently', () 
   block.droppedResistanceEvents = 1234;
   const { text, truncation } = blocksToPromptText([block]);
   assert.equal(truncation.droppedResistanceEvents, 1234);
-  assert.match(text, new RegExp(`저항 이벤트 ${Number(1234).toLocaleString()}건 생략\\(초기 기준선\\+최근 창 유지\\)`));
+  assert.match(text, new RegExp(`저항 이벤트 ${Number(1234).toLocaleString()}건 생략\\(초기 기준선\\+전 구간 분산 유지\\)`));
+});
+
+test('kept resistance-event year distribution is copied into source profiles and prompt text', () => {
+  const block = makeFlatBlock('data_sys_6.csv', 2);
+  block.droppedResistanceEvents = 575026;
+  block.resistanceEventYearCounts = { 2018: 800, 2019: 700, 2020: 700, 2021: 900, 2022: 50 };
+  block.dataTimeRange = {
+    minMs: Date.parse('2018-04-28'), maxMs: Date.parse('2022-01-10'),
+    min: '2018-04-28T00:00:00.000Z', max: '2022-01-10T00:00:00.000Z'
+  };
+  block.evidenceTimeRange = block.dataTimeRange;
+  block.timeCoverageRatio = 1;
+  const { text, truncation, sourceProfiles } = blocksToPromptText([block]);
+  assert.equal(truncation.droppedResistanceEvents, 575026);
+  assert.equal(sourceProfiles[0].resistanceEventYearCounts['2021'], 900);
+  assert.match(text, /유지된 저항 이벤트 연도 분포: 2018:800 2019:700 2020:700 2021:900 2022:50/);
+  assert.match(text, /전 구간 분산 유지/);
 });
 
 test('when anything is truncated, a human-readable note is prefixed into the prompt text itself', () => {
