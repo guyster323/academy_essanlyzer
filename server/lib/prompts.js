@@ -151,6 +151,25 @@ ${priorCase || '없음'}${referenceSection}
 cell-array 포맷이면 claimLimit에 반드시 “Cell N 경로의 유효 직렬저항 증가” 수준까지만 입증 가능하고 전기화학적 열화·커넥터·부식·정확한 반품 원인은 확정할 수 없다는 제한을 명시하라. 그 물리 원인을 확정하는 문장을 name/actualObservation/evidence에 쓰지 마라. 반증·누락 신호를 생략하지 마라.`;
 }
 
+function timeHorizonPromptBlock(sourceProfiles) {
+  const profiles = Array.isArray(sourceProfiles) ? sourceProfiles : [];
+  const withTime = profiles.filter(p => p.dataTimeRange || p.evidenceTimeRange);
+  if (!withTime.length) return '';
+  const lines = withTime.map(p => {
+    const pct = Number.isFinite(p.timeCoverageRatio)
+      ? `${Math.round(p.timeCoverageRatio * 1000) / 10}%`
+      : '미상';
+    return `- ${p.sourceFile || '출처'}: 데이터 ${formatProfileTimeRange(p.dataTimeRange)}, 알람 근거 ${formatProfileTimeRange(p.evidenceTimeRange)}, 커버리지 ${pct}`;
+  });
+  return `
+[시간 커버리지 — 사실 기록. 결론을 지시하지 않는다]
+${lines.join('\n')}
+- 근거 시간 범위가 데이터 전체의 일부에 몰려 있으면 headline과 rootCause에 그 근거 구간을 명시하고, 전체 구간 특성으로 단정하지 마라.
+- 데이터가 수개월~수년에 걸쳐 있는데 근거가 그보다 짧은 창만 덮으면, unknownBox에 장기 거동이 이 근거로는 미확인임을 적어라. 근거 없는 장기 결론을 만들지 마라.
+- Figure 카탈로그의 timeRange는 각 그림이 덮는 구간이며 알람 근거 구간과 다를 수 있다. 둘을 같은 구간인 것처럼 쓰지 마라.
+`;
+}
+
 function attributionConflictPromptBlock(conflict) {
   if (!conflict || conflict.status !== 'conflict') return '';
   const v = conflict.voltageResidual || {};
@@ -182,6 +201,7 @@ export function buildDraftReportPrompt({
     : '';
   return `[감지된 출처 포맷]
 ${sourceProfileText(sourceProfiles, sourceFormats)}
+${timeHorizonPromptBlock(profiles)}
 [이슈 구조화 정보] ${JSON.stringify(issueStructured)}
 [이상 구간] ${JSON.stringify(anomalyWindows)}
 [엔지니어 확정 원인 가설] ${JSON.stringify(confirmedHyp)}
