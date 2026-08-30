@@ -25,4 +25,6 @@
 | `evidence-conflict-step2.png` / `evidence-conflict-step4.png` | Live UI: the Cell 8 vs Cell 5 split on anomaly view (Step 2) and at the hypothesis decision point (Step 4). |
 | `evidence-conflict-no-false-positive.png` | Same banner absent on generic CSV with no conflict. |
 
+| `case_b_swot_vs_paper.md` | 2026-08-30: SWOT of our log-based Case B analysis against the published paper's System 6 claims. Key finding: our report's evidence window is days 165-217 of a 1,353-day dataset (12-16%), while the paper's phenomenon starts ~day 500 — traced to `ALARM_SAMPLE_CAP` keeping only the earliest 40 alarm windows. |
+
 PR: https://github.com/guyster323/academy_essanlyzer/pull/2
