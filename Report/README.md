@@ -5,6 +5,8 @@
 | `case_a_report.html` | Orca live Case A executive HTML (A-F1–F6, 3-box, FTA). Charts are inlined PNG. |
 | `case_a_report_compared.html` | Same after `/api/compare-published` vs AEMO 19 Aug 2025 excerpt. Independent findings were not rewritten. |
 | `case_a_vs_aemo_log_analysis.md` | 2026-08-31: log-analysis comparison of our Case A report against AEMO's public material. Key finding: AEMO's -55 MW at 12:15 is a deviation-from-target event, ours is a -241 MW raw output change at 09:04 — different physical quantities. We cannot detect AEMO's kind of event, and the cause is not missing data: `DEVIATION_MW` is present and populated (±124.8 MW that day) but `formats.js` reads only `MEASURED_MW` and A-F6 is a hardcoded empty figure. |
+| `dispatch-target-deviation-plan.md` | 2026-08-31: plan to actually use `DEVIATION_MW`/`SCHEDULED_MW` (P1), make A-F6's unavailable reason truthful (P2), measure the column identity (P3), and merge multi-source figure series (P4). |
+| `dispatch-target-deviation-findings.md` | 2026-08-31: measured `DEVIATION_MW ≈ MEASURED_MW − SCHEDULED_MW` except 55 bad-quality rows. The 12:15–12:20 AEST window is −16..+5 MW, not −55; a −55-scale FPP residual sits at 12:05 and the rolling-z rule does not flag that plateau. A-F6 is now available. Did not regenerate `case_a_report.html`. |
 | `case_a_pipeline.json` | Compact JSON of headline, figures, findings. |
 | `case_b_evidence.html` | Case B independent evidence after detect (B-F1–F6). Hypothesis/executive draft blocked by Claude CLI session limit. |
 | `case_b_pipeline.json` | Figure catalog + window summary. |
