@@ -222,3 +222,82 @@ export function frozenFromPairs(entityId, pairs, signal = 'mw', maxPoints = MAX_
   (pairs || []).forEach(([t, v]) => pushSample(buffer, entityId, t, { [signal]: v }));
   return freezeSeries(buffer);
 }
+
+function binHasSignal(bin, name) {
+  return Number.isFinite(bin?.mean?.[name]) || Number.isFinite(bin?.min?.[name]);
+}
+
+function combineBinPair(a, b, signals) {
+  const count = (a.count || 1) + (b.count || 1);
+  const min = {};
+  const max = {};
+  const mean = {};
+  for (const name of signals) {
+    const aHas = binHasSignal(a, name);
+    const bHas = binHasSignal(b, name);
+    if (aHas && bHas) {
+      min[name] = Math.min(a.min[name], b.min[name]);
+      max[name] = Math.max(a.max[name], b.max[name]);
+      mean[name] = ((a.mean[name] * (a.count || 1)) + (b.mean[name] * (b.count || 1))) / count;
+    } else if (aHas) {
+      min[name] = a.min[name];
+      max[name] = a.max[name];
+      mean[name] = a.mean[name];
+    } else if (bHas) {
+      min[name] = b.min[name];
+      max[name] = b.max[name];
+      mean[name] = b.mean[name];
+    } else {
+      min[name] = Infinity;
+      max[name] = -Infinity;
+      mean[name] = 0;
+    }
+  }
+  return { t: a.t, count, min, max, mean };
+}
+
+function pairwiseCombine(bins, signals) {
+  const out = [];
+  for (let i = 0; i < bins.length; i += 2) {
+    if (i + 1 >= bins.length) out.push(bins[i]);
+    else out.push(combineBinPair(bins[i], bins[i + 1], signals));
+  }
+  return out;
+}
+
+/**
+ * Concatenate two frozen series for the same entity, sort by time, coalesce
+ * exact-duplicate timestamps, and pairwise-rebin down to maxPoints.
+ * Does not insert points into gaps — missing intervals stay missing.
+ */
+export function mergeFrozenSeries(left, right, maxPoints = MAX_SERIES_POINTS) {
+  if (!left?.bins?.length) return right || null;
+  if (!right?.bins?.length) return left;
+  const signalSet = new Set();
+  (left.signals || []).forEach(name => signalSet.add(name));
+  (right.signals || []).forEach(name => signalSet.add(name));
+  const signals = [...signalSet].slice(0, MAX_SERIES_SIGNALS);
+  const bins = [...left.bins, ...right.bins].sort((a, b) => a.t - b.t);
+  const coalesced = [];
+  for (const bin of bins) {
+    const last = coalesced[coalesced.length - 1];
+    if (last && last.t === bin.t) coalesced[coalesced.length - 1] = combineBinPair(last, bin, signals);
+    else coalesced.push({
+      t: bin.t,
+      count: bin.count || 1,
+      min: { ...bin.min },
+      max: { ...bin.max },
+      mean: { ...bin.mean }
+    });
+  }
+  let out = coalesced;
+  const cap = Math.max(2, maxPoints | 0);
+  while (out.length > cap) out = pairwiseCombine(out, signals);
+  return {
+    entityId: left.entityId || right.entityId,
+    binMode: left.binMode || right.binMode || 'adaptive',
+    signals,
+    sampleCount: (left.sampleCount || 0) + (right.sampleCount || 0),
+    bins: out
+  };
+}
