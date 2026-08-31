@@ -84,6 +84,46 @@ test('A-F6 is available when the frozen series actually has DEVIATION_MW points'
   assert.equal(af6.summaryStats.eventDeviationMw, -30);
 });
 
+test('A-F1 claim uses the series span instead of 당일, and unscoped anchors name their day', () => {
+  const buf = createSeriesBuffer({ signals: ['mw'] });
+  pushSample(buf, 'U1', Date.UTC(2024, 2, 1, 3, 0, 0), { mw: 100 });
+  pushSample(buf, 'U1', Date.UTC(2024, 2, 1, 4, 0, 0), { mw: 0 });
+  pushSample(buf, 'U1', Date.UTC(2024, 2, 2, 4, 0, 0), { mw: 10 });
+  pushSample(buf, 'U1', Date.UTC(2024, 2, 3, 3, 0, 0), { mw: 50 });
+  pushSample(buf, 'U1', Date.UTC(2024, 2, 3, 4, 0, 0), { mw: 20 });
+  const frozen = freezeSeries(buf);
+  const figures = buildFigures([{
+    formatId: 'aemo-mms',
+    seriesByEntity: { U1: frozen }
+  }]);
+  const af1 = figures.find(f => f.id === 'A-F1');
+  assert.equal(af1.available, true);
+  assert.equal(/당일/.test(af1.claim), false);
+  assert.match(af1.claim, /2024-03-01 ~ 2024-03-03/);
+  assert.equal(af1.summaryStats.anchorScope, 'global-maximum');
+  assert.equal(af1.summaryStats.eventDeltaMw, -100);
+  assert.equal(af1.summaryStats.eventDay, '2024-03-01');
+  assert.match(af1.markers[0].label, /2024-03-01/);
+});
+
+test('A-F1 anchor stays inside the CS analysis day when a scope is given', () => {
+  const buf = createSeriesBuffer({ signals: ['mw'] });
+  pushSample(buf, 'U1', Date.UTC(2024, 2, 1, 3, 0, 0), { mw: 100 });
+  pushSample(buf, 'U1', Date.UTC(2024, 2, 1, 4, 0, 0), { mw: 0 });
+  pushSample(buf, 'U1', Date.UTC(2024, 2, 3, 3, 0, 0), { mw: 50 });
+  pushSample(buf, 'U1', Date.UTC(2024, 2, 3, 4, 0, 0), { mw: 20 });
+  const frozen = freezeSeries(buf);
+  const figures = buildFigures([{
+    formatId: 'aemo-mms',
+    seriesByEntity: { U1: frozen }
+  }], { csText: '2024년 3월 3일 설비 출력 점검을 요청합니다.' });
+  const af1 = figures.find(f => f.id === 'A-F1');
+  assert.equal(af1.summaryStats.anchorScope, 'analysis-window');
+  assert.equal(af1.summaryStats.eventDeltaMw, -30);
+  assert.equal(af1.summaryStats.eventDay, '2024-03-03');
+  assert.equal(af1.summaryStats.globalEventDeltaMw, -100);
+});
+
 test('collectSeriesContext merges same-entity bins across sources in time order', () => {
   const later = frozenFromPairs('WDBESS1', [[2000, 20], [3000, 30]], 'mw');
   const earlier = frozenFromPairs('WDBESS1', [[0, 0], [1000, 10]], 'mw');

@@ -4,6 +4,8 @@ import { CHART_PALETTE } from './charts.js';
 import {
   classifyCommonMode, maxAbsDeltaAnchor, dpDtPercentile, qualityOverlap, eventStates, windowedNormalized
 } from './forensics/aemo.js';
+import { resolveAnalysisScope, seriesSpanLabel, civilDateLabel } from './analysis-scope.js';
+import { TIMESTAMP_ASSUMPTIONS } from './formats.js';
 import {
   resistanceSeriesByCell, binMatch, detectKnee, outlierCellByResistance, balancingBurden,
   normalizeResistanceEvents, resistanceEventsDroppedCount, resistanceEventYearCounts
@@ -51,7 +53,8 @@ function genericFigures(seriesByEntity) {
   }];
 }
 
-function aemoFigures(seriesByEntity, focusHint) {
+function aemoFigures(seriesByEntity, focusHint, scope = null, assumption = null) {
+  const offset = assumption && Number.isFinite(assumption.offsetMinutes) ? assumption.offsetMinutes : 0;
   const top = pickTopEntities(seriesByEntity, { primarySignal: 'mw', limit: MAX_SERIES_ENTITIES });
   const ids = Object.keys(top);
   const focusId = (focusHint && top[focusHint]) ? focusHint
@@ -59,27 +62,43 @@ function aemoFigures(seriesByEntity, focusHint) {
   const figures = [];
 
   if (!focusId) {
-    return [emptyFigure('A-F1', '선택 설비의 출력은 당일 정상 운전 범위를 이탈하는 구간이 있다', 'MEASURED_MW 시계열이 없습니다')];
+    return [emptyFigure('A-F1', '선택 설비의 출력은 관측 구간 정상 운전 범위를 이탈하는 구간이 있다', 'MEASURED_MW 시계열이 없습니다')];
   }
   const focus = top[focusId];
-  const anchor = maxAbsDeltaAnchor(focus, 'mw');
+  const spanLabel = seriesSpanLabel(focus, offset);
+  const range = scope;
+  const anchor = maxAbsDeltaAnchor(focus, 'mw', range);
+  const globalAnchor = range ? maxAbsDeltaAnchor(focus, 'mw', null) : anchor;
+  const anchorDay = anchor ? civilDateLabel(anchor.t, offset) : null;
+  const scoped = Boolean(range);
+  const markerLabel = anchor
+    ? (scoped
+      ? `ΔP ${anchor.delta.toFixed(1)} MW`
+      : `ΔP ${anchor.delta.toFixed(1)} MW · ${anchorDay || ''}`)
+    : null;
   figures.push({
     id: 'A-F1',
-    claim: `${focusId} 출력은 당일 정상 운전 범위를 이탈하는 구간이 있다`,
+    claim: `${focusId} 출력은 ${spanLabel} 정상 운전 범위를 이탈하는 구간이 있다`,
     available: focus.bins.length >= 2,
     unavailableReason: unavailableReasonWhen(focus.bins.length >= 2, '포인트 부족'),
     evidenceTier: 'Derived',
     xLabel: '시간', yLabel: 'MW',
     series: [xySeries(focus, 'mw', focusId, CHART_PALETTE[0])],
-    markers: anchor ? [{ t: anchor.t, label: `ΔP ${anchor.delta.toFixed(1)} MW` }] : [],
+    markers: anchor && markerLabel ? [{ t: anchor.t, label: markerLabel.trim() }] : [],
     summaryStats: {
       entity: focusId, rangeMw: primaryRange(focus, 'mw'),
-      eventDeltaMw: anchor ? anchor.delta : null, eventT: anchor ? anchor.t : null
+      eventDeltaMw: anchor ? anchor.delta : null, eventT: anchor ? anchor.t : null,
+      eventDay: anchorDay,
+      seriesSpan: spanLabel,
+      anchorScope: scoped ? 'analysis-window' : 'global-maximum',
+      scopeLabel: range ? range.label : null,
+      globalEventT: globalAnchor ? globalAnchor.t : null,
+      globalEventDeltaMw: globalAnchor ? globalAnchor.delta : null
     }
   });
 
   const zoom = windowedNormalized(focus, (anchor?.t) || (focus.bins[0]?.t || 0), 20 * 60 * 1000, 'mw');
-  const states = eventStates(focus, 'mw');
+  const states = eventStates(focus, 'mw', range);
   figures.push({
     id: 'A-F2',
     claim: '주요 변화는 수 분 단위 사건으로 집중된다',
@@ -104,7 +123,7 @@ function aemoFigures(seriesByEntity, focusHint) {
   }
   figures.push({
     id: 'A-F3',
-    claim: `출력 변화율은 당일 중앙값 대비 크다 (p95=${dP.p95.toFixed(1)} MW/h)`,
+    claim: `출력 변화율은 ${spanLabel} 중앙값 대비 크다 (p95=${dP.p95.toFixed(1)} MW/h)`,
     available: rateT.length >= 2,
     unavailableReason: unavailableReasonWhen(rateT.length >= 2, 'dP/dt를 계산할 구간이 없습니다'),
     evidenceTier: 'Derived',
@@ -114,7 +133,7 @@ function aemoFigures(seriesByEntity, focusHint) {
     summaryStats: dP
   });
 
-  const cm = classifyCommonMode(focusId, top, { signal: 'mw' });
+  const cm = classifyCommonMode(focusId, top, { signal: 'mw', range });
   const peerSeries = Object.entries(top).map(([id, frozen], i) => {
     const win = windowedNormalized(frozen, (cm.anchor?.t) || (anchor?.t) || 0, 15 * 60 * 1000, 'mw');
     return { name: id, color: CHART_PALETTE[i % CHART_PALETTE.length], t: win.map(p => p.t), y: win.map(p => p.y) };
@@ -139,7 +158,7 @@ function aemoFigures(seriesByEntity, focusHint) {
     }
   });
 
-  const q = qualityOverlap(focus);
+  const q = qualityOverlap(focus, range);
   const qSeries = [];
   if ((focus.signals || []).includes('mw')) qSeries.push(xySeries(focus, 'mw', 'MW', CHART_PALETTE[0], 'mean', false));
   figures.push({
@@ -156,22 +175,23 @@ function aemoFigures(seriesByEntity, focusHint) {
     summaryStats: q
   });
 
-  figures.push(aemoDeviationFigure(focus, focusId));
+  figures.push(aemoDeviationFigure(focus, focusId, range, offset));
 
   return figures;
 }
 
-function maxAbsLevelAnchor(frozen, signal) {
+function maxAbsLevelAnchor(frozen, signal, range = null) {
   const { t, y } = binsToXY(frozen, signal, 'mean');
   let best = null;
   for (let i = 0; i < y.length; i++) {
+    if (range && Number.isFinite(range.minMs) && (t[i] < range.minMs || t[i] >= range.maxMs)) continue;
     const score = Math.abs(y[i]);
     if (!best || score > best.score) best = { t: t[i], value: y[i], score };
   }
   return best;
 }
 
-function aemoDeviationFigure(focus, focusId) {
+function aemoDeviationFigure(focus, focusId, range = null, offsetMinutes = 0) {
   const claim = 'MEASURED_MW와 SCHEDULED_MW의 편차가 어느 구간에서 커지는가';
   const hasColumn = (focus?.signals || []).includes('deviationMw');
   if (!hasColumn) {
@@ -189,15 +209,17 @@ function aemoDeviationFigure(focus, focusId) {
       'DEVIATION_MW 컬럼은 있으나 시계열 값이 부족해 A-F6는 그릴 수 없습니다'
     );
   }
-  const anchor = maxAbsLevelAnchor(focus, 'deviationMw');
+  const anchor = maxAbsLevelAnchor(focus, 'deviationMw', range);
   const series = [xySeries(focus, 'deviationMw', `${focusId} DEVIATION_MW`, CHART_PALETTE[0])];
   if ((focus.signals || []).includes('scheduledMw')) {
     series.push(xySeries(focus, 'scheduledMw', `${focusId} SCHEDULED_MW`, CHART_PALETTE[1], 'mean', false));
   }
+  const span = seriesSpanLabel(focus, offsetMinutes);
+  const day = anchor ? civilDateLabel(anchor.t, offsetMinutes) : null;
   return {
     id: 'A-F6',
     claim: anchor
-      ? `${focusId} DEVIATION_MW 최대 |편차| ${anchor.value.toFixed(1)} MW — SCHEDULED_MW 대비 실측 잔차`
+      ? `${focusId} DEVIATION_MW 최대 |편차| ${anchor.value.toFixed(1)} MW (${range ? span : day || span}) — SCHEDULED_MW 대비 실측 잔차`
       : claim,
     available: true,
     unavailableReason: null,
@@ -212,6 +234,8 @@ function aemoDeviationFigure(focus, focusId) {
       maxDeviationMw: Math.max(...xy.y),
       eventDeviationMw: anchor ? anchor.value : null,
       eventT: anchor ? anchor.t : null,
+      eventDay: day,
+      anchorScope: range ? 'analysis-window' : 'global-maximum',
       points: xy.t.length
     }
   };
@@ -376,9 +400,13 @@ export function collectSeriesContext(blocks) {
   return { seriesByEntity, resistanceEvents, formatId, focusHint };
 }
 
-export function buildFigures(blocks) {
+export function buildFigures(blocks, options = {}) {
   const ctx = collectSeriesContext(blocks);
-  if (ctx.formatId === 'aemo-mms') return aemoFigures(ctx.seriesByEntity, ctx.focusHint);
+  if (ctx.formatId === 'aemo-mms') {
+    const assumption = TIMESTAMP_ASSUMPTIONS['aemo-mms'];
+    const scope = resolveAnalysisScope({ ...options, assumption });
+    return aemoFigures(ctx.seriesByEntity, ctx.focusHint, scope, assumption);
+  }
   if (ctx.formatId === 'lfp-cell-array') return lfpFigures(ctx.seriesByEntity, ctx.resistanceEvents);
   return genericFigures(ctx.seriesByEntity);
 }

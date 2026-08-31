@@ -536,6 +536,16 @@ export function selectDetectedIssue(id, skipRender) {
 /* =========================================================
    PIPELINE STAGES 2-4
 ========================================================= */
+function figureScopeFromState() {
+  const selectedIssue = (state.detectedIssues || []).find(i => i.id === state.selectedIssueId) || null;
+  return {
+    csText: state.csText,
+    selectedIssue,
+    issueStructured: state.issueStructured,
+    anomalyWindows: state.anomalyWindows
+  };
+}
+
 export async function runAnomalyDetection() {
   state.error = null;
   state.loadingLabel = 'CS 의뢰 구조화 및 이상 구간 탐지 중';
@@ -549,7 +559,7 @@ export async function runAnomalyDetection() {
   state.lastTruncation = truncation;
   state.sourceProfiles = sourceProfiles;
   try {
-    state.figureSpecs = buildFigures(allBlocks);
+    state.figureSpecs = buildFigures(allBlocks, figureScopeFromState());
   } catch (e) {
     console.warn('figure build failed', e);
     state.figureSpecs = [];
@@ -571,6 +581,11 @@ export async function runAnomalyDetection() {
         ...(state.lastTruncation || {}),
         droppedAnomalyWindows: json.truncation.droppedAnomalyWindows
       };
+    }
+    try {
+      state.figureSpecs = buildFigures(allBlocks, figureScopeFromState());
+    } catch (e) {
+      console.warn('figure rebuild after anomaly windows failed', e);
     }
     const af4 = (state.figureSpecs || []).find(f => f.id === 'A-F4');
     state.evidenceLedger = buildEvidenceLedger({
