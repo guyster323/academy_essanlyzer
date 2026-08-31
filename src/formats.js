@@ -166,6 +166,12 @@ export const GENERIC_FORMAT = {
      D,FPP,UNIT_MW,1,"2025/08/16 04:05:00","2025/08/16 04:00:04",ADPBA1,...
 */
 const AEMO_COL_OFFSET = 4;
+// Sustained-offset rule. Magnitude is the measured p75 of |DEVIATION_MW|
+// on incident-day WDBESS1 (11.76 MW, rounded to 12). Duration is one
+// 5-minute AEMO dispatch interval at 4-second sampling (75 samples).
+// Not fitted to any published event MW or timestamp.
+const AEMO_SUSTAINED_DEV_ABS_MW = 12;
+const AEMO_SUSTAINED_DEV_SAMPLES = 75;
 
 export const AEMO_MMS_FORMAT = {
   id: 'aemo-mms',
@@ -196,7 +202,7 @@ export const AEMO_MMS_FORMAT = {
     const s = (v || '').trim();
     return !!s && s !== '1'; // 1=정상, 2=대체/추정치, 0=불량
   },
-  derivedLabel: 'MEASURED_MW 독립 통계 이상탐지 (rolling mean/std·MAD z-score·ramp) + DEVIATION_MW 타깃 편차',
+  derivedLabel: 'MEASURED_MW 독립 통계 이상탐지 (rolling mean/std·MAD z-score·ramp) + DEVIATION_MW 타깃 편차(onset) + DEVIATION_MW 지속 편차',
   computeDerivedAlarm(rowObj, acc, bucket) {
     const measuredMw = finiteNumber(rowObj.MEASURED_MW);
     const deviationMw = finiteNumber(rowObj.DEVIATION_MW);
@@ -250,16 +256,18 @@ export const AEMO_MMS_FORMAT = {
       state.previous = measuredMw;
     }
 
-    // DEVIATION_MW is already a residual vs SCHEDULED_MW. "Normal" is
-    // on-target (0), not a rolling median of the residual — a persistent
-    // offset is what this rule is for. Floor and robust-z structure match
-    // MEASURED_MW (5 MW + z>=3) but the scale is rolling |tracking error|.
+    // DEVIATION_MW onset: residual vs SCHEDULED_MW scored as robust z
+    // against a rolling ~60s median of |tracking error|. Catches sudden
+    // growth of the residual; a persistent plateau lifts that baseline
+    // and will not trip. Floor matches MEASURED_MW (5 MW + z>=3).
     // Measured NEXT_DAY WDBESS1 |DEVIATION_MW| median was ~3.2 MW, so 5 MW
     // is above typical tracking error. Columns may be absent on other AEMO
     // files; skip this branch when the value is missing.
     let deviationAbs = 0;
     let deviationRobustZ = 0;
     let deviationAlarm = false;
+    let sustainedAlarm = false;
+    let sustainedRunCount = 0;
     if (deviationMw !== null) {
       const state = getDerivedState(bucket, 'aemoDeviation');
       const absValues = state.absValues || (state.absValues = []);
@@ -271,10 +279,30 @@ export const AEMO_MMS_FORMAT = {
       deviationAlarm = enoughBaseline && deviationAbs >= 5 && deviationRobustZ >= 3;
       absValues.push(deviationAbs);
       if (absValues.length > 15) absValues.shift();
+
+      // Sustained offset: the unit has been off target by at least the
+      // measured p75 of |DEVIATION_MW| (11.76 MW → 12 MW) for one AEMO
+      // dispatch interval (5 min at 4 s = 75 samples). Independent of the
+      // onset rule and of any published event magnitude/timestamp.
+      // MW_QUALITY_FLAG=0 forces DEVIATION_MW to 0; those rows must not
+      // reset or pad a run. Fixed-size state: a single counter.
+      const sustained = getDerivedState(bucket, 'aemoSustainedDeviation');
+      const quality = finiteNumber(rowObj.MW_QUALITY_FLAG);
+      const deviationUnusable = quality === 0;
+      if (deviationUnusable) {
+        sustainedRunCount = sustained.runCount || 0;
+      } else if (deviationAbs >= AEMO_SUSTAINED_DEV_ABS_MW) {
+        sustained.runCount = (sustained.runCount || 0) + 1;
+        sustainedRunCount = sustained.runCount;
+        sustainedAlarm = sustainedRunCount >= AEMO_SUSTAINED_DEV_SAMPLES;
+      } else {
+        sustained.runCount = 0;
+        sustainedRunCount = 0;
+      }
     }
 
     const mwAlarm = statisticalAlarm || rampAlarm;
-    const alarm = mwAlarm || deviationAlarm;
+    const alarm = mwAlarm || deviationAlarm || sustainedAlarm;
     const codes = [];
     const reasonParts = [];
     if (mwAlarm) {
@@ -284,6 +312,10 @@ export const AEMO_MMS_FORMAT = {
     if (deviationAlarm) {
       codes.push('DEVIATION_MW target deviation');
       reasonParts.push(`DEVIATION_MW 타깃 편차 (|dev|=${deviationAbs.toFixed(2)} MW, robust z=${deviationRobustZ.toFixed(2)})`);
+    }
+    if (sustainedAlarm) {
+      codes.push('DEVIATION_MW sustained deviation');
+      reasonParts.push(`DEVIATION_MW 지속 편차 (|dev|=${deviationAbs.toFixed(2)} MW, ${sustainedRunCount}샘플)`);
     }
 
     return {
@@ -302,9 +334,10 @@ export const AEMO_MMS_FORMAT = {
         mwRampScore,
         deviationMw: deviationMw === null ? 0 : deviationMw,
         deviationAbs,
-        deviationRobustZ
+        deviationRobustZ,
+        sustainedRunCount
       },
-      categories: { signal: deviationAlarm && !mwAlarm ? 'DEVIATION_MW' : 'MEASURED_MW' },
+      categories: { signal: (deviationAlarm || sustainedAlarm) && !mwAlarm ? 'DEVIATION_MW' : 'MEASURED_MW' },
       details: {
         deviationMw: deviationFromMedian,
         rollingMean: rollingMean === null ? (measuredMw === null ? 0 : measuredMw) : rollingMean,
@@ -313,6 +346,7 @@ export const AEMO_MMS_FORMAT = {
         rampScore: mwRampScore,
         deviationAbs,
         deviationRobustZ,
+        sustainedRunCount,
         rulesFired: codes,
         evidenceTier: 'Derived'
       }

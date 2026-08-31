@@ -159,3 +159,69 @@ test('computeDerivedAlarm degrades to MEASURED_MW-only when DEVIATION_MW is abse
   assert.equal(last.reasonCode, 'MEASURED_MW statistical/ramp anomaly');
   assert.equal(last.metrics.deviationAbs, 0);
 });
+
+function plateauRow(deviationMw, quality = '1') {
+  return {
+    MEASURED_MW: '20',
+    SCHEDULED_MW: '20',
+    DEVIATION_MW: String(deviationMw),
+    MW_QUALITY_FLAG: quality
+  };
+}
+
+test('DEVIATION_MW sustained rule fires on a long material plateau and not on a brief spike', () => {
+  const onTarget = Array.from({ length: 10 }, () => plateauRow(0));
+  const spike = Array.from({ length: 20 }, () => plateauRow(20));
+  const spikeResults = aemoDerivedSequence([...onTarget, ...spike]);
+  assert.equal(spikeResults.some(r => (r.details.rulesFired || []).includes('DEVIATION_MW sustained deviation')), false);
+
+  const plateau = Array.from({ length: 80 }, () => plateauRow(20));
+  const plateauResults = aemoDerivedSequence([...onTarget, ...plateau]);
+  const firstSustained = plateauResults.findIndex(r => (r.details.rulesFired || []).includes('DEVIATION_MW sustained deviation'));
+  assert.ok(firstSustained >= 0, 'sustained plateau should fire');
+  assert.equal(firstSustained, onTarget.length + 75 - 1);
+  const last = plateauResults[plateauResults.length - 1];
+  assert.equal(last.alarm, true);
+  assert.ok(last.details.rulesFired.includes('DEVIATION_MW sustained deviation'));
+  assert.ok(!last.details.rulesFired.includes('MEASURED_MW statistical/ramp anomaly'));
+  assert.equal(last.categories.signal, 'DEVIATION_MW');
+  assert.ok(last.reason.includes('DEVIATION_MW 지속 편차'));
+  assert.equal(last.metrics.sustainedRunCount, 80);
+});
+
+test('DEVIATION_MW sustained rule holds across bad-quality forced-zero rows instead of resetting', () => {
+  const onTarget = Array.from({ length: 5 }, () => plateauRow(0));
+  const firstLeg = Array.from({ length: 40 }, () => plateauRow(20, '1'));
+  const badQuality = Array.from({ length: 10 }, () => plateauRow(0, '0'));
+  const secondLeg = Array.from({ length: 40 }, () => plateauRow(20, '1'));
+  const results = aemoDerivedSequence([...onTarget, ...firstLeg, ...badQuality, ...secondLeg]);
+
+  const badSlice = results.slice(onTarget.length + firstLeg.length, onTarget.length + firstLeg.length + badQuality.length);
+  assert.equal(badSlice.some(r => (r.details.rulesFired || []).includes('DEVIATION_MW sustained deviation')), false);
+  assert.ok(badSlice.every(r => r.metrics.sustainedRunCount === 40));
+
+  const firstSustained = results.findIndex(r => (r.details.rulesFired || []).includes('DEVIATION_MW sustained deviation'));
+  assert.ok(firstSustained >= 0, 'run should resume after quality-0 rows');
+  assert.equal(firstSustained, onTarget.length + firstLeg.length + badQuality.length + (75 - 40) - 1);
+  const last = results[results.length - 1];
+  assert.equal(last.metrics.sustainedRunCount, 80);
+  assert.ok(last.details.rulesFired.includes('DEVIATION_MW sustained deviation'));
+});
+
+test('DEVIATION_MW sustained rule does not fire when a run is interrupted by a real on-target sample', () => {
+  const firstLeg = Array.from({ length: 40 }, () => plateauRow(20));
+  const onTarget = [plateauRow(0, '1')];
+  const secondLeg = Array.from({ length: 40 }, () => plateauRow(20));
+  const results = aemoDerivedSequence([...firstLeg, ...onTarget, ...secondLeg]);
+  assert.equal(results.some(r => (r.details.rulesFired || []).includes('DEVIATION_MW sustained deviation')), false);
+  assert.equal(results[results.length - 1].metrics.sustainedRunCount, 40);
+});
+
+test('existing DEVIATION_MW onset reasonCode is unchanged when a brief residual trips only that rule', () => {
+  const baseline = Array.from({ length: 9 }, () => plateauRow(0));
+  const spike = plateauRow(30);
+  const last = aemoDerivedSequence([...baseline, spike]).at(-1);
+  assert.equal(last.reasonCode, 'DEVIATION_MW target deviation');
+  assert.deepEqual(last.details.rulesFired, ['DEVIATION_MW target deviation']);
+  assert.ok(!last.details.rulesFired.includes('DEVIATION_MW sustained deviation'));
+});
