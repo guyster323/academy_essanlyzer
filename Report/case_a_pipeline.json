@@ -1,125 +1,608 @@
 {
-  "headline": "WDBESS1은 2025-08-18~19 근거 구간에서 실측 유효전력이 SCHEDULED_MW 엔벌로프를 최대 약 |119.5| MW(A-F6)·연속 약 35분 지속 이탈했고 이탈 비중이 3개 NEXT_DAY 파일에 걸쳐 증가했으며 HBESS1도 동반 급증했으나, Dispatch Target·FCAS enablement 부재로 정당한 FCAS/재디스패치 추종인지 추종 실패인지는 미확정이다(심각도 중).",
-  "hyp": "SCHEDULED_MW 엔벌로프에 반영되지 않은 FCAS/AGC 추종 또는 재디스패치",
-  "severity": "중",
+  "capturedAt": "2026-08-31T14:19:18.113Z",
+  "days": [
+    "20250818",
+    "20250819",
+    "20250820"
+  ],
   "figures": [
     {
       "id": "A-F1",
+      "claim": "WDBESS1 출력은 2025-08-17 ~ 2025-08-19 정상 운전 범위를 이탈하는 구간이 있다",
       "available": true,
-      "claim": "WDBESS1 출력은 당일 정상 운전 범위를 이탈하는 구간이 있다",
+      "unavailableReason": null,
+      "evidenceTier": "Derived",
       "summaryStats": {
         "entity": "WDBESS1",
         "rangeMw": 513.419129,
         "eventDeltaMw": -250.5535960500012,
-        "eventT": 1755393972000,
-        "eventTIso": "2025-08-17T01:26:12.000Z"
+        "eventT": 1755390372000,
+        "eventDay": "2025-08-17",
+        "seriesSpan": "2025-08-17 ~ 2025-08-19",
+        "anchorScope": "global-maximum",
+        "scopeLabel": null,
+        "globalEventT": 1755390372000,
+        "globalEventDeltaMw": -250.5535960500012
       },
-      "series": {
-        "n": 1800,
-        "tMinIso": "2025-08-16T19:00:04.000Z",
-        "tMaxIso": "2025-08-19T06:59:56.000Z"
-      }
+      "seriesPointCounts": [
+        {
+          "name": "WDBESS1",
+          "n": 1800,
+          "tMin": 1755367204000,
+          "tMax": 1755583196000,
+          "tMinIso": "2025-08-16T18:00:04.000Z",
+          "tMaxIso": "2025-08-19T05:59:56.000Z"
+        }
+      ]
     },
     {
       "id": "A-F2",
-      "available": true,
       "claim": "주요 변화는 수 분 단위 사건으로 집중된다",
+      "available": true,
+      "unavailableReason": null,
+      "evidenceTier": "Derived",
       "summaryStats": {
         "entity": "WDBESS1",
         "windowPoints": 6,
-        "states": ["Normal", "Precursor", "Main", "Recovery"]
-      }
+        "states": [
+          "Normal",
+          "Precursor",
+          "Main",
+          "Recovery"
+        ]
+      },
+      "seriesPointCounts": [
+        {
+          "name": "WDBESS1",
+          "n": 6,
+          "tMin": 1755389348000,
+          "tMax": 1755391556000,
+          "tMinIso": "2025-08-17T00:09:08.000Z",
+          "tMaxIso": "2025-08-17T00:45:56.000Z"
+        }
+      ]
     },
     {
       "id": "A-F3",
+      "claim": "출력 변화율은 2025-08-17 ~ 2025-08-19 중앙값 대비 크다 (p95=1538.5 MW/h)",
       "available": true,
-      "claim": "출력 변화율은 당일 중앙값 대비 크다 (p95=1538.5 MW/h)",
+      "unavailableReason": null,
+      "evidenceTier": "Derived",
       "summaryStats": {
         "p50": 309.18075749999866,
         "p95": 1538.5357406250012,
         "max": 4697.9704125,
         "eventMax": 4697.9704125
-      }
+      },
+      "seriesPointCounts": [
+        {
+          "name": "|dP/dt|",
+          "n": 1799,
+          "tMin": 1755375300000,
+          "tMax": 1755583196000,
+          "tMinIso": "2025-08-16T20:15:00.000Z",
+          "tMaxIso": "2025-08-19T05:59:56.000Z"
+        }
+      ]
     },
     {
       "id": "A-F4",
-      "available": true,
       "claim": "포커스 설비만 급변한다 — Local fault branch가 상대적으로 강함",
+      "available": true,
+      "unavailableReason": null,
+      "evidenceTier": "Derived",
       "summaryStats": {
         "mode": "local",
         "score": 0,
         "peerCount": 5,
         "reason": "타 설비와 상관 없음 — 포커스 단독 급변",
         "supportingCount": 0
-      }
+      },
+      "seriesPointCounts": [
+        {
+          "name": "WDBESS1",
+          "n": 3,
+          "tMin": 1755389860000,
+          "tMax": 1755390884000,
+          "tMinIso": "2025-08-17T00:17:40.000Z",
+          "tMaxIso": "2025-08-17T00:34:44.000Z"
+        },
+        {
+          "name": "TARBESS1",
+          "n": 3,
+          "tMin": 1755389860000,
+          "tMax": 1755390884000,
+          "tMinIso": "2025-08-17T00:17:40.000Z",
+          "tMaxIso": "2025-08-17T00:34:44.000Z"
+        },
+        {
+          "name": "HBESS1",
+          "n": 3,
+          "tMin": 1755389860000,
+          "tMax": 1755390884000,
+          "tMinIso": "2025-08-17T00:17:40.000Z",
+          "tMaxIso": "2025-08-17T00:34:44.000Z"
+        },
+        {
+          "name": "CHBESS1",
+          "n": 3,
+          "tMin": 1755389860000,
+          "tMax": 1755390884000,
+          "tMinIso": "2025-08-17T00:17:40.000Z",
+          "tMaxIso": "2025-08-17T00:34:44.000Z"
+        },
+        {
+          "name": "PIBESS1",
+          "n": 3,
+          "tMin": 1755389860000,
+          "tMax": 1755390884000,
+          "tMinIso": "2025-08-17T00:17:40.000Z",
+          "tMaxIso": "2025-08-17T00:34:44.000Z"
+        },
+        {
+          "name": "ULPBESS1",
+          "n": 3,
+          "tMin": 1755389860000,
+          "tMax": 1755390884000,
+          "tMinIso": "2025-08-17T00:17:40.000Z",
+          "tMaxIso": "2025-08-17T00:34:44.000Z"
+        }
+      ]
     },
     {
       "id": "A-F5",
-      "available": true,
       "claim": "품질 플래그 저하 없이 출력 변화가 관측된다",
+      "available": true,
+      "unavailableReason": null,
+      "evidenceTier": "Derived",
       "summaryStats": {
         "qualityDegradedAtEvent": false,
         "eventQuality": 1
-      }
+      },
+      "seriesPointCounts": [
+        {
+          "name": "MW",
+          "n": 1800,
+          "tMin": 1755367204000,
+          "tMax": 1755583196000,
+          "tMinIso": "2025-08-16T18:00:04.000Z",
+          "tMaxIso": "2025-08-19T05:59:56.000Z"
+        }
+      ]
     },
     {
       "id": "A-F6",
+      "claim": "WDBESS1 DEVIATION_MW 최대 |편차| -119.5 MW (2025-08-19) — SCHEDULED_MW 대비 실측 잔차",
       "available": true,
-      "claim": "WDBESS1 DEVIATION_MW 최대 |편차| -119.5 MW — SCHEDULED_MW 대비 실측 잔차",
       "unavailableReason": null,
+      "evidenceTier": "Derived",
       "summaryStats": {
         "entity": "WDBESS1",
         "minDeviationMw": -119.53459624999999,
         "maxDeviationMw": 36.28592359375,
         "eventDeviationMw": -119.53459624999999,
-        "eventT": 1755576756000,
-        "eventTIso": "2025-08-19T04:12:36.000Z",
+        "eventT": 1755573156000,
+        "eventDay": "2025-08-19",
+        "anchorScope": "global-maximum",
         "points": 1800
       },
-      "series": {
-        "n": 1800,
-        "tMinIso": "2025-08-16T19:00:04.000Z",
-        "tMaxIso": "2025-08-19T06:59:56.000Z"
-      }
+      "seriesPointCounts": [
+        {
+          "name": "WDBESS1 DEVIATION_MW",
+          "n": 1800,
+          "tMin": 1755367204000,
+          "tMax": 1755583196000,
+          "tMinIso": "2025-08-16T18:00:04.000Z",
+          "tMaxIso": "2025-08-19T05:59:56.000Z"
+        },
+        {
+          "name": "WDBESS1 SCHEDULED_MW",
+          "n": 1800,
+          "tMin": 1755367204000,
+          "tMax": 1755583196000,
+          "tMinIso": "2025-08-16T18:00:04.000Z",
+          "tMaxIso": "2025-08-19T05:59:56.000Z"
+        }
+      ]
     }
   ],
-  "findings": [
-    "WDBESS1의 지배적 파생 사유가 3개 파일에 걸쳐 'MEASURED_MW statistical/ramp anomaly'(20250818 496건·20250819 477건)에서 'DEVIATION_MW sustained deviation'(20250820 1,108건)으로 전환되고 signal=DEVIATION_MW(1,168)가 signal=MEASURED_MW(515)를 역전했다 — 이상의 성격이 '빠른 출력 변동'에서 '스케줄 대비 지속 편차'로 이동(Observed 카운트 + Derived 해석).",
-    "WDBESS1(771→1,683건)과 HBESS1(522→1,155건)이 동일 20250820 파일에서 전일 대비 동반 급증했다 — 단일 설비 국소 결함과 배치되는 다설비 동조 패턴이며, A-F4는 포커스 단독 급변(mode=local)으로 표시되나 score=0·supportingCount=0으로 약하다(Observed + Derived).",
-    "동일 FPPMW 피드에서 3가지 이질적 텔레메트리 상태가 공존한다: ±150~±255 MW 능동 운전 + 대형 편차(WDBESS1·HBESS1), 파일별로 0 MW·MW_QUALITY_FLAG=2와 ±150 MW 운전을 오가는 설비(TARBESS1 샘플), 약 32,400행에서 소수점 8자리 불변(-0.49399555 MW)인 동결 의심 설비 — 제로 분산 케이스는 통계 탐지기의 사각지대다(Observed)."
+  "sources": [
+    {
+      "id": "SRC-2",
+      "path": "PUBLIC_NEXT_DAY_FPPMW_20250818_0000000476808796.zip/PUBLIC_NEXT_DAY_FPPMW_20250818_0000000476808796.CSV",
+      "name": "PUBLIC_NEXT_DAY_FPPMW_20250818_0000000476808796.CSV",
+      "status": "ready",
+      "selected": true,
+      "errorMsg": "",
+      "formatId": "aemo-mms",
+      "sizeBytes": 521305928,
+      "sizeLabel": "497.16 MB",
+      "rowCount": 64800,
+      "alarmCount": 22866,
+      "derivedAlarmCount": 1240,
+      "entityColumn": "FPP_UNITID",
+      "entityFilter": "BESS",
+      "entityFilterAuto": true,
+      "groupCount": 6,
+      "groupIds": [
+        "CHBESS1",
+        "HBESS1",
+        "PIBESS1",
+        "TARBESS1",
+        "ULPBESS1",
+        "WDBESS1"
+      ],
+      "dataTimeRange": {
+        "minMs": 1755367204000,
+        "maxMs": 1755410400000,
+        "min": "2025-08-16T18:00:04.000Z",
+        "max": "2025-08-17T06:00:00.000Z"
+      },
+      "evidenceTimeRange": {
+        "minMs": 1755367204000,
+        "maxMs": 1755410400000,
+        "min": "2025-08-16T18:00:04.000Z",
+        "max": "2025-08-17T06:00:00.000Z"
+      },
+      "timeCoverageRatio": 1,
+      "alarmDroppedCount": 22679,
+      "alarmSampleTimeDistribution": [
+        {
+          "startMs": 1755367204000,
+          "endMs": 1755372603500,
+          "start": "2025-08-16T18:00:04.000Z",
+          "end": "2025-08-16T19:30:03.500Z",
+          "count": 30
+        },
+        {
+          "startMs": 1755372603500,
+          "endMs": 1755378003000,
+          "start": "2025-08-16T19:30:03.500Z",
+          "end": "2025-08-16T21:00:03.000Z",
+          "count": 26
+        },
+        {
+          "startMs": 1755378003000,
+          "endMs": 1755383402500,
+          "start": "2025-08-16T21:00:03.000Z",
+          "end": "2025-08-16T22:30:02.500Z",
+          "count": 38
+        },
+        {
+          "startMs": 1755383402500,
+          "endMs": 1755388802000,
+          "start": "2025-08-16T22:30:02.500Z",
+          "end": "2025-08-17T00:00:02.000Z",
+          "count": 18
+        },
+        {
+          "startMs": 1755388802000,
+          "endMs": 1755394201500,
+          "start": "2025-08-17T00:00:02.000Z",
+          "end": "2025-08-17T01:30:01.500Z",
+          "count": 18
+        },
+        {
+          "startMs": 1755394201500,
+          "endMs": 1755399601000,
+          "start": "2025-08-17T01:30:01.500Z",
+          "end": "2025-08-17T03:00:01.000Z",
+          "count": 25
+        },
+        {
+          "startMs": 1755399601000,
+          "endMs": 1755405000500,
+          "start": "2025-08-17T03:00:01.000Z",
+          "end": "2025-08-17T04:30:00.500Z",
+          "count": 14
+        },
+        {
+          "startMs": 1755405000500,
+          "endMs": 1755410400000,
+          "start": "2025-08-17T04:30:00.500Z",
+          "end": "2025-08-17T06:00:00.000Z",
+          "count": 18
+        }
+      ],
+      "columns": [
+        "INTERVAL_DATETIME",
+        "MEASUREMENT_DATETIME",
+        "FPP_UNITID",
+        "VERSIONNO",
+        "MEASURED_MW",
+        "MW_QUALITY_FLAG",
+        "SCHEDULED_MW",
+        "DEVIATION_MW",
+        "PARTICIPANTID"
+      ]
+    },
+    {
+      "id": "SRC-3",
+      "path": "PUBLIC_NEXT_DAY_FPPMW_20250819_0000000476950303.zip/PUBLIC_NEXT_DAY_FPPMW_20250819_0000000476950303.CSV",
+      "name": "PUBLIC_NEXT_DAY_FPPMW_20250819_0000000476950303.CSV",
+      "status": "ready",
+      "selected": false,
+      "errorMsg": "",
+      "formatId": "aemo-mms",
+      "sizeBytes": 522043266,
+      "sizeLabel": "497.86 MB",
+      "rowCount": 64800,
+      "alarmCount": 22965,
+      "derivedAlarmCount": 1465,
+      "entityColumn": "FPP_UNITID",
+      "entityFilter": "BESS",
+      "entityFilterAuto": true,
+      "groupCount": 6,
+      "groupIds": [
+        "CHBESS1",
+        "HBESS1",
+        "PIBESS1",
+        "TARBESS1",
+        "ULPBESS1",
+        "WDBESS1"
+      ],
+      "dataTimeRange": {
+        "minMs": 1755453604000,
+        "maxMs": 1755496800000,
+        "min": "2025-08-17T18:00:04.000Z",
+        "max": "2025-08-18T06:00:00.000Z"
+      },
+      "evidenceTimeRange": {
+        "minMs": 1755453604000,
+        "maxMs": 1755496800000,
+        "min": "2025-08-17T18:00:04.000Z",
+        "max": "2025-08-18T06:00:00.000Z"
+      },
+      "timeCoverageRatio": 1,
+      "alarmDroppedCount": 22736,
+      "alarmSampleTimeDistribution": [
+        {
+          "startMs": 1755453604000,
+          "endMs": 1755459003500,
+          "start": "2025-08-17T18:00:04.000Z",
+          "end": "2025-08-17T19:30:03.500Z",
+          "count": 33
+        },
+        {
+          "startMs": 1755459003500,
+          "endMs": 1755464403000,
+          "start": "2025-08-17T19:30:03.500Z",
+          "end": "2025-08-17T21:00:03.000Z",
+          "count": 18
+        },
+        {
+          "startMs": 1755464403000,
+          "endMs": 1755469802500,
+          "start": "2025-08-17T21:00:03.000Z",
+          "end": "2025-08-17T22:30:02.500Z",
+          "count": 28
+        },
+        {
+          "startMs": 1755469802500,
+          "endMs": 1755475202000,
+          "start": "2025-08-17T22:30:02.500Z",
+          "end": "2025-08-18T00:00:02.000Z",
+          "count": 38
+        },
+        {
+          "startMs": 1755475202000,
+          "endMs": 1755480601500,
+          "start": "2025-08-18T00:00:02.000Z",
+          "end": "2025-08-18T01:30:01.500Z",
+          "count": 20
+        },
+        {
+          "startMs": 1755480601500,
+          "endMs": 1755486001000,
+          "start": "2025-08-18T01:30:01.500Z",
+          "end": "2025-08-18T03:00:01.000Z",
+          "count": 22
+        },
+        {
+          "startMs": 1755486001000,
+          "endMs": 1755491400500,
+          "start": "2025-08-18T03:00:01.000Z",
+          "end": "2025-08-18T04:30:00.500Z",
+          "count": 33
+        },
+        {
+          "startMs": 1755491400500,
+          "endMs": 1755496800000,
+          "start": "2025-08-18T04:30:00.500Z",
+          "end": "2025-08-18T06:00:00.000Z",
+          "count": 37
+        }
+      ],
+      "columns": [
+        "INTERVAL_DATETIME",
+        "MEASUREMENT_DATETIME",
+        "FPP_UNITID",
+        "VERSIONNO",
+        "MEASURED_MW",
+        "MW_QUALITY_FLAG",
+        "SCHEDULED_MW",
+        "DEVIATION_MW",
+        "PARTICIPANTID"
+      ]
+    },
+    {
+      "id": "SRC-4",
+      "path": "PUBLIC_NEXT_DAY_FPPMW_20250820_0000000477089848.zip/PUBLIC_NEXT_DAY_FPPMW_20250820_0000000477089848.CSV",
+      "name": "PUBLIC_NEXT_DAY_FPPMW_20250820_0000000477089848.CSV",
+      "status": "ready",
+      "selected": false,
+      "errorMsg": "",
+      "formatId": "aemo-mms",
+      "sizeBytes": 522062248,
+      "sizeLabel": "497.88 MB",
+      "rowCount": 64800,
+      "alarmCount": 25314,
+      "derivedAlarmCount": 2877,
+      "entityColumn": "FPP_UNITID",
+      "entityFilter": "BESS",
+      "entityFilterAuto": true,
+      "groupCount": 6,
+      "groupIds": [
+        "CHBESS1",
+        "HBESS1",
+        "PIBESS1",
+        "TARBESS1",
+        "ULPBESS1",
+        "WDBESS1"
+      ],
+      "dataTimeRange": {
+        "minMs": 1755540004000,
+        "maxMs": 1755583200000,
+        "min": "2025-08-18T18:00:04.000Z",
+        "max": "2025-08-19T06:00:00.000Z"
+      },
+      "evidenceTimeRange": {
+        "minMs": 1755540004000,
+        "maxMs": 1755583200000,
+        "min": "2025-08-18T18:00:04.000Z",
+        "max": "2025-08-19T06:00:00.000Z"
+      },
+      "timeCoverageRatio": 1,
+      "alarmDroppedCount": 25093,
+      "alarmSampleTimeDistribution": [
+        {
+          "startMs": 1755540004000,
+          "endMs": 1755545403500,
+          "start": "2025-08-18T18:00:04.000Z",
+          "end": "2025-08-18T19:30:03.500Z",
+          "count": 28
+        },
+        {
+          "startMs": 1755545403500,
+          "endMs": 1755550803000,
+          "start": "2025-08-18T19:30:03.500Z",
+          "end": "2025-08-18T21:00:03.000Z",
+          "count": 44
+        },
+        {
+          "startMs": 1755550803000,
+          "endMs": 1755556202500,
+          "start": "2025-08-18T21:00:03.000Z",
+          "end": "2025-08-18T22:30:02.500Z",
+          "count": 28
+        },
+        {
+          "startMs": 1755556202500,
+          "endMs": 1755561602000,
+          "start": "2025-08-18T22:30:02.500Z",
+          "end": "2025-08-19T00:00:02.000Z",
+          "count": 30
+        },
+        {
+          "startMs": 1755561602000,
+          "endMs": 1755567001500,
+          "start": "2025-08-19T00:00:02.000Z",
+          "end": "2025-08-19T01:30:01.500Z",
+          "count": 22
+        },
+        {
+          "startMs": 1755567001500,
+          "endMs": 1755572401000,
+          "start": "2025-08-19T01:30:01.500Z",
+          "end": "2025-08-19T03:00:01.000Z",
+          "count": 29
+        },
+        {
+          "startMs": 1755572401000,
+          "endMs": 1755577800500,
+          "start": "2025-08-19T03:00:01.000Z",
+          "end": "2025-08-19T04:30:00.500Z",
+          "count": 21
+        },
+        {
+          "startMs": 1755577800500,
+          "endMs": 1755583200000,
+          "start": "2025-08-19T04:30:00.500Z",
+          "end": "2025-08-19T06:00:00.000Z",
+          "count": 19
+        }
+      ],
+      "columns": [
+        "INTERVAL_DATETIME",
+        "MEASUREMENT_DATETIME",
+        "FPP_UNITID",
+        "VERSIONNO",
+        "MEASURED_MW",
+        "MW_QUALITY_FLAG",
+        "SCHEDULED_MW",
+        "DEVIATION_MW",
+        "PARTICIPANTID"
+      ]
+    }
   ],
-  "source": "Orca live run 2026-08-31, nested zip Log_sample/case_a_PUBLIC_NEXT_DAY_FPPMW_20250817.zip (520,040,023 bytes), streamed publication days 20250818/19/20 (BESS filter, 64,800 rows × 3, 6 entities). Client on PW_PORT=5186 (this worktree). Three live Claude CLI stages.",
-  "daysStreamed": ["20250818", "20250819", "20250820"],
-  "incidentFile": "PUBLIC_NEXT_DAY_FPPMW_20250820_0000000477089848.CSV",
-  "timeCoverage": {
-    "20250818": {"data": "2025-08-16T19:00:04.000Z .. 2025-08-17T07:00:00.000Z", "evidence": "same", "ratio": 1, "rows": 64800, "derivedAlarms": 1240},
-    "20250819": {"data": "2025-08-17T19:00:04.000Z .. 2025-08-18T07:00:00.000Z", "evidence": "same", "ratio": 1, "rows": 64800, "derivedAlarms": 1465},
-    "20250820": {"data": "2025-08-18T19:00:04.000Z .. 2025-08-19T07:00:00.000Z", "evidence": "same", "ratio": 1, "rows": 64800, "derivedAlarms": 2877}
-  },
-  "entities": ["CHBESS1", "HBESS1", "PIBESS1", "TARBESS1", "ULPBESS1", "WDBESS1"],
-  "entityFilter": "BESS",
-  "p4SeriesMerge": {
-    "af1Span": ["2025-08-16T19:00:04.000Z", "2025-08-19T06:59:56.000Z"],
-    "coversThreePublicationDays": true,
-    "note": "Previous last-source-wins series would have been the 20250820 file only (2025-08-18T19:00Z .. 2025-08-19T07:00Z). Gaps between files were not interpolated."
-  },
-  "humanReview": {
+  "independentReportSavedAt": "2026-08-31T14:46:20.138Z",
+  "independentReportBytes": 616318,
+  "adoptedHypothesis": {
     "hypIndex": 1,
-    "picked": "SCHEDULED_MW 엔벌로프에 반영되지 않은 FCAS/AGC 추종 또는 재디스패치",
-    "rejected": [
-      "H1 계통 주파수/전력계통 사건에 대한 다수 BESS 동조 응답 (A-F4 mode=local)",
-      "H3 리포트 파이프라인 아티팩트 (핵심 표본 quality=1, MEASURED_MW 실제 램프)"
-    ],
-    "notSteeredToPrevious": "다수 설비 공통 스케줄 대칭 확장"
+    "id": "H2",
+    "name": "WDBESS1 플랜트 제어(PPC/EMS) 급전 추종편차 가설",
+    "domain": "PPC",
+    "confidence": "Medium",
+    "severity": "중"
   },
-  "wallClock": {
-    "catalogS": 22,
-    "streamS": [25, 25, 25],
-    "detectAnomalyS": 630,
-    "generateHypothesesS": 439,
-    "humanReviewWaitS": 288,
-    "draftReportS": 416,
-    "publishedComparisonS": 409,
-    "totalPlaywrightMin": 38.3
+  "publishedComparison": {
+    "attempted": true,
+    "ok": false,
+    "at": "2026-08-31T14:52:14.020Z",
+    "error": "Claude CLI session limit · resets 2:20am (Asia/Seoul)"
+  },
+  "timings": {
+    "t0": 1788185861020,
+    "days": [
+      "20250818",
+      "20250819",
+      "20250820"
+    ],
+    "catalog": {
+      "at": "2026-08-31T14:18:01.936Z",
+      "ms": 20916,
+      "sincePrevMs": 20916
+    },
+    "_last": 1788187580138,
+    "stream-20250818": {
+      "at": "2026-08-31T14:18:27.293Z",
+      "ms": 46273,
+      "sincePrevMs": 25357
+    },
+    "stream-20250819": {
+      "at": "2026-08-31T14:18:52.409Z",
+      "ms": 71389,
+      "sincePrevMs": 25116
+    },
+    "stream-20250820": {
+      "at": "2026-08-31T14:19:17.539Z",
+      "ms": 96519,
+      "sincePrevMs": 25130
+    },
+    "detect-anomaly": {
+      "at": "2026-08-31T14:29:08.134Z",
+      "ms": 687114,
+      "sincePrevMs": 590595
+    },
+    "generate-hypotheses": {
+      "at": "2026-08-31T14:36:52.816Z",
+      "ms": 1151796,
+      "sincePrevMs": 464682
+    },
+    "human-review": {
+      "at": "2026-08-31T14:37:50.445Z",
+      "ms": 1209425,
+      "sincePrevMs": 57629
+    },
+    "draft-report": {
+      "at": "2026-08-31T14:46:15.885Z",
+      "ms": 1714865,
+      "sincePrevMs": 505440
+    },
+    "independent-save": {
+      "at": "2026-08-31T14:46:20.138Z",
+      "ms": 1719118,
+      "sincePrevMs": 4253
+    }
   }
 }
