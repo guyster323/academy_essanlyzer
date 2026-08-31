@@ -10,7 +10,7 @@ import path from 'node:path';
 import { fileURLToPath } from 'node:url';
 import JSZip from 'jszip';
 import { zipEntryByteChunks } from '../src/log-engine.js';
-import { parseDelimitedLine } from '../src/formats.js';
+import { parseDelimitedLine, TIMESTAMP_ASSUMPTIONS } from '../src/formats.js';
 import { parseTimestampMs } from '../src/series-engine.js';
 
 const __dirname = path.dirname(fileURLToPath(import.meta.url));
@@ -165,7 +165,10 @@ async function main() {
     const meas = finiteNumber(row[idx.MEASURED_MW]);
     const sched = finiteNumber(row[idx.SCHEDULED_MW]);
     const dev = finiteNumber(row[idx.DEVIATION_MW]);
-    const t = parseTimestampMs(row[idx.MEASUREMENT_DATETIME] || row[idx.INTERVAL_DATETIME]);
+    const t = parseTimestampMs(
+      row[idx.MEASUREMENT_DATETIME] || row[idx.INTERVAL_DATETIME],
+      TIMESTAMP_ASSUMPTIONS['aemo-mms']
+    );
     if (Number.isFinite(t)) {
       if (t < tMinMax.min) tMinMax.min = t;
       if (t > tMinMax.max) tMinMax.max = t;

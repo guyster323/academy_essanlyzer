@@ -12,16 +12,105 @@ export const MAX_RESISTANCE_EVENTS = 4000;
 export const MAX_EVIDENCE_ROWS = 80;
 export const FIGURE_PNG_MAX_PX = { width: 1200, height: 480 };
 
-export function parseTimestampMs(value) {
+/**
+ * Offset of a civil clock from UTC, in minutes. Positive east of UTC
+ * (AEST = 600). Callers that pass an assumption MUST also surface it —
+ * timezone-less input is never silently treated as the machine zone.
+ */
+export function timestampAssumption(id, offsetMinutes, label) {
+  return {
+    id,
+    offsetMinutes: Number(offsetMinutes) || 0,
+    statedInData: false,
+    label: String(label || '')
+  };
+}
+
+const EXPLICIT_ZONE_RE = /(?:Z|[+-]\d{2}(?::?\d{2})?)$/i;
+const CIVIL_RE = /^(\d{4})[/-](\d{1,2})[/-](\d{1,2})(?:[ T](\d{1,2}):(\d{2})(?::(\d{2})(?:\.(\d{1,9}))?)?)?\s*$/;
+
+export function hasExplicitTimezone(value) {
+  if (value == null || value === '') return false;
+  const s = String(value).trim();
+  if (!s) return false;
+  if (/\b(?:UTC|GMT)\b/i.test(s)) return true;
+  return EXPLICIT_ZONE_RE.test(s.replace(/\s+/g, ''));
+}
+
+function civilToUtcMs(year, month, day, hour, minute, second, ms) {
+  return Date.UTC(year, month - 1, day, hour, minute, second, ms);
+}
+
+function fractionToMs(frac) {
+  if (!frac) return 0;
+  const padded = (frac + '000').slice(0, 3);
+  const n = Number.parseInt(padded, 10);
+  return Number.isFinite(n) ? n : 0;
+}
+
+/**
+ * Parse a timestamp without using the machine's local zone for naive
+ * (timezone-less) strings. `assumption.offsetMinutes` is the civil-clock
+ * offset of those naive strings; omit it only when the caller has already
+ * decided on UTC and will say so. Explicit zones (Z, ±HH:MM, UTC/GMT) keep
+ * Date.parse behaviour. Numeric epoch values are unchanged.
+ */
+export function parseTimestamp(value, assumption) {
   if (value == null || value === '') return null;
   if (typeof value === 'number' && Number.isFinite(value)) {
-    return value < 1e12 ? value * 1000 : value;
+    return { ms: value < 1e12 ? value * 1000 : value, explicitZone: false, kind: 'epoch' };
   }
   const s = String(value).trim();
   if (!s) return null;
-  const normalized = s.replace(/^(\d{4})\/(\d{2})\/(\d{2})/, '$1-$2-$3');
-  const ms = Date.parse(normalized);
-  return Number.isFinite(ms) ? ms : null;
+
+  const slashNorm = s.replace(/^(\d{4})\/(\d{2})\/(\d{2})/, '$1-$2-$3');
+  const compact = slashNorm.replace(/\s+/g, '');
+  if (hasExplicitTimezone(s)) {
+    const isoish = slashNorm.replace(/^(\d{4}-\d{2}-\d{2}) /, '$1T');
+    const ms = Date.parse(isoish);
+    if (!Number.isFinite(ms)) return null;
+    return { ms, explicitZone: true, kind: 'zoned' };
+  }
+
+  const civil = slashNorm.match(CIVIL_RE) || compact.match(CIVIL_RE);
+  if (!civil) {
+    // Last resort for odd-but-zoned forms Date.parse understands; never for
+    // naive strings (that is the local-zone bug this parser exists to stop).
+    return null;
+  }
+  const year = Number(civil[1]);
+  const month = Number(civil[2]);
+  const day = Number(civil[3]);
+  const hour = civil[4] != null ? Number(civil[4]) : 0;
+  const minute = civil[5] != null ? Number(civil[5]) : 0;
+  const second = civil[6] != null ? Number(civil[6]) : 0;
+  const msPart = fractionToMs(civil[7]);
+  const utcMs = civilToUtcMs(year, month, day, hour, minute, second, msPart);
+  if (!Number.isFinite(utcMs)) return null;
+  const offsetMinutes = assumption && Number.isFinite(assumption.offsetMinutes)
+    ? assumption.offsetMinutes
+    : 0;
+  return { ms: utcMs - offsetMinutes * 60000, explicitZone: false, kind: 'naive' };
+}
+
+export function parseTimestampMs(value, assumption) {
+  const parsed = parseTimestamp(value, assumption);
+  return parsed ? parsed.ms : null;
+}
+
+export function formatTimestampAssumptionNote(info) {
+  if (!info) return '';
+  const naive = Number(info.naiveCount) || 0;
+  const zoned = Number(info.zonedCount) || 0;
+  if (!naive && !zoned) return '';
+  if (!naive && zoned) {
+    return `시각 해석: 입력에 명시된 시간대를 사용 (가정 없음, 명시 TZ ${zoned.toLocaleString()}행)`;
+  }
+  const label = info.label || '시간대 표기 없음 — 가정을 적용함';
+  const counts = zoned
+    ? `무표기 ${naive.toLocaleString()}행, 명시 TZ ${zoned.toLocaleString()}행`
+    : `무표기 ${naive.toLocaleString()}행`;
+  return `시각 해석: ${label} (${counts})`;
 }
 
 export function calendarBinStart(tsMs) {

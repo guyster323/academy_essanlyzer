@@ -92,6 +92,28 @@ test('extractSeriesSample omits scheduled/deviation when those columns are absen
   assert.equal('deviationMw' in sample.values, false);
 });
 
+test('AEMO extractSeriesSample interprets timezone-less stamps as assumed AEST', () => {
+  const sample = AEMO_MMS_FORMAT.extractSeriesSample({
+    MEASUREMENT_DATETIME: '2025/08/19 12:15:00',
+    MEASURED_MW: '12.5',
+    MW_QUALITY_FLAG: '1'
+  }, {}, {});
+  assert.equal(sample.t, Date.parse('2025-08-19T02:15:00.000Z'));
+});
+
+test('LFP extractSeriesSample does not apply the AEMO AEST assumption', () => {
+  const row = {
+    Timestamp: '2018-04-28 09:46:25',
+    U_Battery: '26.4',
+    I_Battery: '0',
+    SOC_Battery: '50'
+  };
+  for (let i = 1; i <= 8; i++) row[`U_Cell_${i}`] = '3.3';
+  const sample = LFP_CELL_ARRAY_FORMAT.extractSeriesSample(row);
+  assert.equal(sample.t, Date.parse('2018-04-28T09:46:25.000Z'));
+  assert.notEqual(sample.t, Date.parse('2018-04-27T23:46:25.000Z'));
+});
+
 test('extractSeriesSample includes scheduled/deviation when the row has finite values', () => {
   const sample = AEMO_MMS_FORMAT.extractSeriesSample({
     MEASUREMENT_DATETIME: '2025/08/16 04:00:00',

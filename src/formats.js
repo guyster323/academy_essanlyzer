@@ -7,8 +7,30 @@
    timestamp, and what counts as an "alarm" row.
 ========================================================= */
 
-import { parseTimestampMs } from './series-engine.js';
+import { parseTimestampMs, timestampAssumption } from './series-engine.js';
 import { considerResistanceEvent, snapshotFromRow } from './forensics/lfp.js';
+
+// Per-format civil-time assumptions. Timezone-less stamps are NOT read in the
+// machine zone. Each assumption is declared, not asserted as a fact in the
+// file: AEMO MMS does not print a zone; LFP field CSVs are a different
+// provenance and must not inherit the market-time guess.
+export const TIMESTAMP_ASSUMPTIONS = {
+  'aemo-mms': timestampAssumption(
+    'aemo-market-aest',
+    10 * 60,
+    '시간대 표기 없음 — 시장 시간대 AEST(UTC+10, 일광절약 없음)로 가정. CSV는 시간대를 적지 않음'
+  ),
+  'lfp-cell-array': timestampAssumption(
+    'lfp-unspecified-utc',
+    0,
+    '시간대 표기 없음 — 출처에 시간대가 없어 UTC로 해석 (AEMO 시장 시간대를 쓰지 않음)'
+  ),
+  generic: timestampAssumption(
+    'generic-unspecified-utc',
+    0,
+    '시간대 표기 없음 — 시간대를 알 수 없어 UTC로 해석'
+  )
+};
 
 export function detectDelimiter(sampleLine) {
   const candidates = [',', '\t', ';', '|'];
@@ -144,11 +166,12 @@ export const GENERIC_FORMAT = {
     // itself an alarm code (e.g. "OV001"), so keep the strict rule.
     return s !== '0' && s.toUpperCase() !== 'OK' && s.toUpperCase() !== 'NORMAL';
   },
+  timestampAssumption: TIMESTAMP_ASSUMPTIONS.generic,
   seriesBinMode: 'adaptive',
   seriesSignals: ['value'],
   extractSeriesSample(rowObj, acc) {
     const tsCol = acc.timestampColumn || (acc.columns || []).find(c => /^(timestamp|time|date)/i.test(c));
-    const t = parseTimestampMs(tsCol ? rowObj[tsCol] : null);
+    const t = parseTimestampMs(tsCol ? rowObj[tsCol] : null, TIMESTAMP_ASSUMPTIONS.generic);
     if (t == null) return null;
     const skip = new Set([tsCol, acc.alarmColumn].filter(Boolean));
     const col = (acc.columns || []).find(c => !skip.has(c) && finiteNumber(rowObj[c]) != null);
@@ -202,6 +225,7 @@ export const AEMO_MMS_FORMAT = {
     const s = (v || '').trim();
     return !!s && s !== '1'; // 1=정상, 2=대체/추정치, 0=불량
   },
+  timestampAssumption: TIMESTAMP_ASSUMPTIONS['aemo-mms'],
   derivedLabel: 'MEASURED_MW 독립 통계 이상탐지 (rolling mean/std·MAD z-score·ramp) + DEVIATION_MW 타깃 편차(onset) + DEVIATION_MW 지속 편차',
   computeDerivedAlarm(rowObj, acc, bucket) {
     const measuredMw = finiteNumber(rowObj.MEASURED_MW);
@@ -361,7 +385,10 @@ export const AEMO_MMS_FORMAT = {
     return signals;
   },
   extractSeriesSample(rowObj, acc, bucket) {
-    const t = parseTimestampMs(rowObj.MEASUREMENT_DATETIME || rowObj.INTERVAL_DATETIME);
+    const t = parseTimestampMs(
+      rowObj.MEASUREMENT_DATETIME || rowObj.INTERVAL_DATETIME,
+      TIMESTAMP_ASSUMPTIONS['aemo-mms']
+    );
     const mw = finiteNumber(rowObj.MEASURED_MW);
     if (t == null || mw == null) return null;
     const quality = finiteNumber(rowObj.MW_QUALITY_FLAG);
@@ -415,6 +442,7 @@ export const LFP_CELL_ARRAY_FORMAT = {
   isTimestampLikeColumn: (c) => normalizedColumnName(c) === 'TIMESTAMP',
   alarmColumnGuess: () => null,
   isAlarmValue: () => false,
+  timestampAssumption: TIMESTAMP_ASSUMPTIONS['lfp-cell-array'],
   derivedLabel: 'cross-cell Vdev / robust z-score / voltage closure 파생탐지',
   computeDerivedAlarm(rowObj) {
     const cells = LFP_CELL_COLUMNS.map(column => finiteNumber(rowObj[column]));
@@ -470,7 +498,7 @@ export const LFP_CELL_ARRAY_FORMAT = {
   seriesBinMode: 'day',
   seriesSignals: ['vRange', 'vStd', 'i', 'soc', 'tMean', 'vdevMax'],
   extractSeriesSample(rowObj) {
-    const t = parseTimestampMs(rowObj.Timestamp);
+    const t = parseTimestampMs(rowObj.Timestamp, TIMESTAMP_ASSUMPTIONS['lfp-cell-array']);
     const cells = LFP_CELL_COLUMNS.map(column => finiteNumber(rowObj[column]));
     if (t == null || cells.some(v => v == null)) return null;
     const meanV = cells.reduce((s, v) => s + v, 0) / cells.length;
@@ -501,7 +529,7 @@ export const LFP_CELL_ARRAY_FORMAT = {
     };
   },
   collectForensics(rowObj, bucket) {
-    const t = parseTimestampMs(rowObj.Timestamp);
+    const t = parseTimestampMs(rowObj.Timestamp, TIMESTAMP_ASSUMPTIONS['lfp-cell-array']);
     const snap = snapshotFromRow(rowObj);
     if (t == null || !snap) return;
     const curr = { t, ...snap };

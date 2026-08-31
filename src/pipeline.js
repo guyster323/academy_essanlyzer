@@ -6,7 +6,7 @@ import {
   MAX_SELECTED_SOURCES, MAX_GROUPS_PER_SOURCE_IN_PROMPT, MAX_TOTAL_ALARM_CONTEXTS, MAX_LOG_TEXT_CHARS
 } from './log-engine.js';
 import { detectFormat, detectDelimiter } from './formats.js';
-import { freezeSeries } from './series-engine.js';
+import { freezeSeries, formatTimestampAssumptionNote } from './series-engine.js';
 import {
   normalizeResistanceEvents, resistanceEventsDroppedCount, resistanceEventYearCounts,
   formatResistanceDropNote, formatResistanceYearCounts
@@ -85,7 +85,8 @@ export function collectActiveLogBlocks() {
       timeCoverageRatio: Number.isFinite(acc.timeCoverageRatio) ? acc.timeCoverageRatio : null,
       alarmDroppedCount: acc.alarmDroppedCount || 0,
       alarmSampleTimeDistribution: acc.alarmSampleTimeDistribution || [],
-      alarmSampleTimes: acc.alarmSampleTimes || []
+      alarmSampleTimes: acc.alarmSampleTimes || [],
+      timestampAssumption: acc.timestampAssumption || null
     };
   }
 
@@ -107,7 +108,8 @@ export function collectActiveLogBlocks() {
     timeCoverageRatio: Number.isFinite(s.timeCoverageRatio) ? s.timeCoverageRatio : null,
     alarmDroppedCount: s.alarmDroppedCount || 0,
     alarmSampleTimeDistribution: s.alarmSampleTimeDistribution || [],
-    alarmSampleTimes: s.alarmSampleTimes || []
+    alarmSampleTimes: s.alarmSampleTimes || [],
+    timestampAssumption: s.timestampAssumption || null
   })).concat(pastedSummary ? [pastedSummary] : []);
 }
 
@@ -210,8 +212,10 @@ function formatTimeCoverageLines(block) {
   const rDropped = block.droppedResistanceEvents
     ? `\n- ${formatResistanceDropNote(block.droppedResistanceEvents, null)}`
     : '';
+  const tzNote = formatTimestampAssumptionNote(block.timestampAssumption);
+  const tzLine = tzNote ? `\n- ${tzNote}` : '';
   return `- 데이터 시간 범위: ${formatTimeRange(block.dataTimeRange)}
-- 알람 근거 시간 범위: ${formatTimeRange(block.evidenceTimeRange)}${pct}${dist}${dropped}${rDist}${rYearLine}${rDropped}
+- 알람 근거 시간 범위: ${formatTimeRange(block.evidenceTimeRange)}${pct}${dist}${dropped}${rDist}${rYearLine}${rDropped}${tzLine}
 `;
 }
 
@@ -241,7 +245,10 @@ function buildSourceProfile(block) {
       : {},
     resistanceEventTimeDistribution: Array.isArray(block.resistanceEventTimeDistribution)
       ? block.resistanceEventTimeDistribution
-      : []
+      : [],
+    timestampAssumption: block.timestampAssumption && typeof block.timestampAssumption === 'object'
+      ? block.timestampAssumption
+      : null
   };
 }
 
