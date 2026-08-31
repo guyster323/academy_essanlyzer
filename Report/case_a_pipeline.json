@@ -1,38 +1,125 @@
 {
-  "headline": "WDBESS1은 2025-08-18 저녁 22:47~23:21 UTC경 품질플래그 저하 없이 포커스 설비 단독으로 급격한 출력 변화(ΔP≈-241MW, A-F1·A-F2·A-F4·A-F5)를 보였으나, 같은 거래일 WDBESS1·HBESS1·CHBESS1의 SCHEDULED_MW가 공통으로 대칭 구조로 전환된 정황은 별개 신호이며, Dispatch Target 데이터 부재(A-F6 unavailable)로 두 현상의 인과관계는 확정할 수 없다.",
-  "hyp": "다수 설비 공통 스케줄(입찰밴드) 대칭 확장 이벤트 — Dispatch/시장운영 변경 가능성(설비 결함 아닐 수 있음)",
+  "headline": "WDBESS1은 2025-08-18~19 근거 구간에서 실측 유효전력이 SCHEDULED_MW 엔벌로프를 최대 약 |119.5| MW(A-F6)·연속 약 35분 지속 이탈했고 이탈 비중이 3개 NEXT_DAY 파일에 걸쳐 증가했으며 HBESS1도 동반 급증했으나, Dispatch Target·FCAS enablement 부재로 정당한 FCAS/재디스패치 추종인지 추종 실패인지는 미확정이다(심각도 중).",
+  "hyp": "SCHEDULED_MW 엔벌로프에 반영되지 않은 FCAS/AGC 추종 또는 재디스패치",
   "severity": "중",
   "figures": [
-    {"id": "A-F1", "available": true, "claim": "WDBESS1 출력은 당일 정상 운전 범위를 이탈하는 구간이 있다", "summaryStats": {"entity": "WDBESS1", "rangeMw": 513.185639, "eventDeltaMw": -240.86627304349614, "eventT": 1755558260000}},
-    {"id": "A-F2", "available": true, "claim": "주요 변화는 수 분 단위 사건으로 집중된다", "summaryStats": {"entity": "WDBESS1", "windowPoints": 5, "states": ["Normal", "Precursor", "Main", "Recovery"]}},
-    {"id": "A-F3", "available": true, "claim": "출력 변화율은 당일 중앙값 대비 크다 (p95=3206.3 MW/h)", "summaryStats": {"p50": 584.7615281250013, "p95": 3206.2955400000005, "max": 9987.24348, "eventMax": 9987.24348}},
-    {"id": "A-F4", "available": true, "claim": "포커스 설비만 급변한다 — Local fault branch가 상대적으로 강함", "summaryStats": {"mode": "local", "score": 0, "peerCount": 5, "reason": "타 설비와 상관 없음 — 포커스 단독 급변", "supportingCount": 0}},
-    {"id": "A-F5", "available": true, "claim": "품질 플래그 저하 없이 출력 변화가 관측된다", "summaryStats": {"qualityDegradedAtEvent": false, "eventQuality": 1}},
-    {"id": "A-F6", "available": false, "claim": "Actual–Target 오차가 어느 신호에서 먼저 시작됐는가", "unavailableReason": "이 소스에 Dispatch Target 컬럼이 없어 A-F6는 그릴 수 없습니다 — Unknown으로 남깁니다"}
+    {
+      "id": "A-F1",
+      "available": true,
+      "claim": "WDBESS1 출력은 당일 정상 운전 범위를 이탈하는 구간이 있다",
+      "summaryStats": {
+        "entity": "WDBESS1",
+        "rangeMw": 513.419129,
+        "eventDeltaMw": -250.5535960500012,
+        "eventT": 1755393972000,
+        "eventTIso": "2025-08-17T01:26:12.000Z"
+      },
+      "series": {
+        "n": 1800,
+        "tMinIso": "2025-08-16T19:00:04.000Z",
+        "tMaxIso": "2025-08-19T06:59:56.000Z"
+      }
+    },
+    {
+      "id": "A-F2",
+      "available": true,
+      "claim": "주요 변화는 수 분 단위 사건으로 집중된다",
+      "summaryStats": {
+        "entity": "WDBESS1",
+        "windowPoints": 6,
+        "states": ["Normal", "Precursor", "Main", "Recovery"]
+      }
+    },
+    {
+      "id": "A-F3",
+      "available": true,
+      "claim": "출력 변화율은 당일 중앙값 대비 크다 (p95=1538.5 MW/h)",
+      "summaryStats": {
+        "p50": 309.18075749999866,
+        "p95": 1538.5357406250012,
+        "max": 4697.9704125,
+        "eventMax": 4697.9704125
+      }
+    },
+    {
+      "id": "A-F4",
+      "available": true,
+      "claim": "포커스 설비만 급변한다 — Local fault branch가 상대적으로 강함",
+      "summaryStats": {
+        "mode": "local",
+        "score": 0,
+        "peerCount": 5,
+        "reason": "타 설비와 상관 없음 — 포커스 단독 급변",
+        "supportingCount": 0
+      }
+    },
+    {
+      "id": "A-F5",
+      "available": true,
+      "claim": "품질 플래그 저하 없이 출력 변화가 관측된다",
+      "summaryStats": {
+        "qualityDegradedAtEvent": false,
+        "eventQuality": 1
+      }
+    },
+    {
+      "id": "A-F6",
+      "available": true,
+      "claim": "WDBESS1 DEVIATION_MW 최대 |편차| -119.5 MW — SCHEDULED_MW 대비 실측 잔차",
+      "unavailableReason": null,
+      "summaryStats": {
+        "entity": "WDBESS1",
+        "minDeviationMw": -119.53459624999999,
+        "maxDeviationMw": 36.28592359375,
+        "eventDeviationMw": -119.53459624999999,
+        "eventT": 1755576756000,
+        "eventTIso": "2025-08-19T04:12:36.000Z",
+        "points": 1800
+      },
+      "series": {
+        "n": 1800,
+        "tMinIso": "2025-08-16T19:00:04.000Z",
+        "tMaxIso": "2025-08-19T06:59:56.000Z"
+      }
+    }
   ],
   "findings": [
-    "WDBESS1의 3일차(File3) 알람행은 통계 규칙 기준 515건으로 2일차(534건)보다 오히려 적으나 전체 알람행은 1243건으로 급증해 728행의 차이가 있다(Derived, E006) — robustZ·rampScore 급등만으로는 설명되지 않는 별도 규칙 기여 가능성을 시사한다.",
-    "서로 다른 참여자(WDOWBESS·HBESS·CSENERGY) 소유의 WDBESS1·HBESS1·CHBESS1 3개 설비 모두 1~2일차의 비대칭 SCHEDULED_MW 범위에서 3일차에 각자 설비 정격 수준의 대칭 범위(±255/±150/±100MW)로 동시 전환되었다(Derived, E004·E006·E008·E010·E016·E018) — 개별 설비의 우연이라기보다 상위(시장/디스패치) 공통 변경 가능성을 시사한다(Inferred).",
-    "TARBESS1은 WDBESS1 스파이크가 발생한 3일차(File3)를 포함해 1·3일차에 MEASURED_MW=0 고정과 MW_QUALITY_FLAG=2가 10800/10800행 전부에서 나타나는 반면 2일차만 정상 범위(-153~152MW)로 활성화되어(Observed, E011·E012·E013), WDBESS1 스파이크와는 무관한 별도의 간헐적 텔레메트리 정체 패턴이 동일 피드 내 존재한다."
+    "WDBESS1의 지배적 파생 사유가 3개 파일에 걸쳐 'MEASURED_MW statistical/ramp anomaly'(20250818 496건·20250819 477건)에서 'DEVIATION_MW sustained deviation'(20250820 1,108건)으로 전환되고 signal=DEVIATION_MW(1,168)가 signal=MEASURED_MW(515)를 역전했다 — 이상의 성격이 '빠른 출력 변동'에서 '스케줄 대비 지속 편차'로 이동(Observed 카운트 + Derived 해석).",
+    "WDBESS1(771→1,683건)과 HBESS1(522→1,155건)이 동일 20250820 파일에서 전일 대비 동반 급증했다 — 단일 설비 국소 결함과 배치되는 다설비 동조 패턴이며, A-F4는 포커스 단독 급변(mode=local)으로 표시되나 score=0·supportingCount=0으로 약하다(Observed + Derived).",
+    "동일 FPPMW 피드에서 3가지 이질적 텔레메트리 상태가 공존한다: ±150~±255 MW 능동 운전 + 대형 편차(WDBESS1·HBESS1), 파일별로 0 MW·MW_QUALITY_FLAG=2와 ±150 MW 운전을 오가는 설비(TARBESS1 샘플), 약 32,400행에서 소수점 8자리 불변(-0.49399555 MW)인 동결 의심 설비 — 제로 분산 케이스는 통계 탐지기의 사각지대다(Observed)."
   ],
-  "source": "Orca live run 2026-08-31, nested zip Log_sample/case_a_PUBLIC_NEXT_DAY_FPPMW_20250817.zip (520,040,023 bytes), streamed publication days 20250818/19/20 (BESS filter, 64,800 rows × 3, 6 entities)",
+  "source": "Orca live run 2026-08-31, nested zip Log_sample/case_a_PUBLIC_NEXT_DAY_FPPMW_20250817.zip (520,040,023 bytes), streamed publication days 20250818/19/20 (BESS filter, 64,800 rows × 3, 6 entities). Client on PW_PORT=5186 (this worktree). Three live Claude CLI stages.",
   "daysStreamed": ["20250818", "20250819", "20250820"],
   "incidentFile": "PUBLIC_NEXT_DAY_FPPMW_20250820_0000000477089848.CSV",
   "timeCoverage": {
-    "20250818": {"data": "2025-08-16T19:00:04.000Z .. 2025-08-17T07:00:00.000Z", "evidence": "same", "ratio": 1, "rows": 64800, "derivedAlarms": 879},
-    "20250819": {"data": "2025-08-17T19:00:04.000Z .. 2025-08-18T07:00:00.000Z", "evidence": "same", "ratio": 1, "rows": 64800, "derivedAlarms": 901},
-    "20250820": {"data": "2025-08-18T19:00:04.000Z .. 2025-08-19T07:00:00.000Z", "evidence": "same", "ratio": 1, "rows": 64800, "derivedAlarms": 915}
+    "20250818": {"data": "2025-08-16T19:00:04.000Z .. 2025-08-17T07:00:00.000Z", "evidence": "same", "ratio": 1, "rows": 64800, "derivedAlarms": 1240},
+    "20250819": {"data": "2025-08-17T19:00:04.000Z .. 2025-08-18T07:00:00.000Z", "evidence": "same", "ratio": 1, "rows": 64800, "derivedAlarms": 1465},
+    "20250820": {"data": "2025-08-18T19:00:04.000Z .. 2025-08-19T07:00:00.000Z", "evidence": "same", "ratio": 1, "rows": 64800, "derivedAlarms": 2877}
   },
   "entities": ["CHBESS1", "HBESS1", "PIBESS1", "TARBESS1", "ULPBESS1", "WDBESS1"],
   "entityFilter": "BESS",
+  "p4SeriesMerge": {
+    "af1Span": ["2025-08-16T19:00:04.000Z", "2025-08-19T06:59:56.000Z"],
+    "coversThreePublicationDays": true,
+    "note": "Previous last-source-wins series would have been the 20250820 file only (2025-08-18T19:00Z .. 2025-08-19T07:00Z). Gaps between files were not interpolated."
+  },
+  "humanReview": {
+    "hypIndex": 1,
+    "picked": "SCHEDULED_MW 엔벌로프에 반영되지 않은 FCAS/AGC 추종 또는 재디스패치",
+    "rejected": [
+      "H1 계통 주파수/전력계통 사건에 대한 다수 BESS 동조 응답 (A-F4 mode=local)",
+      "H3 리포트 파이프라인 아티팩트 (핵심 표본 quality=1, MEASURED_MW 실제 램프)"
+    ],
+    "notSteeredToPrevious": "다수 설비 공통 스케줄 대칭 확장"
+  },
   "wallClock": {
     "catalogS": 22,
     "streamS": [25, 25, 25],
-    "detectAnomalyS": 648,
-    "generateHypothesesS": 493,
-    "humanReviewWaitS": 418,
-    "draftReportS": 1140,
-    "publishedComparisonS": 482,
-    "totalPlaywrightMin": 54.7
+    "detectAnomalyS": 630,
+    "generateHypothesesS": 439,
+    "humanReviewWaitS": 288,
+    "draftReportS": 416,
+    "publishedComparisonS": 409,
+    "totalPlaywrightMin": 38.3
   }
 }
