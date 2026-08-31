@@ -27,6 +27,27 @@ test('source profile text includes data vs alarm-evidence time ranges when prese
   assert.match(anomaly, /커버리지 4%/);
 });
 
+test('source profile text states the timestamp assumption and sustained window count', () => {
+  const profile = {
+    ...base,
+    timestampAssumption: {
+      id: 'aemo-market-aest',
+      offsetMinutes: 600,
+      statedInData: false,
+      label: '시간대 표기 없음 — 시장 시간대 AEST(UTC+10, 일광절약 없음)로 가정. CSV는 시간대를 적지 않음',
+      naiveCount: 12
+    },
+    sustainedWindows: [{ count: 6, maxAbs: 20 }],
+    sustainedWindowsDropped: 0
+  };
+  const anomaly = buildDetectAnomalyPrompt({
+    csText: '출력 이상을 확인해 주세요', priorCase: '', combinedLogText: 'log',
+    totalRows: 10, sourceCount: 1, sourceProfiles: [profile]
+  });
+  assert.match(anomaly, /시각 해석 시간대 표기 없음 — 시장 시간대 AEST/);
+  assert.match(anomaly, /지속 편차 창 1개/);
+});
+
 test('AEMO prompts require independent MEASURED_MW evidence and grid-domain hypotheses', () => {
   const anomaly = buildDetectAnomalyPrompt({
     csText: '출력 이상을 확인해 주세요', priorCase: '', combinedLogText: 'MEASURED_MW robust z',

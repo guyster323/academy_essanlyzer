@@ -21,6 +21,45 @@ test('detect-issues request rejects a non-numeric totalRows', () => {
   }), ValidationError);
 });
 
+test('detect-anomaly request accepts timestamp assumption and sustained windows on source profiles', () => {
+  const req = parseRequest('detect-anomaly', {
+    csText: '출력 이상을 확인해 주세요. 이 문장은 삼십 자를 넘깁니다.',
+    priorCase: '',
+    combinedLogText: 'log',
+    totalRows: 1,
+    sourceCount: 1,
+    sourceProfiles: [{
+      sourceFile: 'PUBLIC.csv',
+      formatId: 'aemo-mms',
+      formatLabel: 'AEMO MMS 리포트',
+      entityColumn: 'FPP_UNITID',
+      rowCount: 100,
+      derivedAlarmCount: 9,
+      timestampAssumption: {
+        id: 'aemo-market-aest',
+        offsetMinutes: 600,
+        statedInData: false,
+        label: '시간대 표기 없음 — 시장 시간대 AEST(UTC+10, 일광절약 없음)로 가정. CSV는 시간대를 적지 않음',
+        naiveCount: 100,
+        zonedCount: 0
+      },
+      sustainedWindows: [{
+        entityId: 'U1',
+        start: '2024-03-03T00:00:00.000Z',
+        end: '2024-03-03T00:05:00.000Z',
+        startMs: 1,
+        endMs: 2,
+        count: 6,
+        maxAbs: 20,
+        maxSigned: -20
+      }],
+      sustainedWindowsDropped: 0
+    }]
+  });
+  assert.equal(req.sourceProfiles[0].timestampAssumption.id, 'aemo-market-aest');
+  assert.equal(req.sourceProfiles[0].sustainedWindows.length, 1);
+});
+
 test('detect-issues request rejects unknown extra properties (strict)', () => {
   assert.throws(() => parseRequest('detect-issues', {
     combinedLogText: 'x', totalRows: 1, sourceCount: 1, extraField: 'nope'
