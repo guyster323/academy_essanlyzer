@@ -91,11 +91,37 @@ function thinKeepSpread(list, keep) {
   return out;
 }
 
-function pairwiseMergeEventBins(bins, perBin) {
+function occupiedBinCount(cap) {
+  let n = 0;
+  for (const bin of cap.bins) {
+    if (bin && bin.length) n++;
+  }
+  return n;
+}
+
+function perBinQuota(cap, occupiedHint) {
+  const occupied = Math.max(1, occupiedHint != null ? occupiedHint : occupiedBinCount(cap));
+  const spare = MAX_RESISTANCE_EVENTS - (cap.baseline?.length || 0);
+  return Math.max(RESISTANCE_PER_BIN, Math.floor(spare / occupied));
+}
+
+function rethinBin(bin, perBin) {
+  if (!bin || bin.length <= perBin) return;
+  const next = thinKeepSpread(bin, perBin);
+  bin.length = 0;
+  for (let i = 0; i < next.length; i++) bin.push(next[i]);
+}
+
+function rethinAllBins(cap) {
+  const per = perBinQuota(cap);
+  for (const bin of cap.bins) rethinBin(bin, per);
+}
+
+function pairwiseMergeEventBins(bins) {
   const out = [];
   for (let i = 0; i < bins.length; i += 2) {
-    if (i + 1 >= bins.length) out.push(thinKeepSpread(bins[i], perBin));
-    else out.push(thinKeepSpread(bins[i].concat(bins[i + 1]), perBin));
+    if (i + 1 >= bins.length) out.push(bins[i]);
+    else out.push(bins[i].concat(bins[i + 1]));
   }
   return out;
 }
@@ -110,24 +136,21 @@ function insertIntoBin(bin, event, perBin) {
     while (i > 0 && Number.isFinite(bin[i - 1]?.t) && bin[i - 1].t > t) i--;
     bin.splice(i, 0, event);
   }
-  if (bin.length > perBin) {
-    const next = thinKeepSpread(bin, perBin);
-    bin.length = 0;
-    for (let i = 0; i < next.length; i++) bin.push(next[i]);
-  }
+  rethinBin(bin, perBin);
 }
 
 function compactEventBins(cap) {
   while (cap.bins.length > RESISTANCE_TIME_BINS) {
-    cap.bins = pairwiseMergeEventBins(cap.bins, RESISTANCE_PER_BIN);
+    cap.bins = pairwiseMergeEventBins(cap.bins);
     cap.width *= 2;
   }
+  rethinAllBins(cap);
 }
 
 function placeEventInCap(cap, event) {
   const t = event.t;
   if (!Number.isFinite(t)) {
-    insertIntoBin(cap.bins[0] || (cap.bins[0] = []), event, RESISTANCE_PER_BIN);
+    insertIntoBin(cap.bins[0] || (cap.bins[0] = []), event, perBinQuota(cap));
     return;
   }
   if (t < cap.origin) {
@@ -140,13 +163,17 @@ function placeEventInCap(cap, event) {
   let idx = Math.floor((t - cap.origin) / cap.width);
   if (idx < 0) idx = 0;
   while (idx >= RESISTANCE_TIME_BINS) {
-    cap.bins = pairwiseMergeEventBins(cap.bins, RESISTANCE_PER_BIN);
+    cap.bins = pairwiseMergeEventBins(cap.bins);
     cap.width *= 2;
     idx = Math.floor((t - cap.origin) / cap.width);
     if (idx < 0) idx = 0;
+    rethinAllBins(cap);
   }
   while (cap.bins.length <= idx) cap.bins.push([]);
-  insertIntoBin(cap.bins[idx], event, RESISTANCE_PER_BIN);
+  const bin = cap.bins[idx];
+  const wasEmpty = bin.length === 0;
+  insertIntoBin(bin, event, perBinQuota(cap, occupiedBinCount(cap) + (wasEmpty ? 1 : 0)));
+  if (wasEmpty) rethinAllBins(cap);
 }
 
 function flattenCap(cap) {
