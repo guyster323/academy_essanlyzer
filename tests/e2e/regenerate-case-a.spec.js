@@ -160,7 +160,14 @@ function dumpPartials(page, timings, extra) {
       unavailableReason: f.unavailableReason || null,
       evidenceTier: f.evidenceTier || null,
       summaryStats: f.summaryStats || {},
-      seriesPointCounts: (f.series || []).map(s => ({ name: s.name, n: (s.t || []).length }))
+      seriesPointCounts: (f.series || []).map(s => ({
+        name: s.name,
+        n: (s.t || []).length,
+        tMin: s.t && s.t.length ? s.t[0] : null,
+        tMax: s.t && s.t.length ? s.t[s.t.length - 1] : null,
+        tMinIso: s.t && s.t.length ? new Date(s.t[0]).toISOString() : null,
+        tMaxIso: s.t && s.t.length ? new Date(s.t[s.t.length - 1]).toISOString() : null
+      }))
     })),
     hypotheses: window.state.hypotheses || [],
     sourceProfiles: window.state.sourceProfiles || [],
@@ -203,7 +210,14 @@ function compactFigures() {
     unavailableReason: f.unavailableReason || null,
     evidenceTier: f.evidenceTier || null,
     summaryStats: f.summaryStats || {},
-    seriesPointCounts: (f.series || []).map(s => ({ name: s.name, n: (s.t || []).length }))
+    seriesPointCounts: (f.series || []).map(s => ({
+      name: s.name,
+      n: (s.t || []).length,
+      tMin: s.t && s.t.length ? s.t[0] : null,
+      tMax: s.t && s.t.length ? s.t[s.t.length - 1] : null,
+      tMinIso: s.t && s.t.length ? new Date(s.t[0]).toISOString() : null,
+      tMaxIso: s.t && s.t.length ? new Date(s.t[s.t.length - 1]).toISOString() : null
+    }))
   }));
 }
 
