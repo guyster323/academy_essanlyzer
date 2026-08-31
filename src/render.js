@@ -3,6 +3,7 @@ import { formatBytes, MAX_SELECTED_SOURCES } from './log-engine.js';
 import { formatTimeRange, formatCoveragePct, isLowTimeCoverage } from './time-coverage.js';
 import { formatTimestampAssumptionNote } from './series-engine.js';
 import { formatResistanceDropNote, formatResistanceYearCounts } from './forensics/lfp.js';
+import { formatSustainedWindowsNote } from './formats.js';
 import { paintFigureCanvases } from './charts.js';
 import { detectAttributionConflict, describeAttributionConflict } from './attribution-conflict.js';
 
@@ -294,6 +295,9 @@ function renderTimeCoverage(s) {
     ${formatTimestampAssumptionNote(s.timestampAssumption)
       ? `<div data-timestamp-assumption="1">${esc(formatTimestampAssumptionNote(s.timestampAssumption))}</div>`
       : ''}
+    ${formatSustainedWindowsNote(s.sustainedWindows, s.sustainedWindowsDropped)
+      ? `<div data-sustained-windows="1">${esc(formatSustainedWindowsNote(s.sustainedWindows, s.sustainedWindowsDropped))}</div>`
+      : ''}
     ${renderCategoryTime(s.derived)}
   </div>`;
 }
@@ -318,6 +322,9 @@ function renderSourceProfilesCoverage(profiles) {
       ${rDist ? `<div data-resistance-time-dist="1">저항 유지 분포 ${rDist}</div>` : ''}
       ${formatTimestampAssumptionNote(p.timestampAssumption)
         ? `<div data-timestamp-assumption="1">${esc(formatTimestampAssumptionNote(p.timestampAssumption))}</div>`
+        : ''}
+      ${formatSustainedWindowsNote(p.sustainedWindows, p.sustainedWindowsDropped)
+        ? `<div data-sustained-windows="1">${esc(formatSustainedWindowsNote(p.sustainedWindows, p.sustainedWindowsDropped))}</div>`
         : ''}
     </div>`;
   }).join('');

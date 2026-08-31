@@ -233,6 +233,8 @@ async function main() {
     engineReasonCounts: derived.reasonCounts,
     engineAlarmCount: derived.alarmCount,
     engineLabel: derived.label,
+    engineWindows: src.sustainedWindows || [],
+    engineWindowsDropped: src.sustainedWindowsDropped || 0,
     sustained: {
       rowFires: sustainedRowFires,
       windowCount,

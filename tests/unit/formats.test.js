@@ -2,7 +2,7 @@ import test from 'node:test';
 import assert from 'node:assert/strict';
 import {
   parseDelimitedLine, GENERIC_FORMAT, AEMO_MMS_FORMAT, LFP_CELL_ARRAY_FORMAT,
-  detectFormat
+  detectFormat, MAX_SUSTAINED_WINDOWS, formatSustainedWindowsNote
 } from '../../src/formats.js';
 
 test('parseDelimitedLine handles a quoted delimiter and an escaped quote', () => {
@@ -182,12 +182,21 @@ test('computeDerivedAlarm degrades to MEASURED_MW-only when DEVIATION_MW is abse
   assert.equal(last.metrics.deviationAbs, 0);
 });
 
-function plateauRow(deviationMw, quality = '1') {
+function aestWall(sampleIndex) {
+  const sec = sampleIndex * 4;
+  const h = 6 + Math.floor(sec / 3600);
+  const m = Math.floor((sec % 3600) / 60);
+  const s = sec % 60;
+  return `2025/08/19 ${String(h).padStart(2, '0')}:${String(m).padStart(2, '0')}:${String(s).padStart(2, '0')}`;
+}
+
+function plateauRow(deviationMw, quality = '1', wall = null) {
   return {
     MEASURED_MW: '20',
     SCHEDULED_MW: '20',
     DEVIATION_MW: String(deviationMw),
-    MW_QUALITY_FLAG: quality
+    MW_QUALITY_FLAG: quality,
+    ...(wall ? { MEASUREMENT_DATETIME: wall } : {})
   };
 }
 
@@ -237,6 +246,61 @@ test('DEVIATION_MW sustained rule does not fire when a run is interrupted by a r
   const results = aemoDerivedSequence([...firstLeg, ...onTarget, ...secondLeg]);
   assert.equal(results.some(r => (r.details.rulesFired || []).includes('DEVIATION_MW sustained deviation')), false);
   assert.equal(results[results.length - 1].metrics.sustainedRunCount, 40);
+});
+
+test('sustained row fires roll up into windows without removing per-row alarms', () => {
+  const bucket = {};
+  const acc = {};
+  const onTarget = Array.from({ length: 10 }, (_, i) => plateauRow(0, '1', aestWall(i)));
+  const plateau = Array.from({ length: 80 }, (_, i) => plateauRow(20, '1', aestWall(10 + i)));
+  const results = [...onTarget, ...plateau].map(row => AEMO_MMS_FORMAT.computeDerivedAlarm(row, acc, bucket));
+  const fires = results.filter(r => (r.details.rulesFired || []).includes('DEVIATION_MW sustained deviation'));
+  assert.equal(fires.length, 6);
+  AEMO_MMS_FORMAT.finalizeDerived(bucket);
+  assert.equal(bucket.derived.sustainedWindows.length, 1);
+  assert.equal(bucket.derived.sustainedWindowsDropped, 0);
+  const win = bucket.derived.sustainedWindows[0];
+  assert.equal(win.count, 6);
+  assert.equal(win.maxAbs, 20);
+  assert.equal(win.start, '2025-08-18T20:05:36.000Z'); // 06:05:36 AEST = first fire (sample 84)
+  assert.equal(win.end, '2025-08-18T20:05:56.000Z');   // 06:05:56 AEST = last fire (sample 89)
+});
+
+test('two separated plateaus become two windows', () => {
+  const bucket = {};
+  const acc = {};
+  let i = 0;
+  const rows = [
+    ...Array.from({ length: 80 }, () => plateauRow(20, '1', aestWall(i++))),
+    ...Array.from({ length: 5 }, () => plateauRow(0, '1', aestWall(i++))),
+    ...Array.from({ length: 80 }, () => plateauRow(25, '1', aestWall(i++)))
+  ];
+  rows.forEach(row => AEMO_MMS_FORMAT.computeDerivedAlarm(row, acc, bucket));
+  AEMO_MMS_FORMAT.finalizeDerived(bucket);
+  assert.equal(bucket.derived.sustainedWindows.length, 2);
+  assert.equal(bucket.derived.sustainedWindows[0].maxAbs, 20);
+  assert.equal(bucket.derived.sustainedWindows[1].maxAbs, 25);
+  assert.equal(bucket.derived.sustainedWindows[0].count, 6);
+  assert.equal(bucket.derived.sustainedWindows[1].count, 6);
+});
+
+test('sustained window cap is counted, not silent', () => {
+  const bucket = {};
+  const acc = {};
+  let i = 0;
+  for (let w = 0; w < MAX_SUSTAINED_WINDOWS + 3; w++) {
+    for (let k = 0; k < 75; k++) {
+      AEMO_MMS_FORMAT.computeDerivedAlarm(plateauRow(20, '1', aestWall(i++)), acc, bucket);
+    }
+    AEMO_MMS_FORMAT.computeDerivedAlarm(plateauRow(0, '1', aestWall(i++)), acc, bucket);
+  }
+  AEMO_MMS_FORMAT.finalizeDerived(bucket);
+  assert.equal(bucket.derived.sustainedWindows.length, MAX_SUSTAINED_WINDOWS);
+  assert.equal(bucket.derived.sustainedWindowsDropped, 3);
+  assert.match(
+    formatSustainedWindowsNote(bucket.derived.sustainedWindows, bucket.derived.sustainedWindowsDropped),
+    /상한 48/
+  );
 });
 
 test('existing DEVIATION_MW onset reasonCode is unchanged when a brief residual trips only that rule', () => {

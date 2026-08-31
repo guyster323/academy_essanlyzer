@@ -526,6 +526,21 @@ function mergeResistanceRetention(lists, dataRange) {
   };
 }
 
+function rollupSustainedWindows(acc) {
+  const windows = [];
+  let dropped = 0;
+  const entries = acc.groups
+    ? Object.entries(acc.groups)
+    : [[acc.entityFilter || '_file', acc]];
+  for (const [id, bucket] of entries) {
+    dropped += Number(bucket?.derived?.sustainedWindowsDropped) || 0;
+    for (const win of bucket?.derived?.sustainedWindows || []) {
+      windows.push({ ...win, entityId: id });
+    }
+  }
+  return { windows, dropped };
+}
+
 function snapshotTimestampAssumption(acc) {
   const base = acc?.format?.timestampAssumption;
   const naiveCount = Number(acc?.timestampNaiveCount) || 0;
@@ -541,11 +556,25 @@ function snapshotTimestampAssumption(acc) {
   };
 }
 
+function finalizeFormatDerived(acc, bucket) {
+  if (bucket && typeof acc.format?.finalizeDerived === 'function') {
+    acc.format.finalizeDerived(bucket);
+  }
+}
+
 export function finalizeAccumulator(acc) {
   if (!acc) return acc;
-  if (acc.groups) rollupGroupTime(acc);
-  else finalizeBucketTime(acc);
+  if (acc.groups) {
+    Object.values(acc.groups).forEach(bucket => finalizeFormatDerived(acc, bucket));
+    rollupGroupTime(acc);
+  } else {
+    finalizeFormatDerived(acc, acc);
+    finalizeBucketTime(acc);
+  }
   acc.timestampAssumption = snapshotTimestampAssumption(acc);
+  const rolledWindows = rollupSustainedWindows(acc);
+  acc.sustainedWindows = rolledWindows.windows;
+  acc.sustainedWindowsDropped = rolledWindows.dropped;
   return acc;
 }
 
@@ -567,6 +596,8 @@ export function applyAccumulatorToSource(src, acc) {
   src.alarmDroppedCount = acc.alarmDroppedCount || 0;
   src.alarmSampleTimeDistribution = acc.alarmSampleTimeDistribution || [];
   src.timestampAssumption = acc.timestampAssumption || snapshotTimestampAssumption(acc);
+  src.sustainedWindows = acc.sustainedWindows || [];
+  src.sustainedWindowsDropped = acc.sustainedWindowsDropped || 0;
   src.groups = acc.groups; // null when the format has no groupable entity column
   src.derived = acc.derived;
   src.alarmAnnotations = acc.alarmAnnotations;

@@ -195,6 +195,88 @@ const AEMO_COL_OFFSET = 4;
 // Not fitted to any published event MW or timestamp.
 const AEMO_SUSTAINED_DEV_ABS_MW = 12;
 const AEMO_SUSTAINED_DEV_SAMPLES = 75;
+// Window rollup only — per-row firing is unchanged. One open window plus
+// this many closed summaries; overflow is counted, never silent.
+export const MAX_SUSTAINED_WINDOWS = 48;
+
+function isoOrNull(ms) {
+  return Number.isFinite(ms) ? new Date(ms).toISOString() : null;
+}
+
+function snapshotSustainedWindow(win, extra = {}) {
+  if (!win) return null;
+  return {
+    startMs: Number.isFinite(win.startMs) ? win.startMs : null,
+    endMs: Number.isFinite(win.endMs) ? win.endMs : null,
+    start: isoOrNull(win.startMs),
+    end: isoOrNull(win.endMs),
+    count: win.count || 0,
+    maxAbs: Number.isFinite(win.maxAbs) ? win.maxAbs : 0,
+    maxSigned: Number.isFinite(win.maxSigned) ? win.maxSigned : 0,
+    ...extra
+  };
+}
+
+function closeSustainedWindow(sustained) {
+  if (!sustained?.open) return;
+  if (!sustained.windows) sustained.windows = [];
+  if (sustained.windows.length >= MAX_SUSTAINED_WINDOWS) {
+    sustained.dropped = (sustained.dropped || 0) + 1;
+  } else {
+    sustained.windows.push(snapshotSustainedWindow(sustained.open));
+  }
+  sustained.open = null;
+}
+
+function noteSustainedFire(sustained, tMs, deviationMw, deviationAbs) {
+  if (!sustained.open) {
+    sustained.open = {
+      startMs: tMs,
+      endMs: tMs,
+      count: 0,
+      maxAbs: 0,
+      maxSigned: 0
+    };
+  }
+  if (Number.isFinite(tMs)) sustained.open.endMs = tMs;
+  sustained.open.count += 1;
+  if (deviationAbs >= (sustained.open.maxAbs || 0)) {
+    sustained.open.maxAbs = deviationAbs;
+    sustained.open.maxSigned = deviationMw;
+  }
+}
+
+export function formatSustainedWindowsNote(windows, dropped) {
+  const list = Array.isArray(windows) ? windows : [];
+  const nDrop = Number(dropped) || 0;
+  if (!list.length && !nDrop) return '';
+  const lines = list.map(w => {
+    const start = w.start || isoOrNull(w.startMs) || '미상';
+    const end = w.end || isoOrNull(w.endMs) || '미상';
+    const n = Number(w.count) || 0;
+    const max = Number.isFinite(w.maxAbs) ? w.maxAbs.toFixed(2) : '?';
+    const entity = w.entityId ? `${w.entityId} ` : '';
+    return `${entity}${start} ~ ${end}: ${n}행, max|dev|=${max} MW`;
+  });
+  const head = `지속 편차 창 ${list.length}개` + (nDrop
+    ? ` (상한 ${MAX_SUSTAINED_WINDOWS}, ${nDrop.toLocaleString()}개 생략)`
+    : '');
+  return lines.length ? `${head} — ${lines.join('; ')}` : head;
+}
+
+export function finalizeSustainedWindows(bucket) {
+  const sustained = bucket?._derivedState?.aemoSustainedDeviation;
+  if (!sustained) return;
+  closeSustainedWindow(sustained);
+  if (!bucket.derived) {
+    bucket.derived = {
+      label: null, alarmCount: 0, metricStats: {}, reasonCounts: {}, categoryCounts: {},
+      categoryTimeBuckets: []
+    };
+  }
+  bucket.derived.sustainedWindows = (sustained.windows || []).map(w => snapshotSustainedWindow(w));
+  bucket.derived.sustainedWindowsDropped = sustained.dropped || 0;
+}
 
 export const AEMO_MMS_FORMAT = {
   id: 'aemo-mms',
@@ -313,13 +395,19 @@ export const AEMO_MMS_FORMAT = {
       const sustained = getDerivedState(bucket, 'aemoSustainedDeviation');
       const quality = finiteNumber(rowObj.MW_QUALITY_FLAG);
       const deviationUnusable = quality === 0;
+      const tMs = parseTimestampMs(
+        rowObj.MEASUREMENT_DATETIME || rowObj.INTERVAL_DATETIME,
+        TIMESTAMP_ASSUMPTIONS['aemo-mms']
+      );
       if (deviationUnusable) {
         sustainedRunCount = sustained.runCount || 0;
       } else if (deviationAbs >= AEMO_SUSTAINED_DEV_ABS_MW) {
         sustained.runCount = (sustained.runCount || 0) + 1;
         sustainedRunCount = sustained.runCount;
         sustainedAlarm = sustainedRunCount >= AEMO_SUSTAINED_DEV_SAMPLES;
+        if (sustainedAlarm) noteSustainedFire(sustained, tMs, deviationMw, deviationAbs);
       } else {
+        if (sustained.runCount) closeSustainedWindow(sustained);
         sustained.runCount = 0;
         sustainedRunCount = 0;
       }
@@ -401,6 +489,9 @@ export const AEMO_MMS_FORMAT = {
     if (scheduledMw !== null) values.scheduledMw = scheduledMw;
     if (deviationMw !== null) values.deviationMw = deviationMw;
     return { t, values };
+  },
+  finalizeDerived(bucket) {
+    finalizeSustainedWindows(bucket);
   }
 };
 

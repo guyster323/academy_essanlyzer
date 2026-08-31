@@ -5,7 +5,7 @@ import {
   CONTEXT_WINDOW, avgOf, makeAccumulator, feedLine, finalizeAccumulator,
   MAX_SELECTED_SOURCES, MAX_GROUPS_PER_SOURCE_IN_PROMPT, MAX_TOTAL_ALARM_CONTEXTS, MAX_LOG_TEXT_CHARS
 } from './log-engine.js';
-import { detectFormat, detectDelimiter } from './formats.js';
+import { detectFormat, detectDelimiter, formatSustainedWindowsNote } from './formats.js';
 import { freezeSeries, formatTimestampAssumptionNote } from './series-engine.js';
 import {
   normalizeResistanceEvents, resistanceEventsDroppedCount, resistanceEventYearCounts,
@@ -86,7 +86,9 @@ export function collectActiveLogBlocks() {
       alarmDroppedCount: acc.alarmDroppedCount || 0,
       alarmSampleTimeDistribution: acc.alarmSampleTimeDistribution || [],
       alarmSampleTimes: acc.alarmSampleTimes || [],
-      timestampAssumption: acc.timestampAssumption || null
+      timestampAssumption: acc.timestampAssumption || null,
+      sustainedWindows: acc.sustainedWindows || [],
+      sustainedWindowsDropped: acc.sustainedWindowsDropped || 0
     };
   }
 
@@ -109,7 +111,9 @@ export function collectActiveLogBlocks() {
     alarmDroppedCount: s.alarmDroppedCount || 0,
     alarmSampleTimeDistribution: s.alarmSampleTimeDistribution || [],
     alarmSampleTimes: s.alarmSampleTimes || [],
-    timestampAssumption: s.timestampAssumption || null
+    timestampAssumption: s.timestampAssumption || null,
+    sustainedWindows: s.sustainedWindows || [],
+    sustainedWindowsDropped: s.sustainedWindowsDropped || 0
   })).concat(pastedSummary ? [pastedSummary] : []);
 }
 
@@ -144,12 +148,17 @@ function formatDerivedDetails(derived) {
   const categoryTimeText = outlierOverTime.length
     ? `\n- 파생 범주 시간 분포 (outlierCell):\n${outlierOverTime.join('\n')}`
     : '';
+  const windowNote = formatSustainedWindowsNote(
+    derived.sustainedWindows,
+    derived.sustainedWindowsDropped
+  );
+  const windowText = windowNote ? `\n- ${windowNote}` : '';
   return `- 파생 탐지 방식: ${derived.label}
 - 파생 이상 행 수: ${derived.alarmCount || 0}건
 - 파생 지표 통계 (bounded running summary):
 ${metricText}
 - 파생 이상 사유 집계:
-${reasonText}${reasonRest}${categoryText}${categoryTimeText}`;
+${reasonText}${reasonRest}${categoryText}${categoryTimeText}${windowText}`;
 }
 
 function formatAlarmAnnotations(annotations) {
@@ -214,8 +223,10 @@ function formatTimeCoverageLines(block) {
     : '';
   const tzNote = formatTimestampAssumptionNote(block.timestampAssumption);
   const tzLine = tzNote ? `\n- ${tzNote}` : '';
+  const windowNote = formatSustainedWindowsNote(block.sustainedWindows, block.sustainedWindowsDropped);
+  const windowLine = windowNote ? `\n- ${windowNote}` : '';
   return `- 데이터 시간 범위: ${formatTimeRange(block.dataTimeRange)}
-- 알람 근거 시간 범위: ${formatTimeRange(block.evidenceTimeRange)}${pct}${dist}${dropped}${rDist}${rYearLine}${rDropped}${tzLine}
+- 알람 근거 시간 범위: ${formatTimeRange(block.evidenceTimeRange)}${pct}${dist}${dropped}${rDist}${rYearLine}${rDropped}${tzLine}${windowLine}
 `;
 }
 
@@ -248,7 +259,11 @@ function buildSourceProfile(block) {
       : [],
     timestampAssumption: block.timestampAssumption && typeof block.timestampAssumption === 'object'
       ? block.timestampAssumption
-      : null
+      : null,
+    sustainedWindows: Array.isArray(block.sustainedWindows) ? block.sustainedWindows : [],
+    sustainedWindowsDropped: Number.isInteger(block.sustainedWindowsDropped)
+      ? block.sustainedWindowsDropped
+      : 0
   };
 }
 
