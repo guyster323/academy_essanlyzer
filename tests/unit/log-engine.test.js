@@ -106,6 +106,41 @@ test('generic 10k-row stream keeps series bins within MAX_SERIES_POINTS and pres
   assert.ok(Math.max(...frozen.bins.map(b => b.max.value)) >= 4.2);
 });
 
+test('AEMO stream records the AEST assumption and does not follow the machine zone', () => {
+  const rows = [
+    'C,SETP.WORLD,NEXT_DAY_FPPMW,AEMO,PUBLIC,2025/08/19',
+    AEMO_HEADER,
+    'D,FPP,UNIT_MW,1,"2025/08/19 12:15:00","2025/08/19 12:15:00",WDBESS1,1,10,1,10,0,WDBESS1'
+  ];
+  const acc = accumulate(rows.join('\n'), AEMO_MMS_FORMAT);
+  const src = { name: 'aemo.csv', encoding: 'utf-8', format: AEMO_MMS_FORMAT };
+  applyAccumulatorToSource(src, acc);
+  assert.equal(src.dataTimeRange.min, '2025-08-19T02:15:00.000Z');
+  assert.equal(src.timestampAssumption.id, 'aemo-market-aest');
+  assert.equal(src.timestampAssumption.offsetMinutes, 600);
+  assert.equal(src.timestampAssumption.naiveCount, 1);
+  assert.equal(src.timestampAssumption.statedInData, false);
+  assert.match(src.timestampAssumption.label, /AEST/);
+});
+
+test('AEMO stream exposes sustained windows on the source without dropping row fires', () => {
+  const header = AEMO_HEADER;
+  const rows = [];
+  for (let i = 0; i < 80; i++) {
+    const sec = String(i).padStart(2, '0');
+    rows.push(`D,FPP,UNIT_MW,1,"2025/08/19 06:00:${sec}","2025/08/19 06:00:${sec}",WDBESS1,1,20,1,0,20,WDBESS1`);
+  }
+  const acc = accumulate([header, ...rows].join('\n'), AEMO_MMS_FORMAT);
+  const src = { name: 'aemo.csv', encoding: 'utf-8', format: AEMO_MMS_FORMAT };
+  applyAccumulatorToSource(src, acc);
+  const reason = Object.keys(src.groups.WDBESS1.derived.reasonCounts).join(' ');
+  assert.match(reason, /DEVIATION_MW sustained deviation/);
+  assert.equal(src.sustainedWindows.length, 1);
+  assert.equal(src.sustainedWindows[0].entityId, 'WDBESS1');
+  assert.equal(src.sustainedWindows[0].count, 6);
+  assert.equal(src.groups.WDBESS1.derived.alarmCount >= 6, true);
+});
+
 test('AEMO grouped stream freezes per-entity MW series', () => {
   const rows = Array.from({ length: 12 }, (_, i) =>
     `D,FPP,UNIT_MW,1,"2025/08/19 11:00:${String(i).padStart(2, '0')}","2025/08/19 11:00:${String(i).padStart(2, '0')}",WDBESS1,1,${i === 11 ? -40 : 10},1,10,0,WDBESS1`

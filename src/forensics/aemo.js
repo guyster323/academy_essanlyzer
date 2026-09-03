@@ -2,23 +2,40 @@ import { binsToXY } from '../series-engine.js';
 
 const WINDOW_MS = 15 * 60 * 1000;
 
-export function maxAbsDeltaAnchor(frozen, signal = 'mw') {
-  const { t, y } = binsToXY(frozen, signal, 'mean');
-  if (t.length < 2) return null;
-  let best = null;
-  for (let i = 1; i < y.length; i++) {
-    const d = y[i] - y[i - 1];
-    const score = Math.abs(d);
-    if (!best || score > best.score) best = { t: t[i], index: i, delta: d, score, from: y[i - 1], to: y[i] };
+function indicesInRange(t, range) {
+  if (!range || !Number.isFinite(range.minMs) || !Number.isFinite(range.maxMs)) {
+    return t.map((_, i) => i);
   }
-  // Also consider deviation from the first sample (slow ramps).
-  for (let i = 1; i < y.length; i++) {
-    const d = y[i] - y[0];
+  const out = [];
+  for (let i = 0; i < t.length; i++) {
+    if (t[i] >= range.minMs && t[i] < range.maxMs) out.push(i);
+  }
+  return out;
+}
+
+export function maxAbsDeltaAnchor(frozen, signal = 'mw', range = null) {
+  const { t, y } = binsToXY(frozen, signal, 'mean');
+  const idx = indicesInRange(t, range);
+  if (idx.length < 2) return null;
+  const first = idx[0];
+  let best = null;
+  for (let k = 1; k < idx.length; k++) {
+    const i = idx[k];
+    const prev = idx[k - 1];
+    const d = y[i] - y[prev];
+    const score = Math.abs(d);
+    if (!best || score > best.score) best = { t: t[i], index: i, delta: d, score, from: y[prev], to: y[i] };
+  }
+  // Also consider deviation from the first in-range sample (slow ramps).
+  for (let k = 1; k < idx.length; k++) {
+    const i = idx[k];
+    const d = y[i] - y[first];
     const score = Math.abs(d);
     if (best && score > best.score * 1.05) {
-      best = { t: t[i], index: i, delta: d, score, from: y[0], to: y[i] };
+      best = { t: t[i], index: i, delta: d, score, from: y[first], to: y[i] };
     }
   }
+  if (best) best.scoped = Boolean(range);
   return best;
 }
 
@@ -79,11 +96,11 @@ export function dpDtPercentile(frozen, signal = 'mw') {
   return { p50: at(0.5), p95: at(0.95), max: rates[rates.length - 1], eventMax: rates[rates.length - 1] };
 }
 
-export function qualityOverlap(frozen) {
+export function qualityOverlap(frozen, range = null) {
   const mw = binsToXY(frozen, 'mw', 'mean');
   const q = binsToXY(frozen, 'quality', 'mean');
   if (!mw.t.length) return { qualityDegradedAtEvent: false, eventQuality: null };
-  const anchor = maxAbsDeltaAnchor(frozen, 'mw');
+  const anchor = maxAbsDeltaAnchor(frozen, 'mw', range);
   if (!anchor) return { qualityDegradedAtEvent: false, eventQuality: null };
   let eventQuality = null;
   for (let i = 0; i < q.t.length; i++) {
@@ -109,13 +126,13 @@ export function qualityOverlap(frozen) {
  * Classify Local vs Common-mode from frozen MW series.
  * Never uses a published clock time — the focus entity's own max |ΔP| is the anchor.
  */
-export function classifyCommonMode(focusId, seriesByEntity, { signal = 'mw', radiusMs = WINDOW_MS } = {}) {
+export function classifyCommonMode(focusId, seriesByEntity, { signal = 'mw', radiusMs = WINDOW_MS, range = null } = {}) {
   const focus = seriesByEntity?.[focusId];
   const peerIds = Object.keys(seriesByEntity || {}).filter(id => id !== focusId);
   if (!focus) {
     return { mode: 'unknown', score: 0, peerCount: 0, reason: '포커스 설비 시계열이 없음', anchor: null, peerScores: [] };
   }
-  const anchor = maxAbsDeltaAnchor(focus, signal);
+  const anchor = maxAbsDeltaAnchor(focus, signal, range);
   if (!anchor) {
     return { mode: 'unknown', score: 0, peerCount: peerIds.length, reason: '포커스 설비에서 급변 앵커를 찾지 못함', anchor: null, peerScores: [] };
   }
@@ -157,8 +174,8 @@ export function classifyCommonMode(focusId, seriesByEntity, { signal = 'mw', rad
   return { mode, score, peerCount: peerIds.length, reason, anchor, peerScores, supportingCount: supporting.length };
 }
 
-export function eventStates(frozen, signal = 'mw') {
-  const anchor = maxAbsDeltaAnchor(frozen, signal);
+export function eventStates(frozen, signal = 'mw', range = null) {
+  const anchor = maxAbsDeltaAnchor(frozen, signal, range);
   if (!anchor) return [];
   const { t } = binsToXY(frozen, signal, 'mean');
   const t0 = t[0];

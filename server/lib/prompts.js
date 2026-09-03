@@ -34,7 +34,16 @@ function sourceProfileText(sourceProfiles, sourceFormats) {
     const resistance = years.length
       ? `, 저항 유지 ${years.map(y => `${y}:${yearCounts[y]}`).join(' ')}`
       : '';
-    return `- ${name}: ${id}${label}${entity}${derived}${time}${resistance}`;
+    const tz = profile.timestampAssumption?.label
+      ? `, 시각 해석 ${profile.timestampAssumption.label}`
+      : '';
+    const windows = Array.isArray(profile.sustainedWindows) && profile.sustainedWindows.length
+      ? `, 지속 편차 창 ${profile.sustainedWindows.length}개`
+      : '';
+    const windowDrop = profile.sustainedWindowsDropped
+      ? ` (${profile.sustainedWindowsDropped}개 생략)`
+      : '';
+    return `- ${name}: ${id}${label}${entity}${derived}${time}${resistance}${tz}${windows}${windowDrop}`;
   }).join('\n');
 }
 

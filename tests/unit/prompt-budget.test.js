@@ -110,6 +110,56 @@ test('kept resistance-event year distribution is copied into source profiles and
   assert.match(text, /전 구간 분산 유지/);
 });
 
+test('sustained windows are copied into source profiles and the prompt', () => {
+  const block = makeFlatBlock('PUBLIC_NEXT_DAY.csv', 2);
+  block.sustainedWindows = [{
+    entityId: 'WDBESS1',
+    start: '2025-08-18T20:05:36.000Z',
+    end: '2025-08-18T20:35:36.000Z',
+    count: 449,
+    maxAbs: 124.2
+  }];
+  block.sustainedWindowsDropped = 0;
+  block.dataTimeRange = {
+    minMs: Date.parse('2025-08-18T18:00:00.000Z'),
+    maxMs: Date.parse('2025-08-19T06:00:00.000Z'),
+    min: '2025-08-18T18:00:00.000Z',
+    max: '2025-08-19T06:00:00.000Z'
+  };
+  block.evidenceTimeRange = block.dataTimeRange;
+  block.timeCoverageRatio = 1;
+  const { text, sourceProfiles } = blocksToPromptText([block]);
+  assert.equal(sourceProfiles[0].sustainedWindows.length, 1);
+  assert.match(text, /지속 편차 창 1개/);
+  assert.match(text, /449행/);
+  assert.match(text, /max\|dev\|=124\.20 MW/);
+});
+
+test('timezone assumption is copied into source profiles and the prompt, never silent', () => {
+  const block = makeFlatBlock('PUBLIC_NEXT_DAY.csv', 2);
+  block.timestampAssumption = {
+    id: 'aemo-market-aest',
+    offsetMinutes: 600,
+    statedInData: false,
+    label: '시간대 표기 없음 — 시장 시간대 AEST(UTC+10, 일광절약 없음)로 가정. CSV는 시간대를 적지 않음',
+    naiveCount: 10800,
+    zonedCount: 0
+  };
+  block.dataTimeRange = {
+    minMs: Date.parse('2025-08-19T02:15:00.000Z'),
+    maxMs: Date.parse('2025-08-19T06:00:00.000Z'),
+    min: '2025-08-19T02:15:00.000Z',
+    max: '2025-08-19T06:00:00.000Z'
+  };
+  block.evidenceTimeRange = block.dataTimeRange;
+  block.timeCoverageRatio = 1;
+  const { text, sourceProfiles } = blocksToPromptText([block]);
+  assert.equal(sourceProfiles[0].timestampAssumption.id, 'aemo-market-aest');
+  assert.match(text, /시각 해석: 시간대 표기 없음 — 시장 시간대 AEST/);
+  assert.match(text, /CSV는 시간대를 적지 않음/);
+  assert.match(text, /무표기 10,800행|무표기 10800행/);
+});
+
 test('when anything is truncated, a human-readable note is prefixed into the prompt text itself', () => {
   const blocks = Array.from({ length: 12 }, (_, i) => makeFlatBlock(`source-${i}`, 0));
   const { text } = blocksToPromptText(blocks);

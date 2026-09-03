@@ -5,8 +5,8 @@ import {
   CONTEXT_WINDOW, avgOf, makeAccumulator, feedLine, finalizeAccumulator,
   MAX_SELECTED_SOURCES, MAX_GROUPS_PER_SOURCE_IN_PROMPT, MAX_TOTAL_ALARM_CONTEXTS, MAX_LOG_TEXT_CHARS
 } from './log-engine.js';
-import { detectFormat, detectDelimiter } from './formats.js';
-import { freezeSeries } from './series-engine.js';
+import { detectFormat, detectDelimiter, formatSustainedWindowsNote } from './formats.js';
+import { freezeSeries, formatTimestampAssumptionNote } from './series-engine.js';
 import {
   normalizeResistanceEvents, resistanceEventsDroppedCount, resistanceEventYearCounts,
   formatResistanceDropNote, formatResistanceYearCounts
@@ -85,7 +85,10 @@ export function collectActiveLogBlocks() {
       timeCoverageRatio: Number.isFinite(acc.timeCoverageRatio) ? acc.timeCoverageRatio : null,
       alarmDroppedCount: acc.alarmDroppedCount || 0,
       alarmSampleTimeDistribution: acc.alarmSampleTimeDistribution || [],
-      alarmSampleTimes: acc.alarmSampleTimes || []
+      alarmSampleTimes: acc.alarmSampleTimes || [],
+      timestampAssumption: acc.timestampAssumption || null,
+      sustainedWindows: acc.sustainedWindows || [],
+      sustainedWindowsDropped: acc.sustainedWindowsDropped || 0
     };
   }
 
@@ -107,7 +110,10 @@ export function collectActiveLogBlocks() {
     timeCoverageRatio: Number.isFinite(s.timeCoverageRatio) ? s.timeCoverageRatio : null,
     alarmDroppedCount: s.alarmDroppedCount || 0,
     alarmSampleTimeDistribution: s.alarmSampleTimeDistribution || [],
-    alarmSampleTimes: s.alarmSampleTimes || []
+    alarmSampleTimes: s.alarmSampleTimes || [],
+    timestampAssumption: s.timestampAssumption || null,
+    sustainedWindows: s.sustainedWindows || [],
+    sustainedWindowsDropped: s.sustainedWindowsDropped || 0
   })).concat(pastedSummary ? [pastedSummary] : []);
 }
 
@@ -142,12 +148,17 @@ function formatDerivedDetails(derived) {
   const categoryTimeText = outlierOverTime.length
     ? `\n- 파생 범주 시간 분포 (outlierCell):\n${outlierOverTime.join('\n')}`
     : '';
+  const windowNote = formatSustainedWindowsNote(
+    derived.sustainedWindows,
+    derived.sustainedWindowsDropped
+  );
+  const windowText = windowNote ? `\n- ${windowNote}` : '';
   return `- 파생 탐지 방식: ${derived.label}
 - 파생 이상 행 수: ${derived.alarmCount || 0}건
 - 파생 지표 통계 (bounded running summary):
 ${metricText}
 - 파생 이상 사유 집계:
-${reasonText}${reasonRest}${categoryText}${categoryTimeText}`;
+${reasonText}${reasonRest}${categoryText}${categoryTimeText}${windowText}`;
 }
 
 function formatAlarmAnnotations(annotations) {
@@ -210,8 +221,12 @@ function formatTimeCoverageLines(block) {
   const rDropped = block.droppedResistanceEvents
     ? `\n- ${formatResistanceDropNote(block.droppedResistanceEvents, null)}`
     : '';
+  const tzNote = formatTimestampAssumptionNote(block.timestampAssumption);
+  const tzLine = tzNote ? `\n- ${tzNote}` : '';
+  const windowNote = formatSustainedWindowsNote(block.sustainedWindows, block.sustainedWindowsDropped);
+  const windowLine = windowNote ? `\n- ${windowNote}` : '';
   return `- 데이터 시간 범위: ${formatTimeRange(block.dataTimeRange)}
-- 알람 근거 시간 범위: ${formatTimeRange(block.evidenceTimeRange)}${pct}${dist}${dropped}${rDist}${rYearLine}${rDropped}
+- 알람 근거 시간 범위: ${formatTimeRange(block.evidenceTimeRange)}${pct}${dist}${dropped}${rDist}${rYearLine}${rDropped}${tzLine}${windowLine}
 `;
 }
 
@@ -241,7 +256,14 @@ function buildSourceProfile(block) {
       : {},
     resistanceEventTimeDistribution: Array.isArray(block.resistanceEventTimeDistribution)
       ? block.resistanceEventTimeDistribution
-      : []
+      : [],
+    timestampAssumption: block.timestampAssumption && typeof block.timestampAssumption === 'object'
+      ? block.timestampAssumption
+      : null,
+    sustainedWindows: Array.isArray(block.sustainedWindows) ? block.sustainedWindows : [],
+    sustainedWindowsDropped: Number.isInteger(block.sustainedWindowsDropped)
+      ? block.sustainedWindowsDropped
+      : 0
   };
 }
 
@@ -514,6 +536,16 @@ export function selectDetectedIssue(id, skipRender) {
 /* =========================================================
    PIPELINE STAGES 2-4
 ========================================================= */
+function figureScopeFromState() {
+  const selectedIssue = (state.detectedIssues || []).find(i => i.id === state.selectedIssueId) || null;
+  return {
+    csText: state.csText,
+    selectedIssue,
+    issueStructured: state.issueStructured,
+    anomalyWindows: state.anomalyWindows
+  };
+}
+
 export async function runAnomalyDetection() {
   state.error = null;
   state.loadingLabel = 'CS 의뢰 구조화 및 이상 구간 탐지 중';
@@ -527,7 +559,7 @@ export async function runAnomalyDetection() {
   state.lastTruncation = truncation;
   state.sourceProfiles = sourceProfiles;
   try {
-    state.figureSpecs = buildFigures(allBlocks);
+    state.figureSpecs = buildFigures(allBlocks, figureScopeFromState());
   } catch (e) {
     console.warn('figure build failed', e);
     state.figureSpecs = [];
@@ -549,6 +581,11 @@ export async function runAnomalyDetection() {
         ...(state.lastTruncation || {}),
         droppedAnomalyWindows: json.truncation.droppedAnomalyWindows
       };
+    }
+    try {
+      state.figureSpecs = buildFigures(allBlocks, figureScopeFromState());
+    } catch (e) {
+      console.warn('figure rebuild after anomaly windows failed', e);
     }
     const af4 = (state.figureSpecs || []).find(f => f.id === 'A-F4');
     state.evidenceLedger = buildEvidenceLedger({

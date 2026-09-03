@@ -10,7 +10,7 @@
 import { zipEntryByteChunks, isJsZipUncompressedSizeMismatch } from './zip-stream.js';
 import {
   MAX_SERIES_BUFFERS, MAX_SERIES_POINTS, createSeriesBuffer, pushSample, freezeSeries,
-  parseTimestampMs
+  parseTimestamp
 } from './series-engine.js';
 import {
   normalizeResistanceEvents, resistanceEventsDroppedCount, resistanceEventYearCounts
@@ -162,6 +162,8 @@ export function makeAccumulator(format, entityFilter = '') {
     entityFilter: (entityFilter || '').trim(),
     groups: null, // becomes {entityValue: bucket} once an entity column is recognized
     malformedRowCount: 0,
+    timestampNaiveCount: 0,
+    timestampZonedCount: 0,
     _seriesAttached: 0
   });
 }
@@ -253,7 +255,15 @@ function feedRowIntoBucket(acc, bucket, cells, profile) {
   });
   markProfile(profile, 'feedStatsMs', tRest);
 
-  const tRow = acc.timestampColumn ? parseTimestampMs(rowObj[acc.timestampColumn]) : null;
+  const assumption = acc.format && acc.format.timestampAssumption;
+  const parsedT = acc.timestampColumn
+    ? parseTimestamp(rowObj[acc.timestampColumn], assumption)
+    : null;
+  const tRow = parsedT && Number.isFinite(parsedT.ms) ? parsedT.ms : null;
+  if (parsedT) {
+    if (parsedT.explicitZone) acc.timestampZonedCount = (acc.timestampZonedCount || 0) + 1;
+    else if (parsedT.kind !== 'epoch') acc.timestampNaiveCount = (acc.timestampNaiveCount || 0) + 1;
+  }
   if (Number.isFinite(tRow)) {
     bucket.dataTimeRange = extendTimeRange(bucket.dataTimeRange, tRow);
     if (bucket !== acc) acc.dataTimeRange = extendTimeRange(acc.dataTimeRange, tRow);
@@ -516,10 +526,55 @@ function mergeResistanceRetention(lists, dataRange) {
   };
 }
 
+function rollupSustainedWindows(acc) {
+  const windows = [];
+  let dropped = 0;
+  const entries = acc.groups
+    ? Object.entries(acc.groups)
+    : [[acc.entityFilter || '_file', acc]];
+  for (const [id, bucket] of entries) {
+    dropped += Number(bucket?.derived?.sustainedWindowsDropped) || 0;
+    for (const win of bucket?.derived?.sustainedWindows || []) {
+      windows.push({ ...win, entityId: id });
+    }
+  }
+  return { windows, dropped };
+}
+
+function snapshotTimestampAssumption(acc) {
+  const base = acc?.format?.timestampAssumption;
+  const naiveCount = Number(acc?.timestampNaiveCount) || 0;
+  const zonedCount = Number(acc?.timestampZonedCount) || 0;
+  if (!base && !naiveCount && !zonedCount) return null;
+  return {
+    id: base?.id || 'unspecified',
+    offsetMinutes: Number.isFinite(base?.offsetMinutes) ? base.offsetMinutes : 0,
+    statedInData: false,
+    label: base?.label || '',
+    naiveCount,
+    zonedCount
+  };
+}
+
+function finalizeFormatDerived(acc, bucket) {
+  if (bucket && typeof acc.format?.finalizeDerived === 'function') {
+    acc.format.finalizeDerived(bucket);
+  }
+}
+
 export function finalizeAccumulator(acc) {
   if (!acc) return acc;
-  if (acc.groups) rollupGroupTime(acc);
-  else finalizeBucketTime(acc);
+  if (acc.groups) {
+    Object.values(acc.groups).forEach(bucket => finalizeFormatDerived(acc, bucket));
+    rollupGroupTime(acc);
+  } else {
+    finalizeFormatDerived(acc, acc);
+    finalizeBucketTime(acc);
+  }
+  acc.timestampAssumption = snapshotTimestampAssumption(acc);
+  const rolledWindows = rollupSustainedWindows(acc);
+  acc.sustainedWindows = rolledWindows.windows;
+  acc.sustainedWindowsDropped = rolledWindows.dropped;
   return acc;
 }
 
@@ -540,6 +595,9 @@ export function applyAccumulatorToSource(src, acc) {
   src.timeCoverageRatio = Number.isFinite(acc.timeCoverageRatio) ? acc.timeCoverageRatio : null;
   src.alarmDroppedCount = acc.alarmDroppedCount || 0;
   src.alarmSampleTimeDistribution = acc.alarmSampleTimeDistribution || [];
+  src.timestampAssumption = acc.timestampAssumption || snapshotTimestampAssumption(acc);
+  src.sustainedWindows = acc.sustainedWindows || [];
+  src.sustainedWindowsDropped = acc.sustainedWindowsDropped || 0;
   src.groups = acc.groups; // null when the format has no groupable entity column
   src.derived = acc.derived;
   src.alarmAnnotations = acc.alarmAnnotations;

@@ -75,7 +75,26 @@ const sourceProfileSchema = z.object({
     startMs: z.number(),
     endMs: z.number(),
     count: z.number().int().nonnegative()
-  }).strict()).max(16).optional()
+  }).strict()).max(16).optional(),
+  timestampAssumption: z.object({
+    id: z.string().max(80),
+    offsetMinutes: z.number(),
+    statedInData: z.boolean(),
+    label: z.string().max(400),
+    naiveCount: z.number().int().nonnegative().optional(),
+    zonedCount: z.number().int().nonnegative().optional()
+  }).strict().nullable().optional(),
+  sustainedWindows: z.array(z.object({
+    entityId: z.string().max(80).nullable().optional(),
+    startMs: z.number().nullable().optional(),
+    endMs: z.number().nullable().optional(),
+    start: z.string().max(40).nullable().optional(),
+    end: z.string().max(40).nullable().optional(),
+    count: z.number().int().nonnegative(),
+    maxAbs: z.number(),
+    maxSigned: z.number().optional()
+  }).strict()).max(48).optional(),
+  sustainedWindowsDropped: z.number().int().nonnegative().optional()
 }).strict();
 
 const sourceProfilesSchema = z.array(sourceProfileSchema).max(10);

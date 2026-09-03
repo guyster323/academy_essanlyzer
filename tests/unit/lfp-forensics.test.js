@@ -160,6 +160,10 @@ test('full-resolution Case B shape keeps every year and a sane max gap', () => {
 
   assert.ok(events.length <= MAX_RESISTANCE_EVENTS);
   assert.ok(events.length >= RESISTANCE_BASELINE_KEEP + 8 * RESISTANCE_PER_BIN);
+  assert.ok(
+    events.length >= Math.floor(MAX_RESISTANCE_EVENTS * 0.9),
+    `leftover cap slots should be used; kept ${events.length}`
+  );
   assert.equal(events.droppedCount, n - events.length);
   assert.equal(events[0].t, t0);
   assert.equal(events[events.length - 1].t, t1);
@@ -183,4 +187,26 @@ test('full-resolution Case B shape keeps every year and a sane max gap', () => {
   assert.equal(note.includes(RESISTANCE_RETENTION_POLICY), true);
   assert.equal(note.includes('2019:'), true);
   assert.equal(note.includes('2021:'), true);
+});
+
+test('empty time bins donate unused slots to occupied bins without dropping years', () => {
+  // Two occupied clusters far apart so width-doubling leaves empty bins.
+  const early = Date.UTC(2018, 3, 28);
+  const late = Date.UTC(2022, 0, 6);
+  const events = [];
+  const times = [];
+  for (let i = 0; i < 3000; i++) times.push(early + i * 60_000);
+  for (let i = 0; i < 3000; i++) times.push(late + i * 60_000);
+  feedResistanceEvents(events, times);
+  normalizeResistanceEvents(events);
+  assert.ok(events.length <= MAX_RESISTANCE_EVENTS);
+  assert.ok(
+    events.length > RESISTANCE_BASELINE_KEEP + 20 * RESISTANCE_PER_BIN,
+    `occupied bins should keep more than the 58-per-bin floor; kept ${events.length}`
+  );
+  const years = events.yearCounts || resistanceEventYearCounts(events);
+  assert.ok(years['2018'] > 0);
+  assert.ok(years['2022'] > 0);
+  assert.equal(events[0].t, times[0]);
+  assert.equal(events[events.length - 1].t, times[times.length - 1]);
 });
