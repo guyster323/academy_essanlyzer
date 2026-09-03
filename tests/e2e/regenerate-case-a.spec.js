@@ -506,6 +506,37 @@ test('regenerate the Case A executive report through the nested-zip pipeline', a
   expect(independentBytes).toBeGreaterThan(20_000);
   mark(timings, 'independent-save');
 
+  // Everything a compare-only resume needs. The comparison is the last live
+  // stage and has now twice been the only one to fail — once on a session
+  // limit, once when the API server went away mid-call — each time costing a
+  // whole detect/hypotheses/draft round to retry. Figure specs are dumped
+  // whole, series included, because the exported HTML inlines PNGs drawn
+  // from that data; a catalog-level dump cannot redraw them.
+  const resumeState = await page.evaluate(() => ({
+    report: window.state.report,
+    reportEdits: window.state.reportEdits,
+    email: window.state.email,
+    emailEdits: window.state.emailEdits,
+    finalSeverity: window.state.finalSeverity,
+    finalSeverityReason: window.state.finalSeverityReason,
+    confirmedHypothesis: window.state.confirmedHypothesis,
+    createdAt: window.state.createdAt,
+    id: window.state.id,
+    sourceProfiles: window.state.sourceProfiles || [],
+    figureSpecs: window.state.figureSpecs || [],
+    evidenceLedger: window.state.evidenceLedger || [],
+    attributionConflict: window.state.attributionConflict,
+    lastTruncation: window.state.lastTruncation
+  }));
+  writeJson(path.join(OUT_DIR, 'report-full.json'), {
+    capturedAt: new Date().toISOString(),
+    days,
+    independentReport,
+    independentBytes,
+    state: resumeState
+  });
+  log(`wrote ${path.join(OUT_DIR, 'report-full.json')} (compare-only resume is possible from here)`);
+
   // Published comparison AFTER independent analysis. Skip if CASE_A_SKIP_COMPARE=1.
   if (process.env.CASE_A_SKIP_COMPARE === '1') {
     log('skipping published comparison (CASE_A_SKIP_COMPARE=1)');

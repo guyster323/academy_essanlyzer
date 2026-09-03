@@ -20,8 +20,12 @@ import {
 // which the browser resolves against the global scope — so every handler
 // referenced from render.js's HTML strings, plus the mutable `state` object
 // used by inline oninput bindings, must be exposed on `window`.
+// `render` is exposed for the same reason state is: something outside the
+// module graph writes state and needs the view redrawn. It is the redraw
+// the resume path uses after seeding a saved run; exposing it changes no
+// app behaviour.
 Object.assign(window, {
-  state,
+  state, render,
   startNewCase, loadSample, applyCsTemplate, submitIntake,
   detectIssuesFromLogs, selectDetectedIssue,
   runHypothesisGeneration, selectHypothesis, startCustomHypothesis,

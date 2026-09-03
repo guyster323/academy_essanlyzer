@@ -1,5 +1,5 @@
 {
-  "capturedAt": "2026-08-31T14:19:18.113Z",
+  "capturedAt": "2026-09-03T14:16:26.981Z",
   "days": [
     "20250818",
     "20250819",
@@ -535,74 +535,81 @@
       ]
     }
   ],
-  "independentReportSavedAt": "2026-08-31T14:46:20.138Z",
-  "independentReportBytes": 616318,
+  "independentReportSavedAt": "2026-09-03T14:58:59.719Z",
+  "independentReportBytes": 616957,
   "adoptedHypothesis": {
     "hypIndex": 1,
     "id": "H2",
-    "name": "WDBESS1 플랜트 제어(PPC/EMS) 급전 추종편차 가설",
+    "name": "WDBESS1 PPC 디스패치 추종/램프 제어 이상 가능성(추정, 로컬 원인 미확정)",
     "domain": "PPC",
-    "confidence": "Medium",
+    "confidence": "Low",
     "severity": "중"
   },
   "publishedComparison": {
     "attempted": true,
-    "ok": false,
-    "at": "2026-08-31T14:52:14.020Z",
-    "error": "Claude CLI session limit · resets 2:20am (Asia/Seoul)"
+    "ok": true,
+    "at": "2026-09-03T15:06:55.602Z",
+    "rows": 10,
+    "findingsFrozen": true,
+    "comparedReportBytes": 626978
   },
   "timings": {
-    "t0": 1788185861020,
+    "t0": 1788444889617,
     "days": [
       "20250818",
       "20250819",
       "20250820"
     ],
     "catalog": {
-      "at": "2026-08-31T14:18:01.936Z",
-      "ms": 20916,
-      "sincePrevMs": 20916
+      "at": "2026-09-03T14:15:10.831Z",
+      "ms": 21214,
+      "sincePrevMs": 21214
     },
-    "_last": 1788187580138,
+    "_last": 1788448015602,
     "stream-20250818": {
-      "at": "2026-08-31T14:18:27.293Z",
-      "ms": 46273,
-      "sincePrevMs": 25357
+      "at": "2026-09-03T14:15:36.206Z",
+      "ms": 46589,
+      "sincePrevMs": 25375
     },
     "stream-20250819": {
-      "at": "2026-08-31T14:18:52.409Z",
-      "ms": 71389,
-      "sincePrevMs": 25116
+      "at": "2026-09-03T14:16:01.319Z",
+      "ms": 71702,
+      "sincePrevMs": 25113
     },
     "stream-20250820": {
-      "at": "2026-08-31T14:19:17.539Z",
-      "ms": 96519,
-      "sincePrevMs": 25130
+      "at": "2026-09-03T14:16:26.441Z",
+      "ms": 96824,
+      "sincePrevMs": 25122
     },
     "detect-anomaly": {
-      "at": "2026-08-31T14:29:08.134Z",
-      "ms": 687114,
-      "sincePrevMs": 590595
+      "at": "2026-09-03T14:36:59.838Z",
+      "ms": 1330221,
+      "sincePrevMs": 1233397
     },
     "generate-hypotheses": {
-      "at": "2026-08-31T14:36:52.816Z",
-      "ms": 1151796,
-      "sincePrevMs": 464682
+      "at": "2026-09-03T14:45:01.642Z",
+      "ms": 1812025,
+      "sincePrevMs": 481804
     },
     "human-review": {
-      "at": "2026-08-31T14:37:50.445Z",
-      "ms": 1209425,
-      "sincePrevMs": 57629
+      "at": "2026-09-03T14:46:59.262Z",
+      "ms": 1929645,
+      "sincePrevMs": 117620
     },
     "draft-report": {
-      "at": "2026-08-31T14:46:15.885Z",
-      "ms": 1714865,
-      "sincePrevMs": 505440
+      "at": "2026-09-03T14:58:55.379Z",
+      "ms": 2645762,
+      "sincePrevMs": 716117
     },
     "independent-save": {
-      "at": "2026-08-31T14:46:20.138Z",
-      "ms": 1719118,
-      "sincePrevMs": 4253
+      "at": "2026-09-03T14:58:59.719Z",
+      "ms": 2650102,
+      "sincePrevMs": 4340
+    },
+    "published-comparison": {
+      "at": "2026-09-03T15:06:55.602Z",
+      "ms": 3125985,
+      "sincePrevMs": 475883
     }
   }
 }
